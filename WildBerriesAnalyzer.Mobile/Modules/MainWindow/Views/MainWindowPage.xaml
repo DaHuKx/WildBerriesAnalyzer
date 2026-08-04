@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:core="clr-namespace:WildBerriesAnalyzer.Mobile.Core"
+             xmlns:viewModels="clr-namespace:WildBerriesAnalyzer.Modules.MainWindow.ViewModels"
+             x:Class="WildBerriesAnalyzer.Modules.MainWindow.Views.MainWindowPage"
+             x:DataType="viewModels:MainWindowPageViewModel"
+             Title="PriceLab"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+             NavigationPage.HasNavigationBar="False">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Nav}, Dark={StaticResource NavDark}}"
+              Padding="4,0,8,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Text="☰"
+                    Command="{Binding ToggleMenuCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                    FontSize="22"
+                    WidthRequest="44"
+                    HeightRequest="48"
+                    Padding="0" />
+
+            <Image Grid.Column="1"
+                   Source="pricelab_logo"
+                   WidthRequest="32"
+                   HeightRequest="32"
+                   Aspect="AspectFit"
+                   VerticalOptions="Center"
+                   Margin="0,0,8,0">
+                <Image.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
+                </Image.GestureRecognizers>
+            </Image>
+
+            <VerticalStackLayout Grid.Column="2"
+                                 VerticalOptions="Center"
+                                 Spacing="0">
+                <Label Text="PriceLab"
+                       FontAttributes="Bold"
+                       FontSize="16"
+                       TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                       LineBreakMode="TailTruncation">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="{Binding CurrentSectionTitle}"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                       Opacity="0.85"
+                       LineBreakMode="TailTruncation" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <ContentView Grid.Row="1"
+                     Content="{Binding CurrentContent}"
+                     BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}" />
+
+        <!-- Dim overlay -->
+        <BoxView x:Name="SideMenuOverlay"
+                 Grid.RowSpan="2"
+                 Color="#80000000"
+                 Opacity="0"
+                 InputTransparent="True">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding CloseMenuCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <!-- Drawer -->
+        <Border x:Name="SideMenuPanel"
+                Grid.RowSpan="2"
+                StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Nav}, Dark={StaticResource NavDark}}"
+                WidthRequest="280"
+                HorizontalOptions="Start"
+                VerticalOptions="Fill"
+                Padding="12,16"
+                TranslationX="-280"
+                InputTransparent="True">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="0,16,0,16" />
+            </Border.StrokeShape>
+
+            <Grid RowDefinitions="Auto,*,Auto">
+                <Grid ColumnDefinitions="*,Auto"
+                      Margin="0,0,0,12">
+                    <Label Text="Меню"
+                           TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Start"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1"
+                            Text="✕"
+                            Command="{Binding CloseMenuCommand}"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                            HeightRequest="36"
+                            WidthRequest="36"
+                            Padding="0" />
+                </Grid>
+
+                <VerticalStackLayout Grid.Row="1"
+                                     Spacing="2"
+                                     HorizontalOptions="Fill">
+
+                    <!-- Товары -->
+                    <Border StrokeThickness="0"
+                            BackgroundColor="Transparent"
+                            Padding="10,12"
+                            HorizontalOptions="Fill">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NavigateCommand}"
+                                                  CommandParameter="{x:Static core:NavigationNames.Products}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="36,*"
+                              ColumnSpacing="12"
+                              HorizontalOptions="Fill">
+                            <Label Text="▣"
+                                   FontSize="18"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="Товары"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <BoxView HeightRequest="1"
+                             Color="#33FFFFFF"
+                             Margin="4,6"
+                             HorizontalOptions="Fill" />
+
+                    <!-- Добавление -->
+                    <Border StrokeThickness="0"
+                            BackgroundColor="Transparent"
+                            Padding="10,12"
+                            HorizontalOptions="Fill">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NavigateCommand}"
+                                                  CommandParameter="{x:Static core:NavigationNames.AddProducts}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="36,*"
+                              ColumnSpacing="12"
+                              HorizontalOptions="Fill">
+                            <Label Text="＋"
+                                   FontSize="20"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="Добавление товаров"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   VerticalOptions="Center"
+                                   LineBreakMode="TailTruncation" />
+                        </Grid>
+                    </Border>
+
+                    <BoxView HeightRequest="1"
+                             Color="#33FFFFFF"
+                             Margin="4,6"
+                             HorizontalOptions="Fill" />
+
+                    <!-- Скидки -->
+                    <Border StrokeThickness="0"
+                            BackgroundColor="Transparent"
+                            Padding="10,12"
+                            HorizontalOptions="Fill">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NavigateCommand}"
+                                                  CommandParameter="{x:Static core:NavigationNames.ActualDiscounts}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="36,*"
+                              ColumnSpacing="12"
+                              HorizontalOptions="Fill">
+                            <Label Text="%"
+                                   FontSize="18"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="Актуальные скидки"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   VerticalOptions="Center"
+                                   LineBreakMode="TailTruncation" />
+                        </Grid>
+                    </Border>
+
+                    <BoxView HeightRequest="1"
+                             Color="#33FFFFFF"
+                             Margin="4,6"
+                             HorizontalOptions="Fill" />
+
+                    <!-- Фильтры -->
+                    <Border StrokeThickness="0"
+                            BackgroundColor="Transparent"
+                            Padding="10,12"
+                            HorizontalOptions="Fill">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NavigateCommand}"
+                                                  CommandParameter="{x:Static core:NavigationNames.MyFilters}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="36,*"
+                              ColumnSpacing="12"
+                              HorizontalOptions="Fill">
+                            <Label Text="⚙"
+                                   FontSize="18"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="Мои фильтры"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <BoxView HeightRequest="1"
+                             Color="#33FFFFFF"
+                             Margin="4,6"
+                             HorizontalOptions="Fill" />
+
+                    <!-- Аккаунт -->
+                    <Border StrokeThickness="0"
+                            BackgroundColor="Transparent"
+                            Padding="10,12"
+                            HorizontalOptions="Fill">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NavigateCommand}"
+                                                  CommandParameter="{x:Static core:NavigationNames.Account}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="36,*"
+                              ColumnSpacing="12"
+                              HorizontalOptions="Fill">
+                            <Label Text="◎"
+                                   FontSize="18"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="Аккаунт"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Grid.Row="2"
+                                     Spacing="4"
+                                     Margin="0,16,0,8"
+                                     HorizontalOptions="Start">
+                    <Label Text="{Binding WelcomeText}"
+                           TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                           FontSize="12"
+                           Opacity="0.85"
+                           HorizontalOptions="Start"
+                           HorizontalTextAlignment="Start"
+                           LineBreakMode="TailTruncation" />
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="10"
+                          HorizontalOptions="Start">
+                        <Image Source="pricelab_logo"
+                               WidthRequest="36"
+                               HeightRequest="36"
+                               Aspect="AspectFit"
+                               VerticalOptions="Center">
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                        <Label Grid.Column="1"
+                               Text="PriceLab"
+                               TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
+                               FontAttributes="Bold"
+                               FontSize="16"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Grid>
+                </VerticalStackLayout>
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

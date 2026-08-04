@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WildBerriesAnalyzer.VkAddProductBot": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

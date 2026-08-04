@@ -1,0 +1,165 @@
+using System.Net.Http;
+using Prism.Ioc;
+using Prism.Modularity;
+using Prism.Navigation;
+using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Mobile.Clients;
+using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Services;
+using WildBerriesAnalyzer.Modules.Account;
+using WildBerriesAnalyzer.Modules.ActualDiscounts;
+using WildBerriesAnalyzer.Modules.AddProducts;
+using WildBerriesAnalyzer.Modules.Auth;
+using WildBerriesAnalyzer.Modules.Auth.Services;
+using WildBerriesAnalyzer.Modules.MainWindow;
+using WildBerriesAnalyzer.Modules.MyFilters;
+using WildBerriesAnalyzer.Modules.Products;
+using WildBerriesAnalyzer.ServerClient;
+using WildBerriesAnalyzer.ServerClient.Clients;
+using WildBerriesAnalyzer.ServerClient.Handlers;
+using WildBerriesAnalyzer.ServerClient.Interfaces;
+
+namespace WildBerriesAnalyzer.Mobile
+{
+    public static class PrismStartup
+    {
+        public static void Configure(PrismAppBuilder builder)
+        {
+            builder
+                .RegisterTypes(RegisterTypes)
+                .ConfigureModuleCatalog(ConfigureModuleCatalog)
+                .CreateWindow(CreateWindow);
+        }
+
+        private static void RegisterTypes(IContainerRegistry containerRegistry)
+        {
+            var tokenStore = new WbAuthTokenStore();
+            containerRegistry.RegisterInstance<IWbAuthTokenStore>(tokenStore);
+
+            var authHttpClient = CreateHttpClient();
+            var authClient = new AuthClient(authHttpClient, tokenStore);
+            containerRegistry.RegisterInstance<IAuthClient>(authClient);
+            containerRegistry.RegisterInstance<IAuthService>(authClient);
+
+            var tokenRefresher = new AuthTokenRefresher(CreateHttpClient(), tokenStore);
+            containerRegistry.RegisterInstance<IAuthTokenRefresher>(tokenRefresher);
+
+            var filtersHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
+            {
+                InnerHandler = CreateHttpMessageHandler()
+            });
+            var filtersClient = new FiltersClient(filtersHttpClient);
+            containerRegistry.RegisterInstance<IFiltersClient>(filtersClient);
+            containerRegistry.RegisterInstance<IFiltersService>(filtersClient);
+
+            var productsHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
+            {
+                InnerHandler = CreateHttpMessageHandler()
+            });
+            var productsClient = new ProductsClient(productsHttpClient);
+            containerRegistry.RegisterInstance<IProductsClient>(productsClient);
+            containerRegistry.RegisterInstance<IProductsService>(productsClient);
+
+            var discontsHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
+            {
+                InnerHandler = CreateHttpMessageHandler()
+            });
+            var discontsClient = new DiscontsClient(discontsHttpClient);
+            containerRegistry.RegisterInstance<IDiscontsClient>(discontsClient);
+
+            var accountHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
+            {
+                InnerHandler = CreateHttpMessageHandler()
+            });
+            var accountClient = new AccountClient(accountHttpClient);
+            containerRegistry.RegisterInstance<IAccountClient>(accountClient);
+
+            var dashboardHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
+            {
+                InnerHandler = CreateHttpMessageHandler()
+            });
+            var dashboardClient = new DashboardClient(dashboardHttpClient);
+            containerRegistry.RegisterInstance<IDashboardClient>(dashboardClient);
+
+            containerRegistry.RegisterSingleton<IAuthSessionService, AuthSessionService>();
+            containerRegistry.RegisterSingleton<IVkIdLoginService, VkIdLoginService>();
+            containerRegistry.RegisterSingleton<IAppThemeService, AppThemeService>();
+            containerRegistry.RegisterSingleton<IProductImageCache, ProductImageCache>();
+        }
+
+        private static void ConfigureModuleCatalog(IModuleCatalog moduleCatalog)
+        {
+            moduleCatalog.AddModule<AuthModule>();
+            moduleCatalog.AddModule<MainWindowModule>();
+            moduleCatalog.AddModule<ProductsModule>();
+            moduleCatalog.AddModule<AddProductsModule>();
+            moduleCatalog.AddModule<ActualDiscountsModule>();
+            moduleCatalog.AddModule<MyFiltersModule>();
+            moduleCatalog.AddModule<AccountModule>();
+        }
+
+        private static async Task CreateWindow(IContainerProvider container, INavigationService navigationService)
+        {
+            // Ensure theme service is constructed and preference applied.
+            _ = container.Resolve<IAppThemeService>();
+
+            try
+            {
+                var authSession = container.Resolve<IAuthSessionService>();
+                var startPage = authSession.IsAuthenticated
+                    ? NavigationNames.MainWindow
+                    : NavigationNames.LoginPage;
+
+                var result = await navigationService.NavigateAsync($"/{startPage}");
+                if (!result.Success)
+                {
+                    System.Diagnostics.Debug.WriteLine(result.Exception);
+                    throw result.Exception
+                        ?? new InvalidOperationException($"Стартовая навигация на '{startPage}' не удалась.");
+                }
+
+                if (startPage != NavigationNames.MainWindow)
+                {
+                    return;
+                }
+
+                if (!await authSession.TryRestoreSessionAsync())
+                {
+                    await navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+                var fallback = await navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
+                if (!fallback.Success)
+                {
+                    throw;
+                }
+            }
+        }
+
+        private static HttpClient CreateHttpClient(HttpMessageHandler? handler = null)
+        {
+            var client = handler is null
+                ? new HttpClient(CreateHttpMessageHandler(), disposeHandler: true)
+                : new HttpClient(handler, disposeHandler: true);
+
+            client.BaseAddress = new Uri(ServerSettings.BaseAddress);
+            client.Timeout = TimeSpan.FromSeconds(60);
+            return client;
+        }
+
+        /// <summary>
+        /// SocketsHttpHandler на Android: нативный HttpClientHandler может бросать
+        /// NetworkOnMainThreadException при dispose ответа на UI-потоке.
+        /// AllowAutoRedirect=false: 307 на https://localhost с телефона даёт зависание до 60 с.
+        /// </summary>
+        private static HttpMessageHandler CreateHttpMessageHandler() =>
+            new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            };
+    }
+}

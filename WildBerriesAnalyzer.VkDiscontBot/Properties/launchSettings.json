@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WildBerriesAnalyzer.VkDiscontBot": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

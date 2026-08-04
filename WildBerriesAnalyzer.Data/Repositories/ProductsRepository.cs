@@ -1,0 +1,150 @@
+﻿using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using WildBerriesAnalyzer.Data.Repositories.Interfaces;
+using WildBerriesAnalyzer.Domain.Models.DataBase;
+
+namespace WildBerriesAnalyzer.Data.Repositories
+{
+    public class ProductsRepository : BaseRepository<WbProduct>, IProductsRepository
+    {
+        private Random _random;
+
+
+        public ProductsRepository(WbDataBase context) : base(context)
+        {
+            _random = new Random();
+        }
+
+        public async Task<IEnumerable<WbProduct>> GetProductsWithPricesAsync()
+        {
+            return await Context.Products.Include(p => p.PricesHistory)
+                                         .ToListAsync();
+        }
+
+        public override Task<WbProduct> GetAsync(int id)
+        {
+            return Context.Products.Include(p => p.PricesHistory)
+                                   .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
+        public override async Task<IEnumerable<WbProduct>> AddRangeAsync(IEnumerable<WbProduct> products)
+        {
+            var ids = products.Select(product => product.IdInMarket);
+
+            var existProducts = await Context.Products.Where(product => ids.Contains(product.IdInMarket))
+                                                      .Select(product => product.IdInMarket)
+                                                      .ToListAsync();
+
+            var productsToAdd = products.Where(product => !existProducts.Contains(product.IdInMarket));
+
+            await Context.Products.AddRangeAsync(productsToAdd);
+            await Context.SaveChangesAsync();
+
+            return productsToAdd;
+        }
+
+        public async Task<IEnumerable<WbProduct>> GetProductsByNameAsync(string name)
+        {
+            return await Context.Products
+                .AsNoTracking()
+                .Where(product => product.Name.ToLower().Contains(name.ToLower()))
+                .Include(product => product.PricesHistory)
+                .ToListAsync();
+        }
+
+        public async Task<List<WbProduct>> GetOrAddProducts(List<WbProduct> products)
+        {
+            var ids = products.Select(p => p.IdInMarket);
+
+            var existProducts = await Context.Products.Where(product => ids.Contains(product.IdInMarket))
+                                                      .ToListAsync();
+
+            var existIds = existProducts.Select(p => p.IdInMarket).ToList();
+
+            var productsToAdd = products.Where(p => !existIds.Contains(p.IdInMarket))
+                                        .GroupBy(p => p.IdInMarket)
+                                        .Select(p => p.First())
+                                        .ToList();
+
+            if (productsToAdd.Count != 0)
+            {
+                await Context.Products.AddRangeAsync(productsToAdd);
+                await Context.SaveChangesAsync();
+            }
+
+            existProducts.AddRange(productsToAdd);
+
+            return existProducts;
+        }
+
+        public async Task<WbPrice> GetProductLastPriceAsync(int id)
+        {
+            if (!Context.PricesHistory.Any(p => p.ProductId == id))
+            {
+                return new WbPrice()
+                {
+                    CheckTime = DateTime.Now.ToUniversalTime(),
+                    Id = 0,
+                    Price = 0,
+                    ProductId = id
+                };
+            }
+
+            var price = await Context.PricesHistory?.Where(p => p.ProductId == id)?
+                                                    .OrderBy(p => p.CheckTime)
+                                                    .LastAsync();
+
+            return price;
+        }
+
+        public async Task<IEnumerable<WbProduct>> GetRandomProductsAsync(int count)
+        {
+            var total = await Context.Products.CountAsync();
+            if (total == 0)
+            {
+                return [];
+            }
+
+            if (total <= count)
+            {
+                return await Context.Products
+                    .AsNoTracking()
+                    .Include(product => product.PricesHistory)
+                    .ToListAsync();
+            }
+
+            var skip = _random.Next(0, total - count + 1);
+
+            return await Context.Products
+                .AsNoTracking()
+                .Include(product => product.PricesHistory)
+                .OrderBy(product => product.Id)
+                .Skip(skip)
+                .Take(count)
+                .ToListAsync();
+        }
+
+        public async Task<long> GetProductsCountAsync()
+        {
+            return await Context.Products.CountAsync();
+        }
+
+        public async Task<List<WbProduct>> GetUserBagProductsAsync(int userId)
+        {
+            var userFilter = await Context.Filters.FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (userFilter is null)
+            {
+                return new List<WbProduct>();
+            }
+
+            return await Context.FilterBags.Include(b => b.Product)
+                                           .Where(b => b.FilterId == userFilter.Id)
+                                           .Select(f => f.Product)
+                                           .ToListAsync();
+        }
+    }
+}

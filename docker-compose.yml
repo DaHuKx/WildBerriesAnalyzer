@@ -1,0 +1,104 @@
+services:
+  postgresdb:
+    image: postgres:16
+    container_name: wba-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-WbAdmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-WildBerriesAnalyzerDb}
+    ports:
+      # Удалённый доступ: host_ip:POSTGRES_PORT
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    command:
+      - postgres
+      - -c
+      - listen_addresses=*
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: WildBerriesAnalyzer.Server/Dockerfile
+    container_name: wba-db-migrate
+    depends_on:
+      postgresdb:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8080
+      RUN_AND_EXIT_AFTER_MIGRATE: "true"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
+    restart: "no"
+
+  server:
+    build:
+      context: .
+      dockerfile: WildBerriesAnalyzer.Server/Dockerfile
+    container_name: wba-server
+    restart: unless-stopped
+    depends_on:
+      postgresdb:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${SERVER_PORT:-5146}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8080
+      APPLY_DB_MIGRATIONS: "false"
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      Jwt__Issuer: ${JWT_ISSUER:-WildBerriesAnalyzer}
+      Jwt__Audience: ${JWT_AUDIENCE:-WildBerriesAnalyzer.Clients}
+      VkBot__GroupId: ${VK_BOT_GROUP_ID:-219811363}
+      VkBot__AccessToken: ${VK_BOT_ACCESS_TOKEN:-}
+      VkBot__WriteUrl: ${VK_BOT_WRITE_URL:-https://vk.me/club219811363}
+      VkId__Enabled: ${VK_ID_ENABLED:-false}
+      VkId__ClientId: ${VK_ID_CLIENT_ID:-}
+      VkId__ServiceToken: ${VK_ID_SERVICE_TOKEN:-}
+      VkId__RedirectUri: ${VK_ID_REDIRECT_URI:-}
+      VkId__AppCallbackUri: ${VK_ID_APP_CALLBACK_URI:-wbanalyzer://vk-auth}
+      PriceUpdate__Enabled: ${PRICE_UPDATE_ENABLED:-true}
+      PriceUpdate__Interval: ${PRICE_UPDATE_INTERVAL:-01:00:00}
+      PriceUpdate__BatchSize: ${PRICE_UPDATE_BATCH_SIZE:-100}
+      WbScrapingAuth__PersistFilePath: /app/data/wb-scraping-auth.json
+    volumes:
+      - server-data:/app/data
+      - server-logs:/app/logs
+
+  bots:
+    build:
+      context: .
+      dockerfile: WildBerriesAnalyzer.Bots/Dockerfile
+    container_name: wba-bots
+    restart: unless-stopped
+    depends_on:
+      postgresdb:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
+      VK_BOT_ACCESS_TOKEN: ${VK_BOT_ACCESS_TOKEN:?Set VK_BOT_ACCESS_TOKEN in .env}
+      VK_BOT_GROUP_ID: ${VK_BOT_GROUP_ID:-219811363}
+      WbScrapingAuth__PersistFilePath: /app/data/wb-scraping-auth.json
+    volumes:
+      - server-data:/app/data
+
+volumes:
+  pgdata:
+  server-data:
+  server-logs:

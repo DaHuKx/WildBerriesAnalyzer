@@ -1,0 +1,115 @@
+using System.Net.Http.Json;
+using WildBerriesAnalyzer.Business.Models;
+using WildBerriesAnalyzer.Domain.Models.DataBase;
+using WildBerriesAnalyzer.ServerClient.Interfaces;
+using WildBerriesAnalyzer.ServerClient.Models;
+
+namespace WildBerriesAnalyzer.ServerClient.Clients
+{
+    public class ProductsClient : IProductsClient
+    {
+        private readonly HttpClient _httpClient;
+
+        public ProductsClient(HttpClient httpClient)
+        {
+            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        }
+
+        public async Task<WbProduct?> GetByIdAsync(int id)
+        {
+            using var response = await _httpClient.GetAsync($"api/products/{id}");
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return await response.Content.ReadFromJsonAsync<WbProduct>(WbServerJson.Options);
+        }
+
+        public async Task<List<WbProduct>> GetByNameAsync(string name)
+        {
+            var encoded = Uri.EscapeDataString(name ?? string.Empty);
+            using var response = await _httpClient.GetAsync($"api/products/name?name={encoded}");
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return (await response.Content.ReadFromJsonAsync<List<WbProduct>>(WbServerJson.Options)) ?? [];
+        }
+
+        public async Task<List<WbProduct>> GetRandomAsync(int count)
+        {
+            using var response = await _httpClient.GetAsync($"api/products/random?count={count}");
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return (await response.Content.ReadFromJsonAsync<List<WbProduct>>(WbServerJson.Options)) ?? [];
+        }
+
+        public async Task<long> GetCountAsync()
+        {
+            using var response = await _httpClient.GetAsync("api/products/count");
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return await response.Content.ReadFromJsonAsync<long>(WbServerJson.Options);
+        }
+
+        public async Task<WbPrice> GetLastPriceAsync(int productId)
+        {
+            using var response = await _httpClient.GetAsync($"api/products/{productId}/last-price");
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return (await response.Content.ReadFromJsonAsync<WbPrice>(WbServerJson.Options))!;
+        }
+
+        public List<WbProduct> FilterProductsByName(IEnumerable<WbProduct> products, string productName)
+        {
+            if (products is null)
+            {
+                return [];
+            }
+
+            if (string.IsNullOrWhiteSpace(productName))
+            {
+                return products is ICollection<WbProduct> col
+                    ? [.. col]
+                    : products.ToList();
+            }
+
+            return products
+                .Where(p => p.Name is not null &&
+                            p.Name.Contains(productName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        public async Task<List<WbProduct>> SearchOnWildBerriesAsync(string name)
+        {
+            var encoded = Uri.EscapeDataString(name ?? string.Empty);
+            using var response = await _httpClient.GetAsync($"api/products/wb-search?name={encoded}");
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return (await response.Content.ReadFromJsonAsync<List<WbProduct>>(WbServerJson.Options)) ?? [];
+        }
+
+        public async Task<AddCatalogProductsResult> AddByArticlesAsync(IEnumerable<string> articleInputs)
+        {
+            ArgumentNullException.ThrowIfNull(articleInputs);
+
+            var request = new AddProductsByArticlesRequest
+            {
+                Articles = articleInputs.Where(a => !string.IsNullOrWhiteSpace(a)).ToList()
+            };
+
+            using var response = await _httpClient.PostAsJsonAsync(
+                "api/products/by-articles",
+                request,
+                WbServerJson.Options);
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return (await response.Content.ReadFromJsonAsync<AddCatalogProductsResult>(WbServerJson.Options))!;
+        }
+
+        public async Task<AddCatalogProductsResult> AddByNameAsync(string name)
+        {
+            var request = new AddProductsByNameRequest { Name = name ?? string.Empty };
+            using var response = await _httpClient.PostAsJsonAsync(
+                "api/products/by-name",
+                request,
+                WbServerJson.Options);
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return (await response.Content.ReadFromJsonAsync<AddCatalogProductsResult>(WbServerJson.Options))!;
+        }
+    }
+}

@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:WildBerriesAnalyzer.Modules.MainWindow.ViewModels"
+             x:Class="WildBerriesAnalyzer.Modules.MainWindow.Views.HomePage"
+             x:Name="HomeRoot"
+             x:DataType="viewModels:HomePageViewModel"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+
+    <Grid Padding="12">
+        <ScrollView x:Name="HomeScroll"
+                    HorizontalScrollBarVisibility="Never"
+                    VerticalScrollBarVisibility="Default"
+                    Scrolled="OnHomeScroll">
+            <VerticalStackLayout Spacing="12"
+                                 Padding="0,0,0,72"
+                                 HorizontalOptions="Fill">
+
+                <!-- Hero: logo left, title + description right -->
+                <Border x:Name="HeroSection"
+                        Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Padding="16"
+                        HorizontalOptions="Fill">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="16" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="16"
+                          HorizontalOptions="Fill">
+                        <Image Source="pricelab_logo"
+                               WidthRequest="120"
+                               HeightRequest="120"
+                               Aspect="AspectFit"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start" />
+
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="6"
+                                             VerticalOptions="Center"
+                                             HorizontalOptions="Fill">
+                            <Label Text="{Binding BrandLabel}"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   CharacterSpacing="1.5"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start" />
+
+                            <Label Text="{Binding Title}"
+                                   FontSize="28"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   LineBreakMode="WordWrap" />
+
+                            <Label Text="{Binding Tagline}"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   LineBreakMode="WordWrap" />
+
+                            <Label Text="{Binding Description}"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   LineBreakMode="WordWrap" />
+
+                            <Label Text="{Binding GreetingText}"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   Margin="0,4,0,0" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <!-- Loading -->
+                <VerticalStackLayout IsVisible="{Binding IsBusy}"
+                                     Spacing="10"
+                                     Padding="0,16"
+                                     HorizontalOptions="Fill">
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                       HeightRequest="40"
+                                       WidthRequest="40"
+                                       HorizontalOptions="Center" />
+                    <Label Text="Загрузка статистики…"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                           FontSize="13"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+
+                <Label Text="{Binding ErrorMessage}"
+                       TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                       FontSize="13"
+                       HorizontalTextAlignment="Center"
+                       IsVisible="{Binding HasError}" />
+
+                <!-- Discount stats: 2 columns -->
+                <Grid x:Name="DiscountsSection"
+                      ColumnDefinitions="*,*"
+                      ColumnSpacing="10"
+                      HorizontalOptions="Fill">
+                    <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Padding="14"
+                            HorizontalOptions="Fill">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="По вашим фильтрам"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   LineBreakMode="WordWrap" />
+                            <Label Text="{Binding UserDiscountsCountText}"
+                                   FontSize="26"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}" />
+                            <Label Text="скидок"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Column="1"
+                            Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Padding="14"
+                            HorizontalOptions="Fill">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Всего в системе"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   LineBreakMode="WordWrap" />
+                            <Label Text="{Binding AllDiscountsCountText}"
+                                   FontSize="26"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                            <Label Text="скидок"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+
+                <!-- Products count -->
+                <Border x:Name="ProductsSection"
+                        Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Padding="14"
+                        HorizontalOptions="Fill">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="8">
+                        <VerticalStackLayout Spacing="4"
+                                             VerticalOptions="Center">
+                            <Label Text="Товары в каталоге"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                            <Label Text="Отслеживаются для расчёта цен и скидок"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                                   LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1"
+                               Text="{Binding ProductsCountText}"
+                               FontSize="28"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <!-- Schedule -->
+                <Border x:Name="ScheduleSection"
+                        Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Padding="14"
+                        HorizontalOptions="Fill">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Обновление статистики"
+                                   FontAttributes="Bold"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1"
+                                    Text="↻"
+                                    Command="{Binding RefreshCommand}"
+                                    BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                    WidthRequest="40"
+                                    HeightRequest="36"
+                                    Padding="0"
+                                    FontSize="18" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Последнее"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                <Label Text="{Binding LastUpdatedText}"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                       LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="4">
+                                <Label Text="Следующее"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                <Label Text="{Binding NextUpdateText}"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                       LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- How to -->
+                <Border x:Name="HowToSection"
+                        Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Padding="14"
+                        HorizontalOptions="Fill">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Как пользоваться"
+                               FontAttributes="Bold"
+                               FontSize="16"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                        <Grid ColumnDefinitions="28,*"
+                              ColumnSpacing="10">
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                    WidthRequest="28"
+                                    HeightRequest="28"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Start">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Label Text="1"
+                                       TextColor="White"
+                                       FontAttributes="Bold"
+                                       FontSize="13"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center" />
+                            </Border>
+                            <Label Grid.Column="1"
+                                   Text="{Binding HowToStep1}"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   LineBreakMode="WordWrap" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="28,*"
+                              ColumnSpacing="10">
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                    WidthRequest="28"
+                                    HeightRequest="28"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Start">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Label Text="2"
+                                       TextColor="White"
+                                       FontAttributes="Bold"
+                                       FontSize="13"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center" />
+                            </Border>
+                            <Label Grid.Column="1"
+                                   Text="{Binding HowToStep2}"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   LineBreakMode="WordWrap" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="28,*"
+                              ColumnSpacing="10">
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                    WidthRequest="28"
+                                    HeightRequest="28"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Start">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Label Text="3"
+                                       TextColor="White"
+                                       FontAttributes="Bold"
+                                       FontSize="13"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center" />
+                            </Border>
+                            <Label Grid.Column="1"
+                                   Text="{Binding HowToStep3}"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   LineBreakMode="WordWrap" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Quick links -->
+                <VerticalStackLayout x:Name="QuickLinksSection"
+                                     Spacing="10"
+                                     HorizontalOptions="Fill">
+                    <Label Text="Быстрый переход"
+                           FontAttributes="Bold"
+                           FontSize="16"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                    <Grid ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10"
+                          RowSpacing="10">
+                        <Button Text="Товары"
+                                Command="{Binding NavigateCommand}"
+                                CommandParameter="{Binding ProductsNav}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                TextColor="White"
+                                HeightRequest="44"
+                                CornerRadius="10"
+                                FontSize="14" />
+                        <Button Grid.Column="1"
+                                Text="Скидки"
+                                Command="{Binding NavigateCommand}"
+                                CommandParameter="{Binding DiscountsNav}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                TextColor="White"
+                                HeightRequest="44"
+                                CornerRadius="10"
+                                FontSize="14" />
+                        <Button Grid.Row="1"
+                                Text="Фильтры"
+                                Command="{Binding NavigateCommand}"
+                                CommandParameter="{Binding FiltersNav}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                HeightRequest="44"
+                                CornerRadius="10"
+                                FontSize="14" />
+                        <Button Grid.Row="1"
+                                Grid.Column="1"
+                                Text="Добавить"
+                                Command="{Binding NavigateCommand}"
+                                CommandParameter="{Binding AddProductsNav}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                HeightRequest="44"
+                                CornerRadius="10"
+                                FontSize="14" />
+                    </Grid>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentView>

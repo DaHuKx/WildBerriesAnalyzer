@@ -1,0 +1,840 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:WildBerriesAnalyzer.Modules.MyFilters.ViewModels"
+             xmlns:models="clr-namespace:WildBerriesAnalyzer.Modules.MyFilters.Models"
+             x:Class="WildBerriesAnalyzer.Modules.MyFilters.Views.MyFiltersPage"
+             x:DataType="viewModels:MyFiltersPageViewModel"
+             x:Name="Root"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+
+    <Grid Padding="12">
+        <ScrollView HorizontalScrollBarVisibility="Never"
+                    VerticalScrollBarVisibility="Default">
+            <VerticalStackLayout Spacing="12"
+                                 Padding="0,0,0,72"
+                                 HorizontalOptions="Fill">
+
+                <!-- Header -->
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="10"
+                      HorizontalOptions="Fill">
+                    <Image Source="pricelab_logo"
+                           WidthRequest="40"
+                           HeightRequest="40"
+                           Aspect="AspectFit"
+                           VerticalOptions="Start" />
+
+                    <VerticalStackLayout Grid.Column="1"
+                                         Spacing="2"
+                                         VerticalOptions="Center"
+                                         HorizontalOptions="Fill">
+                        <Label Text="{Binding BrandLabel}"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                               FontSize="11"
+                               FontAttributes="Bold"
+                               CharacterSpacing="1.5" />
+                        <Label Text="{Binding Title}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                               FontSize="20"
+                               FontAttributes="Bold"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Subtitle}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                               FontSize="12"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <!-- Loader под заголовком (не поверх Title) -->
+                <VerticalStackLayout IsVisible="{Binding IsPageLoading}"
+                                     Spacing="12"
+                                     Padding="0,40,0,24"
+                                     HorizontalOptions="Fill">
+                    <ActivityIndicator IsRunning="{Binding IsPageLoading}"
+                                       Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                       HeightRequest="48"
+                                       WidthRequest="48"
+                                       HorizontalOptions="Center" />
+                    <Label Text="Загрузка настроек…"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding IsLoaded}"
+                                     Spacing="12"
+                                     HorizontalOptions="Fill">
+
+                    <!-- Numeric fields: рамка у Border (teal при фокусе), Entry без платформенной обводки -->
+                    <VerticalStackLayout Spacing="8"
+                                         HorizontalOptions="Fill">
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                StrokeThickness="1"
+                                Padding="12,10"
+                                HorizontalOptions="Fill">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Grid ColumnDefinitions="*,110"
+                                  ColumnSpacing="8"
+                                  VerticalOptions="Center"
+                                  HorizontalOptions="Fill">
+                                <Label Text="Минимальная скидка (%)"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       FontSize="13"
+                                       VerticalOptions="Center"
+                                       VerticalTextAlignment="Center"
+                                       LineBreakMode="WordWrap" />
+                                <Entry Text="{Binding DiscontMinPercentText}"
+                                       Grid.Column="1"
+                                       Keyboard="Numeric"
+                                       BackgroundColor="Transparent"
+                                       TextColor="{AppThemeBinding Light=#0F1C1A, Dark=#F5FFFD}"
+                                       FontSize="16"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalOptions="Center"
+                                       Focused="OnNumericEntryFocused"
+                                       Unfocused="OnNumericEntryUnfocused" />
+                            </Grid>
+                        </Border>
+
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                StrokeThickness="1"
+                                Padding="12,10"
+                                HorizontalOptions="Fill">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Grid ColumnDefinitions="*,110"
+                                  ColumnSpacing="8"
+                                  VerticalOptions="Center"
+                                  HorizontalOptions="Fill">
+                                <Label Text="Минимум отзывов (шт.)"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       FontSize="13"
+                                       VerticalOptions="Center"
+                                       VerticalTextAlignment="Center"
+                                       LineBreakMode="WordWrap" />
+                                <Entry Text="{Binding MinReviewsCountText}"
+                                       Grid.Column="1"
+                                       Keyboard="Numeric"
+                                       BackgroundColor="Transparent"
+                                       TextColor="{AppThemeBinding Light=#0F1C1A, Dark=#F5FFFD}"
+                                       FontSize="16"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalOptions="Center"
+                                       Focused="OnNumericEntryFocused"
+                                       Unfocused="OnNumericEntryUnfocused" />
+                            </Grid>
+                        </Border>
+
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                StrokeThickness="1"
+                                Padding="12,10"
+                                HorizontalOptions="Fill">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Grid ColumnDefinitions="*,110"
+                                  ColumnSpacing="8"
+                                  VerticalOptions="Center"
+                                  HorizontalOptions="Fill">
+                                <Label Text="Минимальный рейтинг (из 5)"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       FontSize="13"
+                                       VerticalOptions="Center"
+                                       VerticalTextAlignment="Center"
+                                       LineBreakMode="WordWrap" />
+
+                                <Entry Text="{Binding MinRatingText}"
+                                       Grid.Column="1"
+                                       Keyboard="Numeric"
+                                       BackgroundColor="Transparent"
+                                       TextColor="{AppThemeBinding Light=#0F1C1A, Dark=#F5FFFD}"
+                                       FontSize="16"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalOptions="Center"
+                                       Focused="OnNumericEntryFocused"
+                                       Unfocused="OnNumericEntryUnfocused"/>
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <!-- Scope + strategies -->
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            Padding="12"
+                            HorizontalOptions="Fill">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="14" />
+                        </Border.StrokeShape>
+
+                        <VerticalStackLayout Spacing="16"
+                                             HorizontalOptions="Fill">
+
+                            <!-- Scope: fixed 2×2 Grid (no FlexLayout overflow) -->
+                            <VerticalStackLayout Spacing="10"
+                                                 HorizontalOptions="Fill">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Какие товары отслеживать"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           LineBreakMode="WordWrap" />
+                                    <Label Text="Выберите область применения фильтров"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                           FontSize="12"
+                                           LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+
+                                <Grid ColumnDefinitions="*,*"
+                                      RowDefinitions="Auto,Auto"
+                                      ColumnSpacing="8"
+                                      RowSpacing="8"
+                                      HorizontalOptions="Fill">
+
+                                    <!-- [0,0] -->
+                                    <Border Padding="10"
+                                            BackgroundColor="{Binding FilterTypes[0].CardBackground}"
+                                            Stroke="{Binding FilterTypes[0].CardStroke}"
+                                            StrokeThickness="2"
+                                            MinimumHeightRequest="96"
+                                            HorizontalOptions="Fill">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding SelectFilterTypeCommand}"
+                                                CommandParameter="{Binding FilterTypes[0]}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid>
+                                            <VerticalStackLayout Spacing="4"
+                                                                 VerticalOptions="Center"
+                                                                 Margin="0,0,16,0">
+                                                <Label Text="{Binding FilterTypes[0].IconGlyph}"
+                                                       TextColor="{Binding FilterTypes[0].IconColor}"
+                                                       FontSize="20"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding FilterTypes[0].Title}"
+                                                       TextColor="{Binding FilterTypes[0].TitleColor}"
+                                                       FontSize="13"
+                                                       FontAttributes="Bold"
+                                                       LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding FilterTypes[0].Description}"
+                                                       TextColor="{Binding FilterTypes[0].DescriptionColor}"
+                                                       FontSize="11"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <Border WidthRequest="18"
+                                                    HeightRequest="18"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                    HorizontalOptions="End"
+                                                    VerticalOptions="Start"
+                                                    IsVisible="{Binding FilterTypes[0].ShowCheckmark}">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="9" />
+                                                </Border.StrokeShape>
+                                                <Label Text="✓"
+                                                       TextColor="White"
+                                                       FontSize="10"
+                                                       FontAttributes="Bold"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- [0,1] -->
+                                    <Border Grid.Column="1"
+                                            Padding="10"
+                                            BackgroundColor="{Binding FilterTypes[1].CardBackground}"
+                                            Stroke="{Binding FilterTypes[1].CardStroke}"
+                                            StrokeThickness="2"
+                                            MinimumHeightRequest="96"
+                                            HorizontalOptions="Fill">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding SelectFilterTypeCommand}"
+                                                CommandParameter="{Binding FilterTypes[1]}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid>
+                                            <VerticalStackLayout Spacing="4"
+                                                                 VerticalOptions="Center"
+                                                                 Margin="0,0,16,0">
+                                                <Label Text="{Binding FilterTypes[1].IconGlyph}"
+                                                       TextColor="{Binding FilterTypes[1].IconColor}"
+                                                       FontSize="20"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding FilterTypes[1].Title}"
+                                                       TextColor="{Binding FilterTypes[1].TitleColor}"
+                                                       FontSize="13"
+                                                       FontAttributes="Bold"
+                                                       LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding FilterTypes[1].Description}"
+                                                       TextColor="{Binding FilterTypes[1].DescriptionColor}"
+                                                       FontSize="11"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <Border WidthRequest="18"
+                                                    HeightRequest="18"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                    HorizontalOptions="End"
+                                                    VerticalOptions="Start"
+                                                    IsVisible="{Binding FilterTypes[1].ShowCheckmark}">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="9" />
+                                                </Border.StrokeShape>
+                                                <Label Text="✓"
+                                                       TextColor="White"
+                                                       FontSize="10"
+                                                       FontAttributes="Bold"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- [1,0] -->
+                                    <Border Grid.Row="1"
+                                            Padding="10"
+                                            BackgroundColor="{Binding FilterTypes[2].CardBackground}"
+                                            Stroke="{Binding FilterTypes[2].CardStroke}"
+                                            StrokeThickness="2"
+                                            MinimumHeightRequest="96"
+                                            HorizontalOptions="Fill">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding SelectFilterTypeCommand}"
+                                                CommandParameter="{Binding FilterTypes[2]}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid>
+                                            <VerticalStackLayout Spacing="4"
+                                                                 VerticalOptions="Center"
+                                                                 Margin="0,0,16,0">
+                                                <Label Text="{Binding FilterTypes[2].IconGlyph}"
+                                                       TextColor="{Binding FilterTypes[2].IconColor}"
+                                                       FontSize="20"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding FilterTypes[2].Title}"
+                                                       TextColor="{Binding FilterTypes[2].TitleColor}"
+                                                       FontSize="13"
+                                                       FontAttributes="Bold"
+                                                       LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding FilterTypes[2].Description}"
+                                                       TextColor="{Binding FilterTypes[2].DescriptionColor}"
+                                                       FontSize="11"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <Border WidthRequest="18"
+                                                    HeightRequest="18"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                    HorizontalOptions="End"
+                                                    VerticalOptions="Start"
+                                                    IsVisible="{Binding FilterTypes[2].ShowCheckmark}">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="9" />
+                                                </Border.StrokeShape>
+                                                <Label Text="✓"
+                                                       TextColor="White"
+                                                       FontSize="10"
+                                                       FontAttributes="Bold"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- [1,1] -->
+                                    <Border Grid.Row="1"
+                                            Grid.Column="1"
+                                            Padding="10"
+                                            BackgroundColor="{Binding FilterTypes[3].CardBackground}"
+                                            Stroke="{Binding FilterTypes[3].CardStroke}"
+                                            StrokeThickness="2"
+                                            MinimumHeightRequest="96"
+                                            HorizontalOptions="Fill">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding SelectFilterTypeCommand}"
+                                                CommandParameter="{Binding FilterTypes[3]}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid>
+                                            <VerticalStackLayout Spacing="4"
+                                                                 VerticalOptions="Center"
+                                                                 Margin="0,0,16,0">
+                                                <Label Text="{Binding FilterTypes[3].IconGlyph}"
+                                                       TextColor="{Binding FilterTypes[3].IconColor}"
+                                                       FontSize="20"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding FilterTypes[3].Title}"
+                                                       TextColor="{Binding FilterTypes[3].TitleColor}"
+                                                       FontSize="13"
+                                                       FontAttributes="Bold"
+                                                       LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding FilterTypes[3].Description}"
+                                                       TextColor="{Binding FilterTypes[3].DescriptionColor}"
+                                                       FontSize="11"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <Border WidthRequest="18"
+                                                    HeightRequest="18"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                    HorizontalOptions="End"
+                                                    VerticalOptions="Start"
+                                                    IsVisible="{Binding FilterTypes[3].ShowCheckmark}">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="9" />
+                                                </Border.StrokeShape>
+                                                <Label Text="✓"
+                                                       TextColor="White"
+                                                       FontSize="10"
+                                                       FontAttributes="Bold"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </VerticalStackLayout>
+
+                            <!-- Strategies -->
+                            <VerticalStackLayout Spacing="10"
+                                                 HorizontalOptions="Fill">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Стратегии базовой цены"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           LineBreakMode="WordWrap" />
+                                    <Label Text="Можно выбрать несколько способов сравнения"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                           FontSize="12"
+                                           LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding StrategyOptions}"
+                                                     Spacing="6"
+                                                     HorizontalOptions="Fill">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="models:StrategyOption">
+                                            <Border Padding="8,6"
+                                                    BackgroundColor="{Binding CardBackground}"
+                                                    Stroke="{Binding CardStroke}"
+                                                    StrokeThickness="1"
+                                                    HorizontalOptions="Fill">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="10" />
+                                                </Border.StrokeShape>
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="32,*"
+                                                      ColumnSpacing="6"
+                                                      HorizontalOptions="Fill"
+                                                      InputTransparent="True">
+                                                    <CheckBox IsChecked="{Binding IsSelected}"
+                                                              Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                              VerticalOptions="Center"
+                                                              HorizontalOptions="Center"
+                                                              WidthRequest="32"
+                                                              HeightRequest="32"
+                                                              InputTransparent="True" />
+                                                    <Label Grid.Column="1"
+                                                           Text="{Binding Title}"
+                                                           TextColor="{Binding TitleColor}"
+                                                           FontSize="13"
+                                                           VerticalOptions="Center"
+                                                           LineBreakMode="WordWrap" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Save -->
+                    <Button Text="Сохранить настройки"
+                            Command="{Binding SaveFilterCommand}"
+                            Style="{StaticResource AccentButton}"
+                            FontSize="15"
+                            HeightRequest="50"
+                            Padding="16,0"
+                            CornerRadius="12"
+                            HorizontalOptions="Fill">
+                        <Button.Shadow>
+                            <Shadow Brush="{AppThemeBinding Light={StaticResource AccentBrush}, Dark={StaticResource AccentDarkBrush}}"
+                                    Offset="0,4"
+                                    Radius="12"
+                                    Opacity="0.35" />
+                        </Button.Shadow>
+                    </Button>
+
+                    <!-- Bag section -->
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            Padding="14"
+                            IsVisible="{Binding IsOwnBagFilter}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="16" />
+                        </Border.StrokeShape>
+                        <Border.Shadow>
+                            <Shadow Brush="#000000"
+                                    Offset="0,2"
+                                    Radius="12"
+                                    Opacity="0.05" />
+                        </Border.Shadow>
+
+                        <VerticalStackLayout Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="Товары в корзине"
+                                       FontAttributes="Bold"
+                                       FontSize="18"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                       VerticalOptions="Center" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding BagVisibleCountText}"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       VerticalOptions="Center" />
+                            </Grid>
+
+                            <Label Text="Артикулы (через пробел, запятую или с новой строки)"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   FontSize="13" />
+
+                            <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                    StrokeThickness="1"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                    Padding="8,4">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Editor Text="{Binding NewArticleText}"
+                                        AutoSize="TextChanges"
+                                        MinimumHeightRequest="72"
+                                        BackgroundColor="Transparent"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                        Placeholder="Например: 123456789"
+                                        PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                            </Border>
+
+                            <Button Text="Добавить в корзину"
+                                    Command="{Binding AddArticlesCommand}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                    TextColor="White"
+                                    HeightRequest="44"
+                                    CornerRadius="10"
+                                    FontSize="14" />
+
+                            <Label Text="Корзина пуста"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   IsVisible="{Binding HasNoBagProducts}" />
+
+                            <VerticalStackLayout IsVisible="{Binding HasBagProducts}"
+                                                 Spacing="10">
+
+                                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                        StrokeThickness="1"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                        Padding="8,0">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <Entry Text="{Binding BagSearchText}"
+                                           Placeholder="Поиск по названию, бренду, артикулу"
+                                           BackgroundColor="Transparent"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                                </Border>
+
+                                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                        StrokeThickness="1"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                                        Padding="10">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <VerticalStackLayout Spacing="8">
+                                        <Grid ColumnDefinitions="*,Auto"
+                                              ColumnSpacing="8">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ToggleBagFiltersCommand}" />
+                                            </Grid.GestureRecognizers>
+                                            <HorizontalStackLayout Spacing="8"
+                                                                   VerticalOptions="Center">
+                                                <Label Text="Фильтры"
+                                                       FontAttributes="Bold"
+                                                       FontSize="15"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                                       VerticalOptions="Center" />
+                                                <Label Text="{Binding BagFiltersExpandIcon}"
+                                                       FontSize="11"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                                       VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding BagVisibleCountText}"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                                   FontSize="13"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+
+                                        <VerticalStackLayout Spacing="8"
+                                                             IsVisible="{Binding IsBagFiltersExpanded}">
+                                            <Picker Title="Бренд"
+                                                    ItemsSource="{Binding BagBrandOptions}"
+                                                    SelectedItem="{Binding SelectedBagBrand}"
+                                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
+
+                                            <Picker Title="Сортировка"
+                                                    ItemsSource="{Binding BagSortOptions}"
+                                                    SelectedItem="{Binding SelectedBagSort}"
+                                                    ItemDisplayBinding="{Binding Title}"
+                                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
+
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  IsVisible="{Binding HasActiveBagFilters}">
+                                                <Label Text="{Binding BagVisibleCountText, StringFormat='Показано: {0}'}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                                       FontSize="13"
+                                                       VerticalOptions="Center" />
+                                                <Button Grid.Column="1"
+                                                        Text="Сбросить"
+                                                        Command="{Binding ClearBagFiltersCommand}"
+                                                        BackgroundColor="Transparent"
+                                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                                        FontSize="13"
+                                                        HeightRequest="36"
+                                                        Padding="8,0" />
+                                            </Grid>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                </Border>
+
+                                <Label Text="Ничего не найдено"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       IsVisible="{Binding HasNoVisibleBagProducts}" />
+
+                                <FlexLayout IsVisible="{Binding HasVisibleBagProducts}"
+                                            BindableLayout.ItemsSource="{Binding BagProducts}"
+                                            Wrap="Wrap"
+                                            Direction="Row"
+                                            JustifyContent="SpaceBetween"
+                                            AlignItems="Start"
+                                            HorizontalOptions="Fill">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="models:BagProductItem">
+                                            <VerticalStackLayout Spacing="4"
+                                                                 Margin="0,0,0,14"
+                                                                 WidthRequest="{Binding Source={x:Reference Root}, Path=TileWidth}">
+                                                <Grid>
+                                                    <Border StrokeThickness="0"
+                                                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                                            HeightRequest="{Binding Source={x:Reference Root}, Path=TileImageHeight}"
+                                                            HorizontalOptions="Fill">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="12" />
+                                                        </Border.StrokeShape>
+                                                        <Grid>
+                                                            <ActivityIndicator IsRunning="{Binding IsImageLoading}"
+                                                                               IsVisible="{Binding IsImageLoading}"
+                                                                               Color="{StaticResource Primary}"
+                                                                               WidthRequest="28"
+                                                                               HeightRequest="28"
+                                                                               HorizontalOptions="Center"
+                                                                               VerticalOptions="Center" />
+                                                            <Image Source="{Binding DisplayImage}"
+                                                                   IsVisible="{Binding HasDisplayImage}"
+                                                                   Aspect="AspectFill"
+                                                                   HorizontalOptions="Fill"
+                                                                   VerticalOptions="Fill" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Button Text="✕"
+                                                            Command="{Binding RemoveCommand}"
+                                                            BackgroundColor="#99000000"
+                                                            TextColor="White"
+                                                            WidthRequest="32"
+                                                            HeightRequest="32"
+                                                            CornerRadius="16"
+                                                            Padding="0"
+                                                            Margin="6"
+                                                            FontSize="12"
+                                                            HorizontalOptions="End"
+                                                            VerticalOptions="Start" />
+                                                </Grid>
+
+                                                <Label Text="{Binding DisplayTitle}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                                       FontSize="12"
+                                                       Margin="0,2,0,0"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="2" />
+                                                <Label Text="{Binding Article, StringFormat='Арт. {0}'}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                                                       FontSize="11" />
+                                            </VerticalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Categories -->
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            Padding="14"
+                            IsVisible="{Binding IsCategoryFilter}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="16" />
+                        </Border.StrokeShape>
+                        <Border.Shadow>
+                            <Shadow Brush="#000000"
+                                    Offset="0,2"
+                                    Radius="12"
+                                    Opacity="0.05" />
+                        </Border.Shadow>
+
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="{Binding CategoriesSectionTitle}"
+                                   FontAttributes="Bold"
+                                   FontSize="18"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                            <Label Text="ID категории WildBerries"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   FontSize="13" />
+
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="8">
+                                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                        StrokeThickness="1"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                        Padding="8,0">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <Entry Text="{Binding NewCategoryIdText}"
+                                           Keyboard="Numeric"
+                                           Placeholder="ID категории"
+                                           BackgroundColor="Transparent"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                                </Border>
+                                <Button Grid.Column="1"
+                                        Text="Добавить"
+                                        Command="{Binding AddCategoryCommand}"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                        TextColor="White"
+                                        WidthRequest="110"
+                                        HeightRequest="44"
+                                        CornerRadius="10"
+                                        FontSize="14" />
+                            </Grid>
+
+                            <Label Text="Список пуст"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   IsVisible="{Binding HasNoCategories}" />
+
+                            <VerticalStackLayout IsVisible="{Binding HasCategories}"
+                                                 Spacing="8"
+                                                 BindableLayout.ItemsSource="{Binding FilterCategories}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="models:FilterCategoryItem">
+                                        <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                                StrokeThickness="1"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                                                Padding="12">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="10" />
+                                            </Border.StrokeShape>
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  ColumnSpacing="8">
+                                                <Label Text="{Binding DisplayTitle}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                                       VerticalOptions="Center"
+                                                       LineBreakMode="WordWrap"
+                                                       MaxLines="3" />
+                                                <Button Grid.Column="1"
+                                                        Text="✕"
+                                                        Command="{Binding RemoveCommand}"
+                                                        BackgroundColor="Transparent"
+                                                        TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                                                        WidthRequest="40"
+                                                        HeightRequest="40"
+                                                        Padding="0"
+                                                        VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- In-page snackbar (CommunityToolkit Snackbar не работает во вложенном ContentView) -->
+        <Border IsVisible="{Binding IsSnackbarVisible}"
+                BackgroundColor="{Binding SnackbarBackground}"
+                StrokeThickness="0"
+                Padding="16,14"
+                Margin="0,0,0,8"
+                MaximumWidthRequest="560"
+                HorizontalOptions="Center"
+                VerticalOptions="End">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="12" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#000000"
+                        Offset="0,4"
+                        Radius="12"
+                        Opacity="0.25" />
+            </Border.Shadow>
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding DismissSnackbarCommand}" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <Label Text="{Binding SnackbarMessage}"
+                       TextColor="White"
+                       FontSize="14"
+                       VerticalOptions="Center"
+                       LineBreakMode="WordWrap" />
+                <Label Grid.Column="1"
+                       Text="✕"
+                       TextColor="White"
+                       FontSize="16"
+                       VerticalOptions="Center"
+                       Opacity="0.85" />
+            </Grid>
+        </Border>
+    </Grid>
+</ContentView>

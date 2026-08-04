@@ -1,0 +1,86 @@
+@WildBerriesAnalyzer.Server_HostAddress = http://localhost:5146
+@userId = 1
+
+### Логин
+POST {{WildBerriesAnalyzer.Server_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "login": "user",
+  "password": "password"
+}
+
+### Регистрация
+POST {{WildBerriesAnalyzer.Server_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "login": "user",
+  "password": "password"
+}
+
+### Обновление токена
+POST {{WildBerriesAnalyzer.Server_HostAddress}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "refresh-token"
+}
+
+### Полные данные фильтра
+GET {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}
+Accept: application/json
+
+### Получить или создать фильтр
+GET {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/filter
+Accept: application/json
+
+### Обновить фильтр
+PUT {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/filter
+Content-Type: application/json
+
+{
+  "discontMinPercent": 5,
+  "minReviewsCount": 10,
+  "minRating": 4.0,
+  "productsFilterType": "OwnBag",
+  "referencePriceStrartegies": [ "LastKnownPrice", "AveragePrice" ]
+}
+
+### Товары в корзине
+GET {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/bag
+Accept: application/json
+
+### Добавить товары в корзину
+POST {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/bag
+Content-Type: application/json
+
+{
+  "articles": [ "123456789", "987654321" ]
+}
+
+### Удалить товары из корзины
+DELETE {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/bag
+Content-Type: application/json
+
+{
+  "productIds": [ 1, 2 ]
+}
+
+### Категории фильтра
+GET {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/categories
+Accept: application/json
+
+### Добавить категорию
+POST {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/categories
+Content-Type: application/json
+
+{
+  "categoryId": 100,
+  "type": "BlackList"
+}
+
+### Удалить категорию
+DELETE {{WildBerriesAnalyzer.Server_HostAddress}}/api/filters/{{userId}}/categories/1
+
+###

@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-comp compile="true" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- PriceLab «Ledger»: teal primary, amber accent. Light defaults; *Dark for AppThemeBinding. -->
+
+    <Color x:Key="Primary">#0F766E</Color>
+    <Color x:Key="PrimaryDark">#0B3D3A</Color>
+    <Color x:Key="PrimaryHover">#0D9488</Color>
+    <Color x:Key="PrimarySoft">#CCFBF1</Color>
+    <Color x:Key="OnPrimary">#FFFFFF</Color>
+    <Color x:Key="PrimaryDarkText">#FFFFFF</Color>
+
+    <Color x:Key="Secondary">#0D9488</Color>
+    <Color x:Key="SecondaryDarkText">#0F1C1A</Color>
+    <Color x:Key="Tertiary">#E8EEED</Color>
+
+    <Color x:Key="Accent">#D97706</Color>
+    <Color x:Key="AccentSoft">#FEF3C7</Color>
+    <Color x:Key="OnAccent">#1C1408</Color>
+
+    <Color x:Key="Surface">#FFFFFF</Color>
+    <Color x:Key="SurfaceMuted">#E8EEED</Color>
+    <Color x:Key="OnSurface">#0F1C1A</Color>
+    <Color x:Key="Background">#F4F7F7</Color>
+    <Color x:Key="OnBackground">#0F1C1A</Color>
+
+    <Color x:Key="TextPrimary">#0F1C1A</Color>
+    <Color x:Key="TextSecondary">#5B6B68</Color>
+    <Color x:Key="TextMuted">#8A9A97</Color>
+
+    <Color x:Key="Nav">#0B3D3A</Color>
+    <Color x:Key="OnNav">#F0FDFA</Color>
+    <Color x:Key="Outline">#D0DBD8</Color>
+
+    <Color x:Key="Error">#DC2626</Color>
+    <Color x:Key="OnError">#FFFFFF</Color>
+    <Color x:Key="Success">#15803D</Color>
+    <Color x:Key="Warning">#B45309</Color>
+
+    <!-- Dark theme tokens -->
+    <Color x:Key="PrimaryDarkTheme">#2DD4BF</Color>
+    <Color x:Key="PrimarySoftDark">#134E4A</Color>
+    <Color x:Key="OnPrimaryDark">#042F2E</Color>
+    <Color x:Key="AccentDark">#FBBF24</Color>
+    <Color x:Key="AccentSoftDark">#3F2E0E</Color>
+    <Color x:Key="OnAccentDark">#0B1413</Color>
+    <Color x:Key="BackgroundDark">#0B1413</Color>
+    <Color x:Key="SurfaceDark">#13201E</Color>
+    <Color x:Key="SurfaceMutedDark">#1A2B28</Color>
+    <Color x:Key="OnSurfaceDark">#ECF4F2</Color>
+    <Color x:Key="TextPrimaryDark">#ECF4F2</Color>
+    <Color x:Key="TextSecondaryDark">#A7B8B4</Color>
+    <Color x:Key="TextMutedDark">#6F827E</Color>
+    <Color x:Key="NavDark">#06100F</Color>
+    <Color x:Key="OnNavDark">#ECF4F2</Color>
+    <Color x:Key="OutlineDark">#2A3C39</Color>
+    <Color x:Key="ErrorDark">#F87171</Color>
+    <Color x:Key="SuccessDark">#4ADE80</Color>
+
+    <Color x:Key="White">White</Color>
+    <Color x:Key="Black">Black</Color>
+    <Color x:Key="Gray100">#E8EEED</Color>
+    <Color x:Key="Gray200">#D0DBD8</Color>
+    <Color x:Key="Gray300">#A7B8B4</Color>
+    <Color x:Key="Gray400">#8A9A97</Color>
+    <Color x:Key="Gray500">#5B6B68</Color>
+    <Color x:Key="Gray600">#3D4A48</Color>
+    <Color x:Key="Gray900">#0F1C1A</Color>
+    <Color x:Key="Gray950">#0B1413</Color>
+
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
+    <SolidColorBrush x:Key="PrimaryDarkThemeBrush" Color="{StaticResource PrimaryDarkTheme}"/>
+    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
+    <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}"/>
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="{StaticResource AccentDark}"/>
+    <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}"/>
+    <SolidColorBrush x:Key="BlackBrush" Color="{StaticResource Black}"/>
+</ResourceDictionary>

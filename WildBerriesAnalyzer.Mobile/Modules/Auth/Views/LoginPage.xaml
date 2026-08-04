@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:WildBerriesAnalyzer.Modules.Auth.ViewModels"
+             x:Class="WildBerriesAnalyzer.Modules.Auth.Views.LoginPage"
+             x:DataType="viewModels:LoginPageViewModel"
+             Title="{Binding TitleText}"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24"
+                             VerticalOptions="Center"
+                             Spacing="16"
+                             MaximumWidthRequest="420"
+                             HorizontalOptions="Center">
+
+            <Image Source="pricelab_logo"
+                   WidthRequest="88"
+                   HeightRequest="88"
+                   Aspect="AspectFit"
+                   HorizontalOptions="Center" />
+
+            <Label Text="PriceLab"
+                   FontSize="36"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                   HorizontalTextAlignment="Center" />
+
+            <Label Text="Аналитика цен и скидок"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                   HorizontalTextAlignment="Center"
+                   Margin="0,0,0,8" />
+
+            <Label Text="{Binding TitleText}"
+                   FontSize="20"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                   HorizontalTextAlignment="Center"
+                   Margin="0,0,0,8" />
+
+            <!-- Login / Register credentials -->
+            <VerticalStackLayout Spacing="16"
+                                 IsVisible="{Binding ShowCredentialsForm}">
+                <Label Text="Логин"
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                       FontSize="14" />
+
+                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceMutedDark}}"
+                        Padding="4,0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8" />
+                    </Border.StrokeShape>
+                    <Entry Text="{Binding Login}"
+                           Placeholder="Введите логин"
+                           BackgroundColor="Transparent"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                </Border>
+
+                <Label Text="Пароль"
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                       FontSize="14" />
+
+                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceMutedDark}}"
+                        Padding="4,0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8" />
+                    </Border.StrokeShape>
+                    <Entry Text="{Binding Password}"
+                           Placeholder="Введите пароль"
+                           IsPassword="True"
+                           BackgroundColor="Transparent"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="8"
+                                     IsVisible="{Binding IsRegisterMode}">
+                    <Label Text="Ссылка на профиль VK"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                           FontSize="14" />
+
+                    <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceMutedDark}}"
+                            Padding="4,0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+                        <Entry Text="{Binding VkProfileUrl}"
+                               Placeholder="https://vk.com/id123456 или https://vk.com/username"
+                               BackgroundColor="Transparent"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                    </Border>
+
+                    <Label Text="На этот VK придёт 6-значный код — без него регистрация не завершится."
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                           LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <Button Text="{Binding SubmitButtonText}"
+                        Command="{Binding SubmitCommand}"
+                        Style="{StaticResource AccentButton}" />
+            </VerticalStackLayout>
+
+            <!-- VK code confirmation -->
+            <VerticalStackLayout Spacing="12"
+                                 IsVisible="{Binding AwaitingVkCode}">
+                <Label Text="Введите код из сообщения VK"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceMutedDark}}"
+                        Padding="4,0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8" />
+                    </Border.StrokeShape>
+                    <Entry Text="{Binding VerificationCode}"
+                           Placeholder="6-значный код"
+                           Keyboard="Numeric"
+                           MaxLength="6"
+                           BackgroundColor="Transparent"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                </Border>
+
+                <Button Text="Подтвердить регистрацию"
+                        Command="{Binding ConfirmCodeCommand}"
+                        Style="{StaticResource AccentButton}" />
+
+                <Button Text="Отправить код снова"
+                        Command="{Binding ResendCodeCommand}"
+                        Style="{StaticResource PrimaryButton}" />
+
+                <Border IsVisible="{Binding ShowBotFallback}"
+                        Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Padding="14">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Напишите боту в VK"
+                               FontAttributes="Bold"
+                               FontSize="16"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                        <Label Text="Сообщество не может написать первым. Откройте чат, отправьте любое сообщение, затем нажмите «Отправить код снова»."
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="{Binding BotChatUrl}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                               TextDecorations="Underline"
+                               LineBreakMode="TailTruncation">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenBotChatCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Button Text="Открыть чат с ботом"
+                                Command="{Binding OpenBotChatCommand}"
+                                BackgroundColor="#0077FF"
+                                TextColor="White"
+                                HeightRequest="44"
+                                CornerRadius="10" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Назад к данным регистрации"
+                        Command="{Binding CancelVerificationCommand}"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                        HeightRequest="40" />
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="*,Auto,*"
+                  Margin="0,4"
+                  IsVisible="{Binding ShowCredentialsForm}">
+                <Grid.Triggers>
+                    <DataTrigger TargetType="Grid"
+                                 Binding="{Binding IsVkLoginAvailable}"
+                                 Value="False">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Grid.Triggers>
+                <BoxView Grid.Column="0"
+                         HeightRequest="1"
+                         Color="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                         VerticalOptions="Center" />
+                <Label Grid.Column="1"
+                       Text="или"
+                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                       FontSize="12"
+                       Margin="10,0"
+                       VerticalOptions="Center" />
+                <BoxView Grid.Column="2"
+                         HeightRequest="1"
+                         Color="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                         VerticalOptions="Center" />
+            </Grid>
+
+            <Button Text="Войти через VK ID"
+                    Command="{Binding LoginWithVkCommand}"
+                    IsVisible="{Binding ShowVkLoginButton}"
+                    BackgroundColor="#0077FF"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    HeightRequest="48"
+                    CornerRadius="10" />
+
+            <Button Text="{Binding ToggleModeButtonText}"
+                    Command="{Binding ToggleModeCommand}"
+                    IsVisible="{Binding ShowCredentialsForm}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                    HeightRequest="40" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center" />
+
+            <Label Text="{Binding StatusMessage}"
+                   TextColor="{AppThemeBinding Light={StaticResource Success}, Dark={StaticResource SuccessDark}}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center"
+                   LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

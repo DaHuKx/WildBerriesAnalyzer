@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="PriceLab">
+  <title>PriceLab mark dark</title>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#17171A"/>
+  <path fill="none" stroke="#F5FFFD" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"
+        d="M52 28h24M56 28v18l-18 36c-2.2 4.4-.2 10 4.8 12.2 1.4.6 2.9.9 4.4.9h33.6c1.5 0 3-.3 4.4-.9 5-2.2 7-7.8 4.8-12.2L74 46V28"/>
+  <path fill="none" stroke="#2DD4BF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"
+        d="M48 86l12-10 10 6 14-18"/>
+  <circle cx="84" cy="64" r="5" fill="#FBBF24"/>
+  <path fill="#2DD4BF" d="M48 28h32v5.5H48z"/>
+</svg>
