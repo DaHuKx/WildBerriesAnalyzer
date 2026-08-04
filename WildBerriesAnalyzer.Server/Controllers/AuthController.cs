@@ -27,24 +27,50 @@ namespace WildBerriesAnalyzer.Server.Controllers
         [ProducesResponseType(typeof(VkAuthPublicConfig), StatusCodes.Status200OK)]
         public ActionResult<VkAuthPublicConfig> GetVkConfig()
         {
+            var redirectUri = ResolveRedirectUri();
+            var appCallback = string.IsNullOrWhiteSpace(_vkIdOptions.AppCallbackUri)
+                ? redirectUri
+                : _vkIdOptions.AppCallbackUri.Trim();
+
             return Ok(new VkAuthPublicConfig
             {
                 Enabled = _vkIdOptions.Enabled && !string.IsNullOrWhiteSpace(_vkIdOptions.ClientId),
                 ClientId = _vkIdOptions.ClientId,
-                RedirectUri = _vkIdOptions.RedirectUri,
-                AppCallbackUri = string.IsNullOrWhiteSpace(_vkIdOptions.AppCallbackUri)
-                    ? _vkIdOptions.RedirectUri
-                    : _vkIdOptions.AppCallbackUri,
+                RedirectUri = redirectUri,
+                AppCallbackUri = appCallback,
                 AuthorizeUrl = _vkIdOptions.AuthorizeUrl,
                 Scope = _vkIdOptions.Scope
             });
         }
 
         /// <summary>
-        /// Callback для HTTPS redirect_uri: перенаправляет в схему приложения (WebAuthenticator).
+        /// Для Android-приложения VK ID канонический redirect:
+        /// vk{clientId}://vk.ru/blank.html — отдельного «доверенного URL» в кабинете нет.
+        /// </summary>
+        private string ResolveRedirectUri()
+        {
+            var configured = _vkIdOptions.RedirectUri?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_vkIdOptions.ClientId))
+            {
+                return $"vk{_vkIdOptions.ClientId.Trim()}://vk.ru/blank.html";
+            }
+
+            return "wbanalyzer://vk-auth";
+        }
+
+        /// <summary>
+        /// Callback для HTTP(S) redirect_uri: отдаёт HTML, который открывает схему приложения.
+        /// 302 на custom scheme в Chrome Custom Tabs часто не возвращает управление в Mobile
+        /// (WebAuthenticator получает TaskCanceledException — «авторизация отменена»).
         /// </summary>
         [HttpGet("vk/callback")]
-        [ProducesResponseType(StatusCodes.Status302Found)]
+        [Produces("text/html")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult VkCallback(
             [FromQuery] string? code,
@@ -61,7 +87,7 @@ namespace WildBerriesAnalyzer.Server.Controllers
             {
                 var errQs = $"error={Uri.EscapeDataString(error)}" +
                             $"&error_description={Uri.EscapeDataString(errorDescription ?? string.Empty)}";
-                return Redirect($"{appCallback}?{errQs}");
+                return VkAppBridgeHtml($"{appCallback}?{errQs}");
             }
 
             if (string.IsNullOrWhiteSpace(code) ||
@@ -76,7 +102,31 @@ namespace WildBerriesAnalyzer.Server.Controllers
                 $"&state={Uri.EscapeDataString(state)}" +
                 $"&device_id={Uri.EscapeDataString(deviceId)}";
 
-            return Redirect($"{appCallback}?{qs}");
+            return VkAppBridgeHtml($"{appCallback}?{qs}");
+        }
+
+        private static ContentResult VkAppBridgeHtml(string deepLink)
+        {
+            var encoded = System.Net.WebUtility.HtmlEncode(deepLink);
+            var jsLiteral = System.Text.Json.JsonSerializer.Serialize(deepLink);
+            var html =
+                "<!DOCTYPE html><html><head><meta charset=\"utf-8\">" +
+                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+                $"<meta http-equiv=\"refresh\" content=\"0;url={encoded}\">" +
+                "<title>PriceLab</title>" +
+                "<script>try{window.location.replace(" + jsLiteral + ");}catch(e){}" +
+                "setTimeout(function(){window.location.href=" + jsLiteral + ";},50);</script>" +
+                "</head><body style=\"font-family:sans-serif;text-align:center;padding:2rem\">" +
+                "<p>Возврат в PriceLab…</p>" +
+                $"<p><a href=\"{encoded}\">Нажмите здесь, если приложение не открылось</a></p>" +
+                "</body></html>";
+
+            return new ContentResult
+            {
+                Content = html,
+                ContentType = "text/html; charset=utf-8",
+                StatusCode = StatusCodes.Status200OK
+            };
         }
 
         /// <summary>
@@ -105,6 +155,12 @@ namespace WildBerriesAnalyzer.Server.Controllers
             catch (UnauthorizedAccessException ex)
             {
                 return Unauthorized(ex.Message);
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    $"VK ID недоступен с сервера (DNS/сеть): {ex.Message}");
             }
             catch (InvalidOperationException ex)
             {

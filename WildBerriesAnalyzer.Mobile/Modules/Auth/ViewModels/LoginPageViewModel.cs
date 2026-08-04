@@ -1,68 +1,49 @@
 using Prism.Commands;
 using Prism.Mvvm;
 using Prism.Navigation;
-using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
 namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
 {
-    public class LoginPageViewModel : BindableBase
+    public class LoginPageViewModel : BindableBase, INavigatedAware
     {
-        private readonly IAuthService _authService;
+        private static readonly TimeSpan VkConfigTimeout = TimeSpan.FromSeconds(4);
+        private static readonly TimeSpan SessionRestoreTimeout = TimeSpan.FromSeconds(6);
+
         private readonly IAuthClient _authClient;
         private readonly IAuthSessionService _authSessionService;
         private readonly IVkIdLoginService _vkIdLoginService;
         private readonly INavigationService _navigationService;
 
-        private string _login = string.Empty;
-        private string _password = string.Empty;
         private string _errorMessage = string.Empty;
         private string _statusMessage = string.Empty;
         private bool _isBusy;
-        private bool _isRegisterMode;
         private bool _isVkLoginAvailable;
+        private bool _vkConfigChecked;
+        private int _bootstrapVersion;
+        private bool _navigatedAway;
 
         public LoginPageViewModel(
-            IAuthService authService,
             IAuthClient authClient,
             IAuthSessionService authSessionService,
             IVkIdLoginService vkIdLoginService,
             INavigationService navigationService)
         {
-            _authService = authService;
             _authClient = authClient;
             _authSessionService = authSessionService;
             _vkIdLoginService = vkIdLoginService;
             _navigationService = navigationService;
 
-            SubmitCommand = new DelegateCommand(async () => await SubmitAsync(), CanSubmit)
-                .ObservesProperty(() => Login)
-                .ObservesProperty(() => Password)
-                .ObservesProperty(() => IsRegisterMode)
-                .ObservesProperty(() => IsBusy);
-
-            ToggleModeCommand = new DelegateCommand(ToggleMode, () => !IsBusy)
-                .ObservesProperty(() => IsBusy);
-
             LoginWithVkCommand = new DelegateCommand(async () => await LoginWithVkAsync(), () => !IsBusy && IsVkLoginAvailable)
                 .ObservesProperty(() => IsBusy)
                 .ObservesProperty(() => IsVkLoginAvailable);
 
-            _ = LoadVkAvailabilityAsync();
-        }
-
-        public string Login
-        {
-            get => _login;
-            set => SetProperty(ref _login, value);
-        }
-
-        public string Password
-        {
-            get => _password;
-            set => SetProperty(ref _password, value);
+            RefreshVkCommand = new DelegateCommand(() =>
+            {
+                _ = LoadVkAvailabilityAsync(force: true);
+            }, () => !IsBusy).ObservesProperty(() => IsBusy);
         }
 
         public string ErrorMessage
@@ -83,23 +64,6 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             set => SetProperty(ref _isBusy, value);
         }
 
-        public bool IsRegisterMode
-        {
-            get => _isRegisterMode;
-            set
-            {
-                if (SetProperty(ref _isRegisterMode, value))
-                {
-                    RaisePropertyChanged(nameof(TitleText));
-                    RaisePropertyChanged(nameof(ToggleModeButtonText));
-                    RaisePropertyChanged(nameof(VkButtonText));
-                    RaisePropertyChanged(nameof(ShowCredentialsForm));
-                    RaisePropertyChanged(nameof(ShowRegisterVkPanel));
-                    RaisePropertyChanged(nameof(ShowLoginDivider));
-                }
-            }
-        }
-
         public bool IsVkLoginAvailable
         {
             get => _isVkLoginAvailable;
@@ -107,97 +71,121 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             {
                 if (SetProperty(ref _isVkLoginAvailable, value))
                 {
-                    RaisePropertyChanged(nameof(ShowVkLoginButton));
-                    RaisePropertyChanged(nameof(ShowRegisterVkPanel));
+                    RaisePropertyChanged(nameof(ShowVkButton));
                     RaisePropertyChanged(nameof(ShowVkUnavailableHint));
-                    RaisePropertyChanged(nameof(ShowLoginDivider));
                 }
             }
         }
 
-        /// <summary>
-        /// Форма логин/пароль только во входе.
-        /// </summary>
-        public bool ShowCredentialsForm => !IsRegisterMode;
+        public bool ShowVkButton => IsVkLoginAvailable;
 
-        /// <summary>
-        /// Регистрация — только через VK ID.
-        /// </summary>
-        public bool ShowRegisterVkPanel => IsRegisterMode;
+        public bool ShowVkUnavailableHint => _vkConfigChecked && !IsVkLoginAvailable;
 
-        public bool ShowVkLoginButton => IsVkLoginAvailable;
+        public string HintText =>
+            "Вход и регистрация — через VK ID. Если аккаунта ещё нет, он создастся автоматически после подтверждения в VK.";
 
-        public bool ShowLoginDivider => !IsRegisterMode && IsVkLoginAvailable;
-
-        public bool ShowVkUnavailableHint => IsRegisterMode && !IsVkLoginAvailable;
-
-        public string TitleText => IsRegisterMode ? "Регистрация" : "Вход";
-
-        public string VkButtonText => IsRegisterMode
-            ? "Зарегистрироваться через VK ID"
-            : "Войти через VK ID";
-
-        public string ToggleModeButtonText => IsRegisterMode
-            ? "Уже есть аккаунт? Войти"
-            : "Нет аккаунта? Зарегистрироваться";
-
-        public string RegisterHint =>
-            "Регистрация проходит через VK ID: откроется окно авторизации VK, " +
-            "после подтверждения аккаунт PriceLab создастся автоматически.";
-
-        public DelegateCommand SubmitCommand { get; }
-
-        public DelegateCommand ToggleModeCommand { get; }
+        public string VkUnavailableHint =>
+            "VK ID недоступен. На сервере нужны VK_ID_ENABLED=true и ClientId; приложение должно достучаться до API.";
 
         public DelegateCommand LoginWithVkCommand { get; }
 
-        private bool CanSubmit() =>
-            !IsBusy &&
-            !IsRegisterMode &&
-            !string.IsNullOrWhiteSpace(Login) &&
-            !string.IsNullOrWhiteSpace(Password);
+        public DelegateCommand RefreshVkCommand { get; }
 
-        private async Task LoadVkAvailabilityAsync()
+        public void OnNavigatedFrom(INavigationParameters parameters) =>
+            _navigatedAway = true;
+
+        public void OnNavigatedTo(INavigationParameters parameters)
+        {
+            _navigatedAway = false;
+            _ = BootstrapAsync();
+        }
+
+        private async Task BootstrapAsync()
+        {
+            var version = Interlocked.Increment(ref _bootstrapVersion);
+
+            // 1) Быстрый auto-login по сохранённой сессии (в фоне, с таймаутом).
+            if (_authSessionService.IsAuthenticated)
+            {
+                StatusMessage = "Проверка сессии...";
+                var restored = await RestoreSessionInBackgroundAsync();
+                if (version != _bootstrapVersion || _navigatedAway)
+                {
+                    return;
+                }
+
+                if (restored)
+                {
+                    StatusMessage = string.Empty;
+                    await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
+                    return;
+                }
+
+                StatusMessage = string.Empty;
+            }
+
+            // 2) Конфиг VK ID — тоже не блокирует UI.
+            await LoadVkAvailabilityAsync(force: true);
+        }
+
+        private async Task<bool> RestoreSessionInBackgroundAsync()
         {
             try
             {
-                var config = await _authClient.GetVkAuthConfigAsync();
+                var restoreTask = Task.Run(() => _authSessionService.TryRestoreSessionAsync());
+                var completed = await Task.WhenAny(restoreTask, Task.Delay(SessionRestoreTimeout));
+                if (completed != restoreTask)
+                {
+                    return false;
+                }
+
+                return await restoreTask;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task LoadVkAvailabilityAsync(bool force)
+        {
+            if (_vkConfigChecked && !force && IsVkLoginAvailable)
+            {
+                return;
+            }
+
+            var loadVersion = _bootstrapVersion;
+
+            try
+            {
+                using var cts = new CancellationTokenSource(VkConfigTimeout);
+                var config = await Task.Run(
+                    () => _authClient.GetVkAuthConfigAsync(cts.Token),
+                    CancellationToken.None);
+
+                if (loadVersion != _bootstrapVersion || _navigatedAway)
+                {
+                    return;
+                }
+
                 IsVkLoginAvailable = config.Enabled && !string.IsNullOrWhiteSpace(config.ClientId);
             }
             catch
             {
+                if (loadVersion != _bootstrapVersion || _navigatedAway)
+                {
+                    return;
+                }
+
                 IsVkLoginAvailable = false;
-            }
-        }
-
-        private async Task SubmitAsync()
-        {
-            try
-            {
-                IsBusy = true;
-                ErrorMessage = string.Empty;
-                StatusMessage = string.Empty;
-
-                var loginTokens = await _authService.LoginAsync(Login.Trim(), Password);
-                _authSessionService.SignIn(loginTokens);
-                StatusMessage = "Авторизация успешна.";
-                await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                ErrorMessage = ex.Message;
-            }
-            catch (ArgumentException ex)
-            {
-                ErrorMessage = ex.Message;
-            }
-            catch (Exception ex)
-            {
-                ErrorMessage = ex.Message;
             }
             finally
             {
-                IsBusy = false;
+                if (loadVersion == _bootstrapVersion)
+                {
+                    _vkConfigChecked = true;
+                    RaisePropertyChanged(nameof(ShowVkUnavailableHint));
+                }
             }
         }
 
@@ -207,16 +195,12 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             {
                 IsBusy = true;
                 ErrorMessage = string.Empty;
-                StatusMessage = IsRegisterMode
-                    ? "Открывается регистрация через VK..."
-                    : "Открывается авторизация VK...";
+                StatusMessage = "Открывается авторизация VK...";
 
                 var tokens = await _vkIdLoginService.LoginAsync();
                 _authSessionService.SignIn(tokens);
 
-                StatusMessage = IsRegisterMode
-                    ? "Регистрация через VK выполнена."
-                    : "Вход через VK выполнен.";
+                StatusMessage = "Вход выполнен.";
                 await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
             }
             catch (UnauthorizedAccessException ex)
@@ -233,13 +217,6 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             {
                 IsBusy = false;
             }
-        }
-
-        private void ToggleMode()
-        {
-            IsRegisterMode = !IsRegisterMode;
-            ErrorMessage = string.Empty;
-            StatusMessage = string.Empty;
         }
     }
 }

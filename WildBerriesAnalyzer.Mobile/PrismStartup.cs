@@ -98,45 +98,14 @@ namespace WildBerriesAnalyzer.Mobile
             moduleCatalog.AddModule<AccountModule>();
         }
 
-        private static async Task CreateWindow(IContainerProvider container, INavigationService navigationService)
+        /// <summary>
+        /// Только быстрая навигация на Login. Любой network/refresh — после показа UI
+        /// (иначе Prism держит splash, пока CreateWindow не завершится).
+        /// </summary>
+        private static Task CreateWindow(IContainerProvider container, INavigationService navigationService)
         {
-            // Ensure theme service is constructed and preference applied.
             _ = container.Resolve<IAppThemeService>();
-
-            try
-            {
-                var authSession = container.Resolve<IAuthSessionService>();
-                var startPage = authSession.IsAuthenticated
-                    ? NavigationNames.MainWindow
-                    : NavigationNames.LoginPage;
-
-                var result = await navigationService.NavigateAsync($"/{startPage}");
-                if (!result.Success)
-                {
-                    System.Diagnostics.Debug.WriteLine(result.Exception);
-                    throw result.Exception
-                        ?? new InvalidOperationException($"Стартовая навигация на '{startPage}' не удалась.");
-                }
-
-                if (startPage != NavigationNames.MainWindow)
-                {
-                    return;
-                }
-
-                if (!await authSession.TryRestoreSessionAsync())
-                {
-                    await navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(ex);
-                var fallback = await navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
-                if (!fallback.Success)
-                {
-                    throw;
-                }
-            }
+            return navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
         }
 
         private static HttpClient CreateHttpClient(HttpMessageHandler? handler = null)
@@ -146,15 +115,10 @@ namespace WildBerriesAnalyzer.Mobile
                 : new HttpClient(handler, disposeHandler: true);
 
             client.BaseAddress = new Uri(ServerSettings.BaseAddress);
-            client.Timeout = TimeSpan.FromSeconds(60);
+            client.Timeout = TimeSpan.FromSeconds(30);
             return client;
         }
 
-        /// <summary>
-        /// SocketsHttpHandler на Android: нативный HttpClientHandler может бросать
-        /// NetworkOnMainThreadException при dispose ответа на UI-потоке.
-        /// AllowAutoRedirect=false: 307 на https://localhost с телефона даёт зависание до 60 с.
-        /// </summary>
         private static HttpMessageHandler CreateHttpMessageHandler() =>
             new SocketsHttpHandler
             {

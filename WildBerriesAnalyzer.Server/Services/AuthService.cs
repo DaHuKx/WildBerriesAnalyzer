@@ -304,7 +304,7 @@ namespace WildBerriesAnalyzer.Server.Services
             var deviceId = request.DeviceId?.Trim() ?? string.Empty;
             var state = request.State?.Trim() ?? string.Empty;
             var redirectUri = string.IsNullOrWhiteSpace(request.RedirectUri)
-                ? _vkIdOptions.RedirectUri
+                ? ResolveDefaultRedirectUri()
                 : request.RedirectUri.Trim();
 
             if (string.IsNullOrWhiteSpace(code) ||
@@ -315,7 +315,7 @@ namespace WildBerriesAnalyzer.Server.Services
                 throw new ArgumentException("Не хватает параметров VK ID (code, code_verifier, device_id, state).");
             }
 
-            if (!string.Equals(redirectUri, _vkIdOptions.RedirectUri, StringComparison.Ordinal))
+            if (!IsAllowedRedirectUri(redirectUri))
             {
                 throw new ArgumentException("redirect_uri не совпадает с настройками сервера.");
             }
@@ -386,5 +386,42 @@ namespace WildBerriesAnalyzer.Server.Services
         }
 
         private static string BuildVkLogin(string vkId) => $"vk_{vkId}";
+
+        private string ResolveDefaultRedirectUri()
+        {
+            if (!string.IsNullOrWhiteSpace(_vkIdOptions.RedirectUri))
+            {
+                return _vkIdOptions.RedirectUri.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(_vkIdOptions.ClientId))
+            {
+                return $"vk{_vkIdOptions.ClientId.Trim()}://vk.ru/blank.html";
+            }
+
+            return _vkIdOptions.AppCallbackUri?.Trim() ?? "wbanalyzer://vk-auth";
+        }
+
+        private bool IsAllowedRedirectUri(string redirectUri)
+        {
+            var allowed = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(_vkIdOptions.RedirectUri))
+            {
+                allowed.Add(_vkIdOptions.RedirectUri.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(_vkIdOptions.AppCallbackUri))
+            {
+                allowed.Add(_vkIdOptions.AppCallbackUri.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(_vkIdOptions.ClientId))
+            {
+                allowed.Add($"vk{_vkIdOptions.ClientId.Trim()}://vk.ru/blank.html");
+            }
+
+            return allowed.Any(u => string.Equals(u, redirectUri, StringComparison.Ordinal));
+        }
     }
 }

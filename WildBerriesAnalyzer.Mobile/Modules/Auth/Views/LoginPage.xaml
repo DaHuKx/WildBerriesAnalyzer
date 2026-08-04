@@ -4,7 +4,7 @@
              xmlns:viewModels="clr-namespace:WildBerriesAnalyzer.Modules.Auth.ViewModels"
              x:Class="WildBerriesAnalyzer.Modules.Auth.Views.LoginPage"
              x:DataType="viewModels:LoginPageViewModel"
-             Title="{Binding TitleText}"
+             Title="Вход"
              BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
 
     <ScrollView>
@@ -32,118 +32,42 @@
                    HorizontalTextAlignment="Center"
                    Margin="0,0,0,8" />
 
-            <Label Text="{Binding TitleText}"
+            <Label Text="Вход"
                    FontSize="20"
                    FontAttributes="Bold"
                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                    HorizontalTextAlignment="Center"
-                   Margin="0,0,0,8" />
+                   Margin="0,0,0,4" />
 
-            <!-- Login: credentials -->
-            <VerticalStackLayout Spacing="16"
-                                 IsVisible="{Binding ShowCredentialsForm}">
-                <Label Text="Логин"
-                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
-                       FontSize="14" />
+            <Label Text="{Binding HintText}"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                   HorizontalTextAlignment="Center"
+                   LineBreakMode="WordWrap" />
 
-                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
-                        StrokeThickness="1"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceMutedDark}}"
-                        Padding="4,0">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="8" />
-                    </Border.StrokeShape>
-                    <Entry Text="{Binding Login}"
-                           Placeholder="Введите логин"
-                           BackgroundColor="Transparent"
-                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
-                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
-                </Border>
-
-                <Label Text="Пароль"
-                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
-                       FontSize="14" />
-
-                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
-                        StrokeThickness="1"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceMutedDark}}"
-                        Padding="4,0">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="8" />
-                    </Border.StrokeShape>
-                    <Entry Text="{Binding Password}"
-                           Placeholder="Введите пароль"
-                           IsPassword="True"
-                           BackgroundColor="Transparent"
-                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
-                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
-                </Border>
-
-                <Button Text="Войти"
-                        Command="{Binding SubmitCommand}"
-                        Style="{StaticResource AccentButton}" />
-            </VerticalStackLayout>
-
-            <!-- Register: VK ID only -->
-            <VerticalStackLayout Spacing="14"
-                                 IsVisible="{Binding ShowRegisterVkPanel}">
-                <Label Text="{Binding RegisterHint}"
-                       FontSize="14"
-                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
-                       HorizontalTextAlignment="Center"
-                       LineBreakMode="WordWrap" />
-
-                <Button Text="{Binding VkButtonText}"
-                        Command="{Binding LoginWithVkCommand}"
-                        IsVisible="{Binding ShowVkLoginButton}"
-                        BackgroundColor="#0077FF"
-                        TextColor="White"
-                        FontAttributes="Bold"
-                        HeightRequest="48"
-                        CornerRadius="10" />
-
-                <Label Text="VK ID сейчас недоступен. Включите VkId на сервере (Enabled + ClientId) или войдите, если аккаунт уже есть."
-                       IsVisible="{Binding ShowVkUnavailableHint}"
-                       FontSize="13"
-                       TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
-                       HorizontalTextAlignment="Center"
-                       LineBreakMode="WordWrap" />
-            </VerticalStackLayout>
-
-            <Grid ColumnDefinitions="*,Auto,*"
-                  Margin="0,4"
-                  IsVisible="{Binding ShowLoginDivider}">
-                <BoxView Grid.Column="0"
-                         HeightRequest="1"
-                         Color="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
-                         VerticalOptions="Center" />
-                <Label Grid.Column="1"
-                       Text="или"
-                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
-                       FontSize="12"
-                       Margin="10,0"
-                       VerticalOptions="Center" />
-                <BoxView Grid.Column="2"
-                         HeightRequest="1"
-                         Color="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
-                         VerticalOptions="Center" />
-            </Grid>
-
-            <!-- Login mode: optional VK -->
-            <Button Text="{Binding VkButtonText}"
+            <Button Text="Войти через VK ID"
                     Command="{Binding LoginWithVkCommand}"
-                    IsVisible="{Binding ShowLoginDivider}"
+                    IsVisible="{Binding ShowVkButton}"
                     BackgroundColor="#0077FF"
                     TextColor="White"
                     FontAttributes="Bold"
                     HeightRequest="48"
-                    CornerRadius="10" />
+                    CornerRadius="10"
+                    Margin="0,8,0,0" />
 
-            <Button Text="{Binding ToggleModeButtonText}"
-                    Command="{Binding ToggleModeCommand}"
-                    BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
-                    HeightRequest="40" />
+            <VerticalStackLayout Spacing="8"
+                                 IsVisible="{Binding ShowVkUnavailableHint}">
+                <Label Text="{Binding VkUnavailableHint}"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                       HorizontalTextAlignment="Center"
+                       LineBreakMode="WordWrap" />
+                <Button Text="Проверить VK ID снова"
+                        Command="{Binding RefreshVkCommand}"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                        HeightRequest="40" />
+            </VerticalStackLayout>
 
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                                IsVisible="{Binding IsBusy}"

@@ -28,6 +28,10 @@ services:
       dockerfile: WildBerriesAnalyzer.Server/Dockerfile
     container_name: wba-server
     restart: unless-stopped
+    # На RUVDS встроенный Docker DNS часто ломается (id.vk.ru → Name or service not known).
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       postgresdb:
         condition: service_healthy
@@ -67,6 +71,9 @@ services:
       dockerfile: WildBerriesAnalyzer.Bots/Dockerfile
     container_name: wba-bots
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       postgresdb:
         condition: service_healthy
