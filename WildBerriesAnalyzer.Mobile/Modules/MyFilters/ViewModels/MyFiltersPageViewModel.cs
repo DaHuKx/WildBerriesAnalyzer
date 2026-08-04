@@ -576,22 +576,19 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     return;
                 }
 
+                // Ничего не выбрано = все стратегии (null на сервере).
                 var selectedStrategies = StrategyOptions
                     .Where(s => s.IsSelected)
                     .Select(s => s.Strategy)
                     .ToList();
 
-                if (selectedStrategies.Count == 0)
-                {
-                    ErrorMessage = "Необходимо выбрать хотя бы одну стратегию определения цены.";
-                    return;
-                }
-
                 _currentFilter.DiscontMinPercent = minPercent;
                 _currentFilter.MinReviewsCount = minReviews;
                 _currentFilter.MinRating = minRating;
                 _currentFilter.ProductsFilterType = SelectedFilterType.Type;
-                _currentFilter.ReferencePriceStrartegies = selectedStrategies;
+                _currentFilter.ReferencePriceStrartegies = selectedStrategies.Count > 0
+                    ? selectedStrategies
+                    : null;
 
                 await _filtersService.UpdateFilterAsync(_currentFilter);
                 StatusMessage = "Фильтры сохранены.";

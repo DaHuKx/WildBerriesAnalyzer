@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
@@ -31,9 +34,10 @@ namespace WildBerriesAnalyzer.Business.Helpers
         {
             ArgumentNullException.ThrowIfNull(filter);
 
+            // null / пусто = все стратегии.
             var strategies = filter.ReferencePriceStrartegies is { Count: > 0 }
                 ? filter.ReferencePriceStrartegies.ToHashSet()
-                : new HashSet<ReferencePriceStrategy> { ReferencePriceStrategy.Median };
+                : Enum.GetValues(typeof(ReferencePriceStrategy)).Cast<ReferencePriceStrategy>().ToHashSet();
 
             var scopedProductIds = GetScopedProductIds(filter, stored);
 

@@ -54,6 +54,12 @@ namespace WildBerriesAnalyzer.Business.Services
         {
             ArgumentNullException.ThrowIfNull(filter);
 
+            // Пустой список нормализуем в null (= все стратегии).
+            if (filter.ReferencePriceStrartegies is { Count: 0 })
+            {
+                filter.ReferencePriceStrartegies = null;
+            }
+
             var validationResult = _filterValidator.Validate(filter);
             if (!validationResult.IsValid)
             {

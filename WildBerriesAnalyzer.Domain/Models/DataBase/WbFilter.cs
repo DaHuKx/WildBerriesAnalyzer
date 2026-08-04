@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using WildBerriesAnalyzer.Domain.Enums;
 
 namespace WildBerriesAnalyzer.Domain.Models.DataBase
@@ -12,16 +11,21 @@ namespace WildBerriesAnalyzer.Domain.Models.DataBase
         public float MinRating { get; set; } = 0;
         public ProductsFilterType ProductsFilterType { get; set; }
 
-        [JsonIgnore]
-        public WbUser User { get; set; }
-
-        [JsonIgnore]
+        /// <summary>
+        /// null или пустой список = все стратегии базовой цены.
+        /// </summary>
         public List<ReferencePriceStrategy>? ReferencePriceStrartegies { get; set; }
 
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
+        public WbUser? User { get; set; }
+
+        [Newtonsoft.Json.JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
         public List<WbFilterCategory>? FilterCategories { get; set; }
 
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
         public List<WbFilterBag>? BagProducts { get; set; }
 
         public bool FilterApprovedForDiscont(Discont discont)

@@ -6,6 +6,13 @@ namespace WildBerriesAnalyzer.Mobile.Clients
     public static class ServerSettings
     {
         /// <summary>
+        /// true — VDS; false — локальный API (adb reverse / LAN / localhost).
+        /// </summary>
+        private const bool UseRemoteServer = true;
+
+        private const string RemoteBaseAddress = "http://62.233.35.144:5146/";
+
+        /// <summary>
         /// IPv4 ПК в Wi‑Fi (только если не используете adb reverse).
         /// </summary>
         private const string DevHostLanIp = "192.168.1.106";
@@ -24,6 +31,11 @@ namespace WildBerriesAnalyzer.Mobile.Clients
         {
             get
             {
+                if (UseRemoteServer)
+                {
+                    return RemoteBaseAddress;
+                }
+
 #if ANDROID
                 if (UseAdbReverse)
                 {

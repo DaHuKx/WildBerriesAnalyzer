@@ -131,7 +131,7 @@ namespace WildBerriesAnalyzer.Bots.Helpers
             }
             else
             {
-                sb.AppendLine("   ⚠️ Стратегии не выбраны");
+                sb.AppendLine("   📊 Стратегии: *все*");
             }
 
             sb.AppendLine(new string('─', 40));

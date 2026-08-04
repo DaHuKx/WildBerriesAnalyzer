@@ -425,7 +425,7 @@
                                            FontSize="16"
                                            FontAttributes="Bold"
                                            LineBreakMode="WordWrap" />
-                                    <Label Text="Можно выбрать несколько способов сравнения"
+                                    <Label Text="Можно выбрать несколько. Если ничего не выбрано — учитываются все стратегии."
                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                            FontSize="12"
                                            LineBreakMode="WordWrap" />

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Prism.Commands;
 using Prism.Mvvm;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Domain.Helpers;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Products.Models;
@@ -49,6 +50,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
             OpenLinkCommand = new DelegateCommand<ProductListItem>(async item => await OpenLinkAsync(item));
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
+            CopyBasketBookmarkletCommand = new DelegateCommand(async () => await CopyBasketBookmarkletAsync());
 
             Results.CollectionChanged += (_, _) =>
             {
@@ -79,7 +81,12 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
         public DelegateCommand DismissSnackbarCommand { get; }
 
+        public DelegateCommand CopyBasketBookmarkletCommand { get; }
+
         public DelegateCommand<ProductListItem> OpenLinkCommand { get; }
+
+        public string BasketImportGuide =>
+            "На компьютере: скопируйте закладку → создайте закладку в браузере (вставьте текст в адрес) → откройте корзину WB, прокрутите вниз → нажмите закладку → вставьте артикулы сюда.";
 
         public bool IsArticlesTab
         {
@@ -439,6 +446,19 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         private void DismissSnackbar()
         {
             IsSnackbarVisible = false;
+        }
+
+        private async Task CopyBasketBookmarkletAsync()
+        {
+            try
+            {
+                await Clipboard.Default.SetTextAsync(WbBasketBookmarklet.BookmarkletUri);
+                StatusMessage = "Закладка скопирована. Вставьте её в адрес новой закладки браузера на компьютере.";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Не удалось скопировать закладку: {ex.Message}";
+            }
         }
 
         private static async Task OpenLinkAsync(ProductListItem? item)

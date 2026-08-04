@@ -120,6 +120,26 @@
                                 HeightRequest="44"
                                 CornerRadius="10"
                                 FontSize="14" />
+
+                        <BoxView HeightRequest="1"
+                                 Color="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                 Margin="0,4" />
+
+                        <Label Text="Из корзины WB"
+                               FontAttributes="Bold"
+                               FontSize="16"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                        <Label Text="{Binding BasketImportGuide}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                               FontSize="13"
+                               LineBreakMode="WordWrap" />
+                        <Button Text="Скопировать закладку"
+                                Command="{Binding CopyBasketBookmarkletCommand}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                HeightRequest="44"
+                                CornerRadius="10"
+                                FontSize="14" />
                     </VerticalStackLayout>
                 </Border>
 

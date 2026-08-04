@@ -36,9 +36,20 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
         {
             ArgumentNullException.ThrowIfNull(filter);
 
+            var request = new UpdateFilterRequest
+            {
+                DiscontMinPercent = filter.DiscontMinPercent,
+                MinReviewsCount = filter.MinReviewsCount,
+                MinRating = filter.MinRating,
+                ProductsFilterType = filter.ProductsFilterType,
+                ReferencePriceStrartegies = filter.ReferencePriceStrartegies is { Count: > 0 }
+                    ? filter.ReferencePriceStrartegies
+                    : null
+            };
+
             using var response = await _httpClient.PutAsJsonAsync(
                 $"api/filters/{filter.UserId}/filter",
-                filter,
+                request,
                 WbServerJson.Options).ConfigureAwait(false);
             await WbServerJson.EnsureSuccessOrThrowAsync(response).ConfigureAwait(false);
         }

@@ -1,4 +1,5 @@
 ﻿using WildBerriesAnalyzer.Domain.Enums;
+using WildBerriesAnalyzer.Domain.Helpers;
 
 namespace WildBerriesAnalyzer.Bots.Consts
 {
@@ -63,16 +64,10 @@ namespace WildBerriesAnalyzer.Bots.Consts
 💡 Совет: Добавляйте только те товары, которые вы действительно планируете купить, чтобы бот присылал только полезные уведомления!";
 
         public static string Filters_ChangeProducts_OwnBag_Instruction =>
-@"ИНСТРУКЦИЯ:
-1. Скопируйте скрипт по ссылке: https://pastebin.com/MNNH5Dbh
-2. Откройте вашу корзину ВБ в браузере и прокрутите список ваших товаров вниз, до конца.
-3. Нажмите Ctrl+Shift+I.
-4. В открывшемся поле сверху нажмите Console.
-5. Вставьте скопированный скрипт внизу консоли, если скрипт не вставится, пропишите allow pasting в консоль, затем вставьте скопированный текст.
-6. Нажмите Enter, в консоли отобразится список артикулов ваших товаров из корзины
-7. Скопируйте артикулы и добавьте в корзину бота.
-
-Готово!";
+            WbBasketBookmarklet.ShortInstructions +
+            "\n\n" +
+            "Закладка (скопируйте целиком):\n" +
+            WbBasketBookmarklet.BookmarkletUri;
 
         public static string Filters_Strategy =>
 @"📊 Выбор стратегии расчета скидки

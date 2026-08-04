@@ -2,6 +2,22 @@ using WildBerriesAnalyzer.Domain.Enums;
 
 namespace WildBerriesAnalyzer.ServerClient.Models
 {
+    public class UpdateFilterRequest
+    {
+        public int DiscontMinPercent { get; set; }
+
+        public int MinReviewsCount { get; set; }
+
+        public float MinRating { get; set; }
+
+        public ProductsFilterType ProductsFilterType { get; set; }
+
+        /// <summary>
+        /// null или пустой список = все стратегии.
+        /// </summary>
+        public List<ReferencePriceStrategy>? ReferencePriceStrartegies { get; set; }
+    }
+
     public class AddBagProductsRequest
     {
         public List<string> Articles { get; set; } = [];

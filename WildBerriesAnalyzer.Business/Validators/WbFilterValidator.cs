@@ -23,12 +23,11 @@ namespace WildBerriesAnalyzer.Business.Validators
                 .InclusiveBetween(0f, 5f)
                 .WithMessage("Рейтинг должен быть числом от 0 до 5. Допускается использование точки или запятой (например: 4.5 или 4,5).");
 
+            // null / пусто = все стратегии; если список задан — проверяем значения enum.
             RuleFor(x => x.ReferencePriceStrartegies)
-                .NotNull()
-                .WithMessage("Необходимо выбрать хотя бы одну стратегию определения цены.")
-                .Must(strategies => strategies is { Count: > 0 })
-                .WithMessage("Необходимо выбрать хотя бы одну стратегию определения цены.")
-                .Must(strategies => strategies!.All(s => Enum.IsDefined(typeof(ReferencePriceStrategy), s)))
+                .Must(strategies => strategies is null
+                                    || strategies.Count == 0
+                                    || strategies.All(s => Enum.IsDefined(typeof(ReferencePriceStrategy), s)))
                 .WithMessage("Указана неизвестная стратегия определения цены.");
 
             RuleFor(x => x.ProductsFilterType)

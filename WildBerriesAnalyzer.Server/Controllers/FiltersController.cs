@@ -47,9 +47,9 @@ namespace WildBerriesAnalyzer.Server.Controllers
         [HttpPut("{userId:int}/filter")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateFilter(int userId, [FromBody] WbFilter filter)
+        public async Task<IActionResult> UpdateFilter(int userId, [FromBody] UpdateFilterRequest request)
         {
-            if (filter is null)
+            if (request is null)
             {
                 return BadRequest("Тело запроса не может быть пустым.");
             }
@@ -57,11 +57,14 @@ namespace WildBerriesAnalyzer.Server.Controllers
             try
             {
                 var existing = await _filtersService.GetOrCreateByUserIdAsync(userId);
-                existing.DiscontMinPercent = filter.DiscontMinPercent;
-                existing.MinReviewsCount = filter.MinReviewsCount;
-                existing.MinRating = filter.MinRating;
-                existing.ProductsFilterType = filter.ProductsFilterType;
-                existing.ReferencePriceStrartegies = filter.ReferencePriceStrartegies;
+                existing.DiscontMinPercent = request.DiscontMinPercent;
+                existing.MinReviewsCount = request.MinReviewsCount;
+                existing.MinRating = request.MinRating;
+                existing.ProductsFilterType = request.ProductsFilterType;
+                // Пустой список храним как null (= все стратегии).
+                existing.ReferencePriceStrartegies = request.ReferencePriceStrartegies is { Count: > 0 }
+                    ? request.ReferencePriceStrartegies
+                    : null;
 
                 await _filtersService.UpdateFilterAsync(existing);
                 return NoContent();
