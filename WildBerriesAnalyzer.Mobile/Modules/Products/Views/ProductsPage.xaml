@@ -223,11 +223,6 @@
                             <VerticalStackLayout Spacing="4"
                                                  Margin="0,0,0,14"
                                                  WidthRequest="{Binding Source={x:Reference ProductsRoot}, Path=TileWidth}">
-                                <VerticalStackLayout.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={x:Reference ProductsRoot}, Path=BindingContext.OpenLinkCommand}"
-                                                          CommandParameter="{Binding .}" />
-                                </VerticalStackLayout.GestureRecognizers>
-
                                 <Border StrokeThickness="0"
                                         BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
                                         HeightRequest="{Binding Source={x:Reference ProductsRoot}, Path=TileImageHeight}"
@@ -235,6 +230,10 @@
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="12" />
                                     </Border.StrokeShape>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference ProductsRoot}, Path=BindingContext.OpenLinkCommand}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
                                     <Grid>
                                         <ActivityIndicator IsRunning="{Binding IsImageLoading}"
                                                            IsVisible="{Binding IsImageLoading}"
@@ -251,17 +250,37 @@
                                     </Grid>
                                 </Border>
 
-                                <Label Text="{Binding PriceText}"
-                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
-                                       FontAttributes="Bold"
-                                       FontSize="17"
-                                       Margin="0,2,0,0"
-                                       LineBreakMode="TailTruncation" />
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="6"
+                                      Margin="0,2,0,0">
+                                    <VerticalStackLayout Spacing="2"
+                                                         VerticalOptions="Center"
+                                                         HorizontalOptions="Fill">
+                                        <Label Text="{Binding PriceText}"
+                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                               FontAttributes="Bold"
+                                               FontSize="17"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding Brand}"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                               FontSize="12"
+                                               LineBreakMode="TailTruncation" />
+                                    </VerticalStackLayout>
 
-                                <Label Text="{Binding Brand}"
-                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
-                                       FontSize="12"
-                                       LineBreakMode="TailTruncation" />
+                                    <Button Grid.Column="1"
+                                            Text="{Binding BagActionIcon}"
+                                            Command="{Binding Source={x:Reference ProductsRoot}, Path=BindingContext.ToggleBagCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="{Binding BagActionBackground}"
+                                            TextColor="White"
+                                            WidthRequest="34"
+                                            HeightRequest="34"
+                                            CornerRadius="17"
+                                            Padding="0"
+                                            FontSize="14"
+                                            VerticalOptions="Center"
+                                            HorizontalOptions="End" />
+                                </Grid>
 
                                 <Label Text="{Binding Name}"
                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"

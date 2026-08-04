@@ -83,15 +83,18 @@ namespace WildBerriesAnalyzer.Server.Services
             }
 
             var batchSize = Math.Clamp(options.BatchSize, 1, 500);
+            var batchDelay = options.BatchDelay < TimeSpan.Zero ? TimeSpan.Zero : options.BatchDelay;
+            var batches = products.Chunk(batchSize).ToArray();
             var savedTotal = 0;
             var batchIndex = 0;
 
             _logger.LogInformation(
-                "Обновление цен: товаров={ProductCount}, batch={BatchSize}",
+                "Обновление цен: товаров={ProductCount}, batch={BatchSize}, batchDelay={BatchDelay}",
                 products.Count,
-                batchSize);
+                batchSize,
+                batchDelay);
 
-            foreach (var batch in products.Chunk(batchSize))
+            foreach (var batch in batches)
             {
                 stoppingToken.ThrowIfCancellationRequested();
                 batchIndex++;
@@ -124,11 +127,17 @@ namespace WildBerriesAnalyzer.Server.Services
                         "Батч #{BatchIndex} из {BatchCount} товаров не вернул цен (нет наличия), продолжаем.",
                         batchIndex,
                         batch.Length);
-                    continue;
+                }
+                else
+                {
+                    await pricesRepository.AddRangeAsync(toSave);
+                    savedTotal += toSave.Count;
                 }
 
-                await pricesRepository.AddRangeAsync(toSave);
-                savedTotal += toSave.Count;
+                if (batchIndex < batches.Length && batchDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(batchDelay, stoppingToken);
+                }
             }
 
             // Сначала снимок скидок, затем outbox — иначе Bots может уведомить по старым данным.

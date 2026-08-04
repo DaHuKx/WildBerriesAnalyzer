@@ -9,12 +9,17 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
     {
         private bool _isSelected;
 
-        public StrategyOption(ReferencePriceStrategy strategy, string title, bool isSelected)
+        public StrategyOption(
+            ReferencePriceStrategy strategy,
+            string title,
+            bool isSelected,
+            Action<StrategyOption>? showInfo = null)
         {
             Strategy = strategy;
             Title = title;
             _isSelected = isSelected;
             ToggleCommand = new DelegateCommand(Toggle);
+            ShowInfoCommand = new DelegateCommand(() => showInfo?.Invoke(this));
         }
 
         public ReferencePriceStrategy Strategy { get; }
@@ -22,6 +27,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
         public string Title { get; }
 
         public DelegateCommand ToggleCommand { get; }
+
+        public DelegateCommand ShowInfoCommand { get; }
 
         public bool IsSelected
         {

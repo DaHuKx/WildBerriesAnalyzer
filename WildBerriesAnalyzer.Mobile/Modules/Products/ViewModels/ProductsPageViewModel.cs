@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
-using Prism.Commands;
-using Prism.Mvvm;
+using System.Globalization;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
+using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.Modules.Products.Models;
 
 namespace WildBerriesAnalyzer.Modules.Products.ViewModels
@@ -13,9 +13,12 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
         private const int PageSize = 15;
 
         private readonly IProductsService _productsService;
+        private readonly IFiltersService _filtersService;
+        private readonly IAuthSessionService _authSessionService;
         private readonly IProductImageCache _productImageCache;
 
         private readonly List<ProductListItem> _sourceProducts = [];
+        private readonly HashSet<int> _bagProductIds = [];
         private List<ProductListItem> _pipelineProducts = [];
         private int _visibleCount;
         private long? _catalogTotalCount;
@@ -39,9 +42,13 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
 
         public ProductsPageViewModel(
             IProductsService productsService,
+            IFiltersService filtersService,
+            IAuthSessionService authSessionService,
             IProductImageCache productImageCache)
         {
             _productsService = productsService;
+            _filtersService = filtersService;
+            _authSessionService = authSessionService;
             _productImageCache = productImageCache;
 
             SortOptions = ProductSortOption.CreateAll();
@@ -70,6 +77,8 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             ToggleFiltersCommand = new DelegateCommand(() => IsFiltersExpanded = !IsFiltersExpanded);
 
             OpenLinkCommand = new DelegateCommand<ProductListItem>(async item => await OpenLinkAsync(item));
+            ToggleBagCommand = new DelegateCommand<ProductListItem>(async item => await ToggleBagAsync(item), _ => !IsBusy)
+                .ObservesProperty(() => IsBusy);
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
 
             Products.CollectionChanged += (_, _) =>
@@ -86,7 +95,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
 
         public string BrandLabel => "PRICELAB";
 
-        public string Subtitle => "Поиск и просмотр товаров по вашим фильтрам";
+        public string Subtitle => "Поиск, просмотр и добавление товаров в корзину";
 
         public ObservableCollection<ProductListItem> Products { get; } = [];
 
@@ -323,6 +332,8 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
 
         public DelegateCommand<ProductListItem> OpenLinkCommand { get; }
 
+        public DelegateCommand<ProductListItem> ToggleBagCommand { get; }
+
         private bool CanLoadMore() => !IsBusy && !IsLoadingMore && HasMoreItems;
 
         private void ClearFilters()
@@ -355,6 +366,8 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 RaisePropertyChanged(nameof(StatusMessage));
                 RaisePropertyChanged(nameof(HasStatus));
                 _isBrowseMode = true;
+
+                await RefreshBagIdsAsync();
 
                 var products = await _productsService.GetRandomAsync(PageSize);
                 _sourceProducts.Clear();
@@ -392,6 +405,8 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 RaisePropertyChanged(nameof(StatusMessage));
                 RaisePropertyChanged(nameof(HasStatus));
                 _isBrowseMode = false;
+
+                await RefreshBagIdsAsync();
 
                 var products = await _productsService.GetByNameAsync(SearchText.Trim());
                 _sourceProducts.Clear();
@@ -664,8 +679,86 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             {
                 if (_sourceProducts.All(p => p.Id != item.Id))
                 {
+                    item.IsInBag = _bagProductIds.Contains(item.Id);
                     _sourceProducts.Add(item);
                 }
+            }
+        }
+
+        private async Task ToggleBagAsync(ProductListItem? item)
+        {
+            if (item is null || item.Id <= 0)
+            {
+                return;
+            }
+
+            try
+            {
+                IsBusy = true;
+                ErrorMessage = string.Empty;
+                StatusMessage = string.Empty;
+
+                var user = _authSessionService.CurrentUser;
+                if (user is null || user.Id <= 0)
+                {
+                    ErrorMessage = "Пользователь не авторизован.";
+                    return;
+                }
+
+                if (item.IsInBag)
+                {
+                    await _filtersService.RemoveProductsFromBagAsync(user.Id, [item.Id]);
+                    _bagProductIds.Remove(item.Id);
+                    item.IsInBag = false;
+                    StatusMessage = "Товар удалён из корзины.";
+                    return;
+                }
+
+                if (item.IdInMarket <= 0)
+                {
+                    ErrorMessage = "У товара нет артикула.";
+                    return;
+                }
+
+                var article = item.IdInMarket.ToString(CultureInfo.InvariantCulture);
+                var result = await _filtersService.AddProductsToBagAsync(user.Id, [article]);
+                _bagProductIds.Add(item.Id);
+                item.IsInBag = true;
+                StatusMessage = result.AddedProducts.Count > 0
+                    ? "Товар добавлен в корзину."
+                    : "Товар уже есть в корзине.";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async Task RefreshBagIdsAsync()
+        {
+            _bagProductIds.Clear();
+
+            var user = _authSessionService.CurrentUser;
+            if (user is null || user.Id <= 0)
+            {
+                return;
+            }
+
+            try
+            {
+                var bag = await _filtersService.GetBagProductsAsync(user.Id);
+                foreach (var product in bag)
+                {
+                    _bagProductIds.Add(product.Id);
+                }
+            }
+            catch
+            {
+                // Корзина недоступна — иконки останутся в режиме «добавить».
             }
         }
 

@@ -444,26 +444,43 @@
                                                 <Border.StrokeShape>
                                                     <RoundRectangle CornerRadius="10" />
                                                 </Border.StrokeShape>
-                                                <Border.GestureRecognizers>
-                                                    <TapGestureRecognizer Command="{Binding ToggleCommand}" />
-                                                </Border.GestureRecognizers>
-                                                <Grid ColumnDefinitions="32,*"
-                                                      ColumnSpacing="6"
-                                                      HorizontalOptions="Fill"
-                                                      InputTransparent="True">
-                                                    <CheckBox IsChecked="{Binding IsSelected}"
-                                                              Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
-                                                              VerticalOptions="Center"
-                                                              HorizontalOptions="Center"
-                                                              WidthRequest="32"
-                                                              HeightRequest="32"
-                                                              InputTransparent="True" />
-                                                    <Label Grid.Column="1"
-                                                           Text="{Binding Title}"
-                                                           TextColor="{Binding TitleColor}"
-                                                           FontSize="13"
-                                                           VerticalOptions="Center"
-                                                           LineBreakMode="WordWrap" />
+                                                <Grid ColumnDefinitions="*,36"
+                                                      ColumnSpacing="4"
+                                                      HorizontalOptions="Fill">
+                                                    <Grid ColumnDefinitions="32,*"
+                                                          ColumnSpacing="6"
+                                                          HorizontalOptions="Fill">
+                                                        <Grid.GestureRecognizers>
+                                                            <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                                        </Grid.GestureRecognizers>
+                                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                                  Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                                  VerticalOptions="Center"
+                                                                  HorizontalOptions="Center"
+                                                                  WidthRequest="32"
+                                                                  HeightRequest="32"
+                                                                  InputTransparent="True" />
+                                                        <Label Grid.Column="1"
+                                                               Text="{Binding Title}"
+                                                               TextColor="{Binding TitleColor}"
+                                                               FontSize="13"
+                                                               VerticalOptions="Center"
+                                                               LineBreakMode="WordWrap"
+                                                               InputTransparent="True" />
+                                                    </Grid>
+                                                    <Button Grid.Column="1"
+                                                            Text="?"
+                                                            Command="{Binding ShowInfoCommand}"
+                                                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                                                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                            FontAttributes="Bold"
+                                                            FontSize="14"
+                                                            WidthRequest="32"
+                                                            HeightRequest="32"
+                                                            CornerRadius="16"
+                                                            Padding="0"
+                                                            VerticalOptions="Center"
+                                                            HorizontalOptions="End" />
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -836,5 +853,74 @@
                        Opacity="0.85" />
             </Grid>
         </Border>
+
+        <!-- Strategy help dialog -->
+        <Grid IsVisible="{Binding IsStrategyHelpVisible}"
+              BackgroundColor="#99000000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding DismissStrategyHelpCommand}" />
+            </Grid.GestureRecognizers>
+            <Border Margin="24"
+                    Padding="18"
+                    MaximumWidthRequest="420"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <Border.GestureRecognizers>
+                    <!-- Блокируем закрытие при тапе по карточке -->
+                    <TapGestureRecognizer />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="{Binding StrategyHelpTitle}"
+                               FontAttributes="Bold"
+                               FontSize="18"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                               LineBreakMode="WordWrap"
+                               VerticalOptions="Center" />
+                        <Button Grid.Column="1"
+                                Text="✕"
+                                Command="{Binding DismissStrategyHelpCommand}"
+                                BackgroundColor="Transparent"
+                                TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                Padding="0"
+                                FontSize="16" />
+                    </Grid>
+                    <Label Text="{Binding StrategyHelpDescription}"
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Пример"
+                           FontAttributes="Bold"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}" />
+                    <Border Padding="12"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="10" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding StrategyHelpExample}"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                               LineBreakMode="WordWrap" />
+                    </Border>
+                    <Button Text="Понятно"
+                            Command="{Binding DismissStrategyHelpCommand}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                            TextColor="White"
+                            HeightRequest="44"
+                            CornerRadius="10"
+                            FontSize="14" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentView>

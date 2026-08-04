@@ -18,5 +18,10 @@ namespace WildBerriesAnalyzer.Server.Options
         /// Размер батча артикулов для запроса к WB.
         /// </summary>
         public int BatchSize { get; set; } = 100;
+
+        /// <summary>
+        /// Пауза между батчами запросов к WB (снижает риск блокировок).
+        /// </summary>
+        public TimeSpan BatchDelay { get; set; } = TimeSpan.FromSeconds(3);
     }
 }

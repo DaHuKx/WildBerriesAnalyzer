@@ -6,6 +6,7 @@ using WildBerriesAnalyzer.Domain.Models.DataBase;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
+using WildBerriesAnalyzer.Modules.MyFilters.Helpers;
 using WildBerriesAnalyzer.Modules.MyFilters.Models;
 
 namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
@@ -39,6 +40,10 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         private string _selectedBagBrand = AllBrandsLabel;
         private BagSortOption? _selectedBagSort;
         private bool _isBagFiltersExpanded;
+        private bool _isStrategyHelpVisible;
+        private string _strategyHelpTitle = string.Empty;
+        private string _strategyHelpDescription = string.Empty;
+        private string _strategyHelpExample = string.Empty;
         private List<WbFilterCategory> _allFilterCategories = [];
         private List<BagProductItem> _allBagProducts = [];
 
@@ -102,7 +107,11 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
             foreach (ReferencePriceStrategy strategy in Enum.GetValues(typeof(ReferencePriceStrategy)))
             {
-                StrategyOptions.Add(new StrategyOption(strategy, ToStrategyText(strategy), false));
+                StrategyOptions.Add(new StrategyOption(
+                    strategy,
+                    ToStrategyText(strategy),
+                    false,
+                    ShowStrategyHelp));
             }
 
             RefreshCommand = new DelegateCommand(async () => await LoadAsync(), () => !IsBusy)
@@ -122,6 +131,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             ToggleBagFiltersCommand = new DelegateCommand(() => IsBagFiltersExpanded = !IsBagFiltersExpanded);
             SelectFilterTypeCommand = new DelegateCommand<FilterTypeOption>(SelectFilterType);
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
+            DismissStrategyHelpCommand = new DelegateCommand(DismissStrategyHelp);
 
             _appThemeService.ThemeChanged += (_, _) => RefreshThemeDependentUi();
             // Загрузка стартует из View.Loaded — после первой отрисовки UI.
@@ -405,6 +415,32 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         public DelegateCommand DismissSnackbarCommand { get; }
 
+        public DelegateCommand DismissStrategyHelpCommand { get; }
+
+        public bool IsStrategyHelpVisible
+        {
+            get => _isStrategyHelpVisible;
+            private set => SetProperty(ref _isStrategyHelpVisible, value);
+        }
+
+        public string StrategyHelpTitle
+        {
+            get => _strategyHelpTitle;
+            private set => SetProperty(ref _strategyHelpTitle, value);
+        }
+
+        public string StrategyHelpDescription
+        {
+            get => _strategyHelpDescription;
+            private set => SetProperty(ref _strategyHelpDescription, value);
+        }
+
+        public string StrategyHelpExample
+        {
+            get => _strategyHelpExample;
+            private set => SetProperty(ref _strategyHelpExample, value);
+        }
+
         private void RefreshThemeDependentUi()
         {
             foreach (var option in FilterTypes)
@@ -452,6 +488,20 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         private void DismissSnackbar()
         {
             IsSnackbarVisible = false;
+        }
+
+        private void ShowStrategyHelp(StrategyOption option)
+        {
+            var help = StrategyHelpCatalog.Get(option.Strategy);
+            StrategyHelpTitle = help.Title;
+            StrategyHelpDescription = help.Description;
+            StrategyHelpExample = help.Example;
+            IsStrategyHelpVisible = true;
+        }
+
+        private void DismissStrategyHelp()
+        {
+            IsStrategyHelpVisible = false;
         }
 
         private void SelectFilterType(FilterTypeOption? option)

@@ -10,6 +10,7 @@ namespace WildBerriesAnalyzer.Modules.Products.Models
         private ImageSource? _displayImage;
         private bool _isImageLoading;
         private bool _hasDisplayImage;
+        private bool _isInBag;
         private int _imageLoadGeneration;
 
         public int Id { get; init; }
@@ -51,6 +52,32 @@ namespace WildBerriesAnalyzer.Modules.Products.Models
             get => _hasDisplayImage;
             private set => SetProperty(ref _hasDisplayImage, value);
         }
+
+        /// <summary>
+        /// Товар уже в корзине фильтров пользователя.
+        /// </summary>
+        public bool IsInBag
+        {
+            get => _isInBag;
+            set
+            {
+                if (SetProperty(ref _isInBag, value))
+                {
+                    RaisePropertyChanged(nameof(BagActionIcon));
+                    RaisePropertyChanged(nameof(BagActionBackground));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 🛒 — добавить в корзину; ✕ — убрать из корзины.
+        /// </summary>
+        public string BagActionIcon => IsInBag ? "✕" : "🛒";
+
+        public Color BagActionBackground =>
+            IsInBag
+                ? Color.FromArgb("#99000000")
+                : Color.FromArgb("#CC0F766E");
 
         public string RatingText => ReviewRating.ToString("N2", CultureInfo.InvariantCulture);
 

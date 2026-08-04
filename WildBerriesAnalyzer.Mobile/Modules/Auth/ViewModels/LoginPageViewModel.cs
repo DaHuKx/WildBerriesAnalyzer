@@ -18,17 +18,11 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
 
         private string _login = string.Empty;
         private string _password = string.Empty;
-        private string _vkProfileUrl = string.Empty;
-        private string _verificationCode = string.Empty;
-        private string _registrationId = string.Empty;
         private string _errorMessage = string.Empty;
         private string _statusMessage = string.Empty;
-        private string _botChatUrl = string.Empty;
         private bool _isBusy;
         private bool _isRegisterMode;
         private bool _isVkLoginAvailable;
-        private bool _showBotFallback;
-        private bool _awaitingVkCode;
 
         public LoginPageViewModel(
             IAuthService authService,
@@ -46,36 +40,15 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             SubmitCommand = new DelegateCommand(async () => await SubmitAsync(), CanSubmit)
                 .ObservesProperty(() => Login)
                 .ObservesProperty(() => Password)
-                .ObservesProperty(() => VkProfileUrl)
                 .ObservesProperty(() => IsRegisterMode)
-                .ObservesProperty(() => IsBusy)
-                .ObservesProperty(() => AwaitingVkCode);
-
-            ConfirmCodeCommand = new DelegateCommand(async () => await ConfirmCodeAsync(), CanConfirmCode)
-                .ObservesProperty(() => VerificationCode)
-                .ObservesProperty(() => IsBusy)
-                .ObservesProperty(() => AwaitingVkCode)
-                .ObservesProperty(() => RegistrationId);
-
-            ResendCodeCommand = new DelegateCommand(async () => await ResendCodeAsync(), CanResendCode)
-                .ObservesProperty(() => IsBusy)
-                .ObservesProperty(() => AwaitingVkCode)
-                .ObservesProperty(() => RegistrationId);
+                .ObservesProperty(() => IsBusy);
 
             ToggleModeCommand = new DelegateCommand(ToggleMode, () => !IsBusy)
                 .ObservesProperty(() => IsBusy);
 
-            LoginWithVkCommand = new DelegateCommand(async () => await LoginWithVkAsync(), () => !IsBusy && IsVkLoginAvailable && !AwaitingVkCode)
+            LoginWithVkCommand = new DelegateCommand(async () => await LoginWithVkAsync(), () => !IsBusy && IsVkLoginAvailable)
                 .ObservesProperty(() => IsBusy)
-                .ObservesProperty(() => IsVkLoginAvailable)
-                .ObservesProperty(() => AwaitingVkCode);
-
-            OpenBotChatCommand = new DelegateCommand(async () => await OpenBotChatAsync(), () => !string.IsNullOrWhiteSpace(BotChatUrl))
-                .ObservesProperty(() => BotChatUrl);
-
-            CancelVerificationCommand = new DelegateCommand(CancelVerification, () => !IsBusy && AwaitingVkCode)
-                .ObservesProperty(() => IsBusy)
-                .ObservesProperty(() => AwaitingVkCode);
+                .ObservesProperty(() => IsVkLoginAvailable);
 
             _ = LoadVkAvailabilityAsync();
         }
@@ -92,24 +65,6 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             set => SetProperty(ref _password, value);
         }
 
-        public string VkProfileUrl
-        {
-            get => _vkProfileUrl;
-            set => SetProperty(ref _vkProfileUrl, value);
-        }
-
-        public string VerificationCode
-        {
-            get => _verificationCode;
-            set => SetProperty(ref _verificationCode, value);
-        }
-
-        public string RegistrationId
-        {
-            get => _registrationId;
-            private set => SetProperty(ref _registrationId, value);
-        }
-
         public string ErrorMessage
         {
             get => _errorMessage;
@@ -121,36 +76,6 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             get => _statusMessage;
             set => SetProperty(ref _statusMessage, value);
         }
-
-        public string BotChatUrl
-        {
-            get => _botChatUrl;
-            private set => SetProperty(ref _botChatUrl, value);
-        }
-
-        public bool ShowBotFallback
-        {
-            get => _showBotFallback;
-            private set => SetProperty(ref _showBotFallback, value);
-        }
-
-        public bool AwaitingVkCode
-        {
-            get => _awaitingVkCode;
-            private set
-            {
-                if (SetProperty(ref _awaitingVkCode, value))
-                {
-                    RaisePropertyChanged(nameof(TitleText));
-                    RaisePropertyChanged(nameof(ShowCredentialsForm));
-                    RaisePropertyChanged(nameof(ShowVkLoginButton));
-                }
-            }
-        }
-
-        public bool ShowCredentialsForm => !AwaitingVkCode;
-
-        public bool ShowVkLoginButton => IsVkLoginAvailable && !AwaitingVkCode;
 
         public bool IsBusy
         {
@@ -166,9 +91,11 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
                 if (SetProperty(ref _isRegisterMode, value))
                 {
                     RaisePropertyChanged(nameof(TitleText));
-                    RaisePropertyChanged(nameof(SubmitButtonText));
                     RaisePropertyChanged(nameof(ToggleModeButtonText));
-                    ResetVerificationState();
+                    RaisePropertyChanged(nameof(VkButtonText));
+                    RaisePropertyChanged(nameof(ShowCredentialsForm));
+                    RaisePropertyChanged(nameof(ShowRegisterVkPanel));
+                    RaisePropertyChanged(nameof(ShowLoginDivider));
                 }
             }
         }
@@ -181,59 +108,54 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
                 if (SetProperty(ref _isVkLoginAvailable, value))
                 {
                     RaisePropertyChanged(nameof(ShowVkLoginButton));
+                    RaisePropertyChanged(nameof(ShowRegisterVkPanel));
+                    RaisePropertyChanged(nameof(ShowVkUnavailableHint));
+                    RaisePropertyChanged(nameof(ShowLoginDivider));
                 }
             }
         }
 
-        public string TitleText => AwaitingVkCode
-            ? "Подтверждение VK"
-            : IsRegisterMode ? "Регистрация" : "Вход";
+        /// <summary>
+        /// Форма логин/пароль только во входе.
+        /// </summary>
+        public bool ShowCredentialsForm => !IsRegisterMode;
 
-        public string SubmitButtonText => IsRegisterMode ? "Получить код в VK" : "Войти";
+        /// <summary>
+        /// Регистрация — только через VK ID.
+        /// </summary>
+        public bool ShowRegisterVkPanel => IsRegisterMode;
+
+        public bool ShowVkLoginButton => IsVkLoginAvailable;
+
+        public bool ShowLoginDivider => !IsRegisterMode && IsVkLoginAvailable;
+
+        public bool ShowVkUnavailableHint => IsRegisterMode && !IsVkLoginAvailable;
+
+        public string TitleText => IsRegisterMode ? "Регистрация" : "Вход";
+
+        public string VkButtonText => IsRegisterMode
+            ? "Зарегистрироваться через VK ID"
+            : "Войти через VK ID";
 
         public string ToggleModeButtonText => IsRegisterMode
             ? "Уже есть аккаунт? Войти"
             : "Нет аккаунта? Зарегистрироваться";
 
+        public string RegisterHint =>
+            "Регистрация проходит через VK ID: откроется окно авторизации VK, " +
+            "после подтверждения аккаунт PriceLab создастся автоматически.";
+
         public DelegateCommand SubmitCommand { get; }
-
-        public DelegateCommand ConfirmCodeCommand { get; }
-
-        public DelegateCommand ResendCodeCommand { get; }
 
         public DelegateCommand ToggleModeCommand { get; }
 
         public DelegateCommand LoginWithVkCommand { get; }
 
-        public DelegateCommand OpenBotChatCommand { get; }
-
-        public DelegateCommand CancelVerificationCommand { get; }
-
-        private bool CanSubmit()
-        {
-            if (IsBusy || AwaitingVkCode || string.IsNullOrWhiteSpace(Login) || string.IsNullOrWhiteSpace(Password))
-            {
-                return false;
-            }
-
-            if (IsRegisterMode && string.IsNullOrWhiteSpace(VkProfileUrl))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private bool CanConfirmCode() =>
+        private bool CanSubmit() =>
             !IsBusy &&
-            AwaitingVkCode &&
-            !string.IsNullOrWhiteSpace(RegistrationId) &&
-            !string.IsNullOrWhiteSpace(VerificationCode);
-
-        private bool CanResendCode() =>
-            !IsBusy &&
-            AwaitingVkCode &&
-            !string.IsNullOrWhiteSpace(RegistrationId);
+            !IsRegisterMode &&
+            !string.IsNullOrWhiteSpace(Login) &&
+            !string.IsNullOrWhiteSpace(Password);
 
         private async Task LoadVkAvailabilityAsync()
         {
@@ -255,25 +177,8 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
-                ShowBotFallback = false;
-                BotChatUrl = string.Empty;
 
-                var login = Login.Trim();
-                var password = Password;
-
-                if (IsRegisterMode)
-                {
-                    var result = await _authService.RegisterAsync(login, password, VkProfileUrl.Trim());
-                    RegistrationId = result.RegistrationId;
-                    AwaitingVkCode = true;
-                    VerificationCode = string.Empty;
-                    StatusMessage = result.Message;
-                    BotChatUrl = result.BotChatUrl;
-                    ShowBotFallback = !result.VerificationMessageSent;
-                    return;
-                }
-
-                var loginTokens = await _authService.LoginAsync(login, password);
+                var loginTokens = await _authService.LoginAsync(Login.Trim(), Password);
                 _authSessionService.SignIn(loginTokens);
                 StatusMessage = "Авторизация успешна.";
                 await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
@@ -296,77 +201,22 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             }
         }
 
-        private async Task ConfirmCodeAsync()
-        {
-            try
-            {
-                IsBusy = true;
-                ErrorMessage = string.Empty;
-
-                var tokens = await _authService.ConfirmRegisterAsync(RegistrationId, VerificationCode.Trim());
-                _authSessionService.SignIn(tokens);
-                StatusMessage = "Регистрация подтверждена.";
-                ResetVerificationState();
-                await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                ErrorMessage = ex.Message;
-            }
-            catch (ArgumentException ex)
-            {
-                ErrorMessage = ex.Message;
-            }
-            catch (Exception ex)
-            {
-                ErrorMessage = ex.Message;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
-        private async Task ResendCodeAsync()
-        {
-            try
-            {
-                IsBusy = true;
-                ErrorMessage = string.Empty;
-
-                var result = await _authService.ResendRegisterCodeAsync(RegistrationId);
-                RegistrationId = result.RegistrationId;
-                StatusMessage = result.Message;
-                BotChatUrl = result.BotChatUrl;
-                ShowBotFallback = !result.VerificationMessageSent;
-            }
-            catch (ArgumentException ex)
-            {
-                ErrorMessage = ex.Message;
-            }
-            catch (Exception ex)
-            {
-                ErrorMessage = ex.Message;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
         private async Task LoginWithVkAsync()
         {
             try
             {
                 IsBusy = true;
                 ErrorMessage = string.Empty;
-                StatusMessage = "Открывается авторизация VK...";
-                ShowBotFallback = false;
+                StatusMessage = IsRegisterMode
+                    ? "Открывается регистрация через VK..."
+                    : "Открывается авторизация VK...";
 
                 var tokens = await _vkIdLoginService.LoginAsync();
                 _authSessionService.SignIn(tokens);
 
-                StatusMessage = "Вход через VK выполнен.";
+                StatusMessage = IsRegisterMode
+                    ? "Регистрация через VK выполнена."
+                    : "Вход через VK выполнен.";
                 await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
             }
             catch (UnauthorizedAccessException ex)
@@ -382,23 +232,6 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             finally
             {
                 IsBusy = false;
-            }
-        }
-
-        private async Task OpenBotChatAsync()
-        {
-            if (string.IsNullOrWhiteSpace(BotChatUrl))
-            {
-                return;
-            }
-
-            try
-            {
-                await Launcher.Default.OpenAsync(BotChatUrl);
-            }
-            catch (Exception ex)
-            {
-                ErrorMessage = ex.Message;
             }
         }
 
@@ -407,22 +240,6 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             IsRegisterMode = !IsRegisterMode;
             ErrorMessage = string.Empty;
             StatusMessage = string.Empty;
-        }
-
-        private void CancelVerification()
-        {
-            ResetVerificationState();
-            ErrorMessage = string.Empty;
-            StatusMessage = string.Empty;
-        }
-
-        private void ResetVerificationState()
-        {
-            AwaitingVkCode = false;
-            RegistrationId = string.Empty;
-            VerificationCode = string.Empty;
-            ShowBotFallback = false;
-            BotChatUrl = string.Empty;
         }
     }
 }
