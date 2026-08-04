@@ -22,23 +22,6 @@ services:
       - -c
       - listen_addresses=*
 
-  db-migrate:
-    build:
-      context: .
-      dockerfile: WildBerriesAnalyzer.Server/Dockerfile
-    container_name: wba-db-migrate
-    depends_on:
-      postgresdb:
-        condition: service_healthy
-    environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
-      ASPNETCORE_URLS: http://+:8080
-      RUN_AND_EXIT_AFTER_MIGRATE: "true"
-      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      ConnectionStrings__DefaultConnection: >-
-        Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
-    restart: "no"
-
   server:
     build:
       context: .
@@ -48,14 +31,14 @@ services:
     depends_on:
       postgresdb:
         condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
     ports:
       - "${SERVER_PORT:-5146}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:8080
-      APPLY_DB_MIGRATIONS: "false"
+      # Миграции при старте server (отдельный db-migrate на слабом VDS падал с exit 139).
+      APPLY_DB_MIGRATIONS: ${APPLY_DB_MIGRATIONS:-true}
+      DOTNET_EnableDiagnostics: "0"
       ConnectionStrings__DefaultConnection: >-
         Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env}
@@ -86,10 +69,11 @@ services:
     depends_on:
       postgresdb:
         condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
+      server:
+        condition: service_started
     environment:
       DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      DOTNET_EnableDiagnostics: "0"
       ConnectionStrings__DefaultConnection: >-
         Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
       VK_BOT_ACCESS_TOKEN: ${VK_BOT_ACCESS_TOKEN:?Set VK_BOT_ACCESS_TOKEN in .env}
