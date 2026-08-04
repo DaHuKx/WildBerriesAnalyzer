@@ -10,8 +10,8 @@ using WildBerriesAnalyzer.Data;
 namespace WildBerriesAnalyzer.Data.Migrations
 {
     [DbContext(typeof(WbDataBase))]
-    [Migration("20260802161547_actual_disconts_reference_period_from")]
-    partial class actual_disconts_reference_period_from
+    [Migration("20260804082650_InitialCreate")]
+    partial class InitialCreate
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -20,6 +20,51 @@ namespace WildBerriesAnalyzer.Data.Migrations
                 .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn)
                 .HasAnnotation("ProductVersion", "3.1.32")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            modelBuilder.Entity("WildBerriesAnalyzer.Domain.Models.DataBase.DiscontNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<decimal>("CurrentPrice")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("DiscontPercent")
+                        .HasColumnType("numeric");
+
+                    b.Property<int?>("PriceUpdateJobId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReferencePriceStrategy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("UserId", "ProductId", "ReferencePriceStrategy")
+                        .IsUnique()
+                        .HasName("IX_DiscontNotifications_User_Product_Strategy");
+
+                    b.ToTable("DiscontNotifications");
+                });
 
             modelBuilder.Entity("WildBerriesAnalyzer.Domain.Models.DataBase.PriceUpdateJob", b =>
                 {
@@ -72,6 +117,45 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .HasName("IX_PriceUpdateJobs_Status_CompletedAt");
 
                     b.ToTable("PriceUpdateJobs");
+                });
+
+            modelBuilder.Entity("WildBerriesAnalyzer.Domain.Models.DataBase.VkLinkCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("character varying(16)")
+                        .HasMaxLength(16);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasName("IX_VkLinkCodes_Code");
+
+                    b.HasIndex("UserId")
+                        .HasName("IX_VkLinkCodes_UserId");
+
+                    b.ToTable("VkLinkCodes");
                 });
 
             modelBuilder.Entity("WildBerriesAnalyzer.Domain.Models.DataBase.WbActualDiscont", b =>
@@ -141,6 +225,7 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -286,6 +371,7 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
 
                     b.Property<string>("Brand")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int?>("CategoryId")
@@ -301,12 +387,15 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("ImageUrl")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Link")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<double>("Rating")
@@ -379,6 +468,30 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("WildBerriesAnalyzer.Domain.Models.DataBase.DiscontNotification", b =>
+                {
+                    b.HasOne("WildBerriesAnalyzer.Domain.Models.DataBase.WbProduct", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WildBerriesAnalyzer.Domain.Models.DataBase.WbUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WildBerriesAnalyzer.Domain.Models.DataBase.VkLinkCode", b =>
+                {
+                    b.HasOne("WildBerriesAnalyzer.Domain.Models.DataBase.WbUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("WildBerriesAnalyzer.Domain.Models.DataBase.WbActualDiscont", b =>

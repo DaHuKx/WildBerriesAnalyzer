@@ -6,13 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Migrations\20240817115605_userVkId_added.cs" />
-    <Compile Remove="Migrations\20240817115605_userVkId_added.Designer.cs" />
-    <Compile Remove="Migrations\20260730104128_wbuser_updated.cs" />
-    <Compile Remove="Migrations\20260730104128_wbuser_updated.Designer.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.1.32" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="3.1.32" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="3.1.32">
