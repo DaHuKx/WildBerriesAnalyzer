@@ -151,6 +151,20 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             return LoadAsync();
         }
 
+        /// <summary>
+        /// После share из WB сразу открываем вкладку «Моя корзина».
+        /// </summary>
+        public void ShowOwnBagSection()
+        {
+            var ownBag = FilterTypes.FirstOrDefault(x => x.Type == ProductsFilterType.OwnBag);
+            if (ownBag is null)
+            {
+                return;
+            }
+
+            SelectedFilterType = ownBag;
+        }
+
         public string Title => "Настройки фильтров";
 
         public string Subtitle => "Настройте условия поиска подходящих скидок";

@@ -2,6 +2,7 @@ using Prism.Commands;
 using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
@@ -16,6 +17,7 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
         private readonly IAuthSessionService _authSessionService;
         private readonly IVkIdLoginService _vkIdLoginService;
         private readonly INavigationService _navigationService;
+        private readonly IPendingShareStore _pendingShareStore;
 
         private string _errorMessage = string.Empty;
         private string _statusMessage = string.Empty;
@@ -29,12 +31,14 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             IAuthClient authClient,
             IAuthSessionService authSessionService,
             IVkIdLoginService vkIdLoginService,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IPendingShareStore pendingShareStore)
         {
             _authClient = authClient;
             _authSessionService = authSessionService;
             _vkIdLoginService = vkIdLoginService;
             _navigationService = navigationService;
+            _pendingShareStore = pendingShareStore;
 
             LoginWithVkCommand = new DelegateCommand(async () => await LoginWithVkAsync(), () => !IsBusy && IsVkLoginAvailable)
                 .ObservesProperty(() => IsBusy)
@@ -97,6 +101,11 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
         public void OnNavigatedTo(INavigationParameters parameters)
         {
             _navigatedAway = false;
+            if (_pendingShareStore.HasPending)
+            {
+                StatusMessage = "После входа товар из Wildberries добавится в корзину.";
+            }
+
             _ = BootstrapAsync();
         }
 
@@ -107,7 +116,9 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
             // 1) Быстрый auto-login по сохранённой сессии (в фоне, с таймаутом).
             if (_authSessionService.IsAuthenticated)
             {
-                StatusMessage = "Проверка сессии...";
+                StatusMessage = _pendingShareStore.HasPending
+                    ? "Вход… добавляем товар в корзину."
+                    : "Проверка сессии...";
                 var restored = await RestoreSessionInBackgroundAsync();
                 if (version != _bootstrapVersion || _navigatedAway)
                 {
@@ -121,7 +132,9 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
                     return;
                 }
 
-                StatusMessage = string.Empty;
+                StatusMessage = _pendingShareStore.HasPending
+                    ? "После входа товар из Wildberries добавится в корзину."
+                    : string.Empty;
             }
 
             // 2) Конфиг VK ID — тоже не блокирует UI.

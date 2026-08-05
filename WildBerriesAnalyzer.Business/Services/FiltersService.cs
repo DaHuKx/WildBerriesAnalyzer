@@ -108,13 +108,45 @@ namespace WildBerriesAnalyzer.Business.Services
                 throw new ArgumentException(details);
             }
 
-            var products = await _wildBerriesService.GetProductsForIdsAsync(validIds);
-            if (products.Count == 0)
+            var marketIds = validIds
+                .Select(id => long.Parse(id, System.Globalization.CultureInfo.InvariantCulture))
+                .ToList();
+
+            // Сначала БД — share уже известных товаров не зависит от доступности WB.
+            var dbProducts = await _productsRepository.GetByMarketIdsAsync(marketIds);
+            var knownIds = dbProducts.Select(p => p.IdInMarket).ToHashSet();
+            var missingIds = validIds
+                .Where(id => !knownIds.Contains(long.Parse(id, System.Globalization.CultureInfo.InvariantCulture)))
+                .ToList();
+
+            if (missingIds.Count > 0)
+            {
+                try
+                {
+                    var fromWb = await _wildBerriesService.GetProductsForIdsAsync(missingIds);
+                    if (fromWb.Count > 0)
+                    {
+                        var saved = await _productsRepository.GetOrAddProducts(fromWb);
+                        dbProducts.AddRange(saved.Where(p => dbProducts.All(x => x.Id != p.Id)));
+                    }
+                }
+                catch (HttpRequestException) when (dbProducts.Count > 0)
+                {
+                    // Часть артикулов уже в каталоге — добавим их; остальные пропустим.
+                }
+                catch (HttpRequestException ex)
+                {
+                    throw new InvalidOperationException(
+                        "Сервер не может подключиться к Wildberries. Повторите позже или проверьте DNS/IPv6 на VDS.",
+                        ex);
+                }
+            }
+
+            if (dbProducts.Count == 0)
             {
                 throw new InvalidOperationException("Не удалось получить товары с WildBerries.");
             }
 
-            var dbProducts = await _productsRepository.GetOrAddProducts(products);
             var addedProducts = await _filtersRepository.AddProductsToUserBag(userId, dbProducts);
             var bagProducts = await _productsRepository.GetUserBagProductsAsync(userId);
 

@@ -57,6 +57,19 @@ namespace WildBerriesAnalyzer.Data.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<WbProduct>> GetByMarketIdsAsync(IEnumerable<long> marketIds)
+        {
+            var ids = marketIds.Distinct().ToList();
+            if (ids.Count == 0)
+            {
+                return new List<WbProduct>();
+            }
+
+            return await Context.Products
+                .Where(product => ids.Contains(product.IdInMarket))
+                .ToListAsync();
+        }
+
         public async Task<List<WbProduct>> GetOrAddProducts(List<WbProduct> products)
         {
             var ids = products.Select(p => p.IdInMarket);

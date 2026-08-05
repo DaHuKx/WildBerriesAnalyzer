@@ -111,6 +111,11 @@ namespace WildBerriesAnalyzer.Server.Controllers
             {
                 return BadRequest(ex.Message);
             }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    $"Wildberries недоступен с сервера: {ex.Message}");
+            }
         }
 
         /// <summary>

@@ -78,6 +78,8 @@ namespace WildBerriesAnalyzer.Mobile
             containerRegistry.RegisterSingleton<IVkIdLoginService, VkIdLoginService>();
             containerRegistry.RegisterSingleton<IAppThemeService, AppThemeService>();
             containerRegistry.RegisterSingleton<IProductImageCache, ProductImageCache>();
+            containerRegistry.RegisterInstance<IPendingShareStore>(PendingShareStore.Instance);
+            containerRegistry.RegisterSingleton<IWbShareToBagService, WbShareToBagService>();
         }
 
         private static void ConfigureModuleCatalog(IModuleCatalog moduleCatalog)

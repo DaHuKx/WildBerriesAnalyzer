@@ -12,6 +12,7 @@ namespace WildBerriesAnalyzer.Data.Repositories.Interfaces
         Task<IEnumerable<WbProduct>> GetProductsWithPricesAsync();
         Task<IEnumerable<WbProduct>> GetRandomProductsAsync(int count);
         Task<List<WbProduct>> GetUserBagProductsAsync(int userId);
+        Task<List<WbProduct>> GetByMarketIdsAsync(IEnumerable<long> marketIds);
         Task<List<WbProduct>> GetOrAddProducts(List<WbProduct> products);
     }
 }

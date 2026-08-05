@@ -41,38 +41,41 @@
                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                FontSize="13" />
 
-                        <Grid ColumnDefinitions="*,*,*"
-                              ColumnSpacing="8">
+                        <VerticalStackLayout Spacing="8">
                             <Button Text="Светлая"
                                     Command="{Binding SetThemeCommand}"
                                     CommandParameter="Light"
                                     BackgroundColor="{Binding LightThemeButtonBackground}"
                                     TextColor="{Binding LightThemeButtonTextColor}"
                                     FontAttributes="Bold"
-                                    HeightRequest="42"
+                                    HeightRequest="44"
                                     CornerRadius="10"
-                                    FontSize="13" />
-                            <Button Grid.Column="1"
-                                    Text="Тёмная"
+                                    FontSize="15"
+                                    Padding="12,0"
+                                    HorizontalOptions="Fill" />
+                            <Button Text="Тёмная"
                                     Command="{Binding SetThemeCommand}"
                                     CommandParameter="Dark"
                                     BackgroundColor="{Binding DarkThemeButtonBackground}"
                                     TextColor="{Binding DarkThemeButtonTextColor}"
                                     FontAttributes="Bold"
-                                    HeightRequest="42"
+                                    HeightRequest="44"
                                     CornerRadius="10"
-                                    FontSize="13" />
-                            <Button Grid.Column="2"
-                                    Text="Система"
+                                    FontSize="15"
+                                    Padding="12,0"
+                                    HorizontalOptions="Fill" />
+                            <Button Text="Система"
                                     Command="{Binding SetThemeCommand}"
                                     CommandParameter="System"
                                     BackgroundColor="{Binding SystemThemeButtonBackground}"
                                     TextColor="{Binding SystemThemeButtonTextColor}"
                                     FontAttributes="Bold"
-                                    HeightRequest="42"
+                                    HeightRequest="44"
                                     CornerRadius="10"
-                                    FontSize="13" />
-                        </Grid>
+                                    FontSize="15"
+                                    Padding="12,0"
+                                    HorizontalOptions="Fill" />
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
 

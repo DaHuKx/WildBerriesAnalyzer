@@ -3,6 +3,7 @@ using Prism.Ioc;
 using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Settings.ViewModels;
 using WildBerriesAnalyzer.Modules.Settings.Views;
 using WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels;
@@ -20,14 +21,20 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
     public class MainWindowPageViewModel : BindableBase, INavigatedAware
     {
         private readonly IContainerProvider _container;
+        private readonly IWbShareToBagService _shareToBagService;
 
         private bool _isMenuOpen;
         private string _currentSectionTitle = "Главное меню";
         private View? _currentContent;
+        private int _shareProcessing;
+        private bool _isActive;
 
-        public MainWindowPageViewModel(IContainerProvider container)
+        public MainWindowPageViewModel(
+            IContainerProvider container,
+            IWbShareToBagService shareToBagService)
         {
             _container = container;
+            _shareToBagService = shareToBagService;
 
             ToggleMenuCommand = new DelegateCommand(() => IsMenuOpen = !IsMenuOpen);
             CloseMenuCommand = new DelegateCommand(() => IsMenuOpen = false);
@@ -63,11 +70,124 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
 
         public void OnNavigatedTo(INavigationParameters parameters)
         {
-            Navigate(NavigationNames.Home);
+            _isActive = true;
+            _shareToBagService.PendingShareAvailable -= OnPendingShareAvailable;
+            _shareToBagService.PendingShareAvailable += OnPendingShareAvailable;
+            _ = ArriveAsync();
         }
 
         public void OnNavigatedFrom(INavigationParameters parameters)
         {
+            _isActive = false;
+            _shareToBagService.PendingShareAvailable -= OnPendingShareAvailable;
+        }
+
+        private void OnPendingShareAvailable(object? sender, EventArgs e)
+        {
+            if (!_isActive)
+            {
+                return;
+            }
+
+            MainThread.BeginInvokeOnMainThread(() => _ = HandleIncomingShareAsync());
+        }
+
+        private async Task ArriveAsync()
+        {
+            try
+            {
+                if (_shareToBagService.HasPending)
+                {
+                    await HandleIncomingShareAsync();
+                    return;
+                }
+
+                Navigate(NavigationNames.Home);
+            }
+            catch
+            {
+                Navigate(NavigationNames.Home);
+            }
+        }
+
+        private async Task HandleIncomingShareAsync()
+        {
+            if (!_isActive)
+            {
+                return;
+            }
+
+            if (Interlocked.Exchange(ref _shareProcessing, 1) == 1)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!_shareToBagService.HasPending)
+                {
+                    return;
+                }
+
+                var result = await _shareToBagService.TryProcessPendingAsync();
+                if (!_isActive)
+                {
+                    return;
+                }
+
+                if (result is null)
+                {
+                    // Ещё нет сессии — ждём логин; pending остаётся в store.
+                    if (CurrentContent is null)
+                    {
+                        Navigate(NavigationNames.Home);
+                    }
+
+                    return;
+                }
+
+                await NavigateAsync(NavigationNames.MyFilters);
+
+                if (CurrentContent?.BindingContext is not MyFiltersPageViewModel filtersVm)
+                {
+                    return;
+                }
+
+                await filtersVm.LoadIfNeededAsync();
+                filtersVm.ShowOwnBagSection();
+
+                if (result.IsError)
+                {
+                    filtersVm.ErrorMessage = result.Message;
+                }
+                else
+                {
+                    filtersVm.StatusMessage = result.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Share-to-bag failed: {ex}");
+                try
+                {
+                    if (_isActive && CurrentContent is null)
+                    {
+                        Navigate(NavigationNames.Home);
+                    }
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _shareProcessing, 0);
+                if (_isActive && _shareToBagService.HasPending)
+                {
+                    MainThread.BeginInvokeOnMainThread(() => _ = HandleIncomingShareAsync());
+                }
+            }
         }
 
         private void Navigate(string? navigationName)

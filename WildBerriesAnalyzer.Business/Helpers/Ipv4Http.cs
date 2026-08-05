@@ -39,22 +39,27 @@ namespace WildBerriesAnalyzer.Business.Helpers
                 throw new HttpRequestException($"DNS failed for {host}: {ex.Message}", ex);
             }
 
-            var ordered = addresses
-                .OrderBy(a => a.AddressFamily == AddressFamily.InterNetwork ? 0 : 1)
+            // Только IPv4: при disable_ipv6 в Docker connect на AAAA даёт
+            // SocketException 99 «Cannot assign requested address».
+            var ipv4 = addresses
+                .Where(a => a.AddressFamily == AddressFamily.InterNetwork)
+                .Distinct()
                 .ToArray();
 
-            if (ordered.Length == 0)
+            if (ipv4.Length == 0)
             {
-                throw new HttpRequestException($"No IP addresses for {host}");
+                throw new HttpRequestException(
+                    $"No IPv4 addresses for {host} (AAAA-only / broken DNS). " +
+                    "Проверьте DNS контейнера и scripts/fix-vds-dns.sh.");
             }
 
             Exception? lastError = null;
-            foreach (var address in ordered)
+            foreach (var address in ipv4)
             {
                 Socket? socket = null;
                 try
                 {
-                    socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
                     {
                         NoDelay = true
                     };
@@ -69,7 +74,7 @@ namespace WildBerriesAnalyzer.Business.Helpers
             }
 
             throw new HttpRequestException(
-                $"Unable to connect to {host}:{port}",
+                $"Unable to connect to {host}:{port} via IPv4",
                 lastError);
         }
     }
