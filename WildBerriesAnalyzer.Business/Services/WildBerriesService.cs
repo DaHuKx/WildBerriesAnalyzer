@@ -185,16 +185,14 @@ namespace WildBerriesAnalyzer.Business.Services
             }
 
             shareId = shareId.Trim();
+            // Публичный gateway: без Bearer. data_v2?shareId= только обогащает items из тела запроса.
             var url =
-                $"https://www.wildberries.ru/__internal/basket-api/webapi/lk/basket/data_v2?shareId={Uri.EscapeDataString(shareId)}";
-
-            // Минимальное тело: полный payload корзины зрителя не нужен для чтения share.
-            const string bodyJson = """{"items":[],"currency":"RUB"}""";
+                $"https://wbx-api-gateway.wildberries.ru/share-basket/api/v1/basket/{Uri.EscapeDataString(shareId)}";
             var referer = $"https://www.wildberries.ru/lk/basket?shareId={Uri.EscapeDataString(shareId)}";
 
-            var responseBody = await SendAuthorizedPostAsync(url, bodyJson, referer);
-            var parsed = JsonConvert.DeserializeObject<WbBasketDataV2Response>(responseBody);
-            var items = parsed?.Value?.Data?.Basket?.BasketItems;
+            var responseBody = await SendPublicGetAsync(url, referer);
+            var parsed = JsonConvert.DeserializeObject<WbShareBasketResponse>(responseBody);
+            var items = parsed?.Items;
             if (items is null || items.Count == 0)
             {
                 throw new InvalidOperationException(
@@ -202,22 +200,52 @@ namespace WildBerriesAnalyzer.Business.Services
             }
 
             return items
-                .Select(i => i.Cod1S)
+                .Select(i => i.NmId)
                 .Where(id => id > 0)
                 .Distinct()
                 .Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture))
                 .ToList();
         }
 
+        private async Task<string> SendPublicGetAsync(string url, string? referer)
+        {
+            using var handler = Ipv4Http.CreateHandler();
+            using var client = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(60)
+            };
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.TryAddWithoutValidation("accept", "*/*");
+            request.Headers.TryAddWithoutValidation(
+                "accept-language",
+                "ru,en-US;q=0.9,en;q=0.8");
+            request.Headers.TryAddWithoutValidation("origin", "https://www.wildberries.ru");
+            request.Headers.TryAddWithoutValidation(
+                "referer",
+                string.IsNullOrWhiteSpace(referer)
+                    ? "https://www.wildberries.ru/"
+                    : referer);
+            request.Headers.TryAddWithoutValidation(
+                "user-agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36");
+            request.Headers.TryAddWithoutValidation("sec-fetch-dest", "empty");
+            request.Headers.TryAddWithoutValidation("sec-fetch-mode", "cors");
+            request.Headers.TryAddWithoutValidation("sec-fetch-site", "same-site");
+
+            using var response = await client.SendAsync(request);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new InvalidOperationException(
+                    "Общая корзина не найдена или ссылка устарела.");
+            }
+
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync();
+        }
+
         private async Task<string> SendAuthorizedGetAsync(string url) =>
             await SendAuthorizedAsync(HttpMethod.Get, url, content: null, referer: null);
-
-        private async Task<string> SendAuthorizedPostAsync(string url, string jsonBody, string? referer) =>
-            await SendAuthorizedAsync(
-                HttpMethod.Post,
-                url,
-                new StringContent(jsonBody, System.Text.Encoding.UTF8, "application/json"),
-                referer);
 
         private async Task<string> SendAuthorizedAsync(
             HttpMethod method,
