@@ -70,26 +70,43 @@ echo "==> Restart Docker"
 systemctl restart docker
 sleep 3
 
+probe_https() {
+  local url="$1"
+  # -sS: без прогресс-бара (иначе | head обрывает curl до HTTP-заголовков)
+  local code
+  code="$(curl -4 -sS -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 12 "$url" 2>/tmp/wba-curl-err || true)"
+  if [[ -n "$code" && "$code" != "000" ]]; then
+    echo "OK  $url → HTTP $code"
+  else
+    echo "FAIL $url → $(tr '\n' ' ' </tmp/wba-curl-err 2>/dev/null || echo timeout/unknown)"
+  fi
+}
+
 echo "==> Host probe"
 echo "--- getent ahostsv4 www.wildberries.ru"
 getent ahostsv4 www.wildberries.ru | head -n3 || true
-echo "--- curl -4 -I www.wildberries.ru"
-curl -4 -I --max-time 10 https://www.wildberries.ru/ 2>&1 | head -n3 || true
-echo "--- curl -4 -I api.vk.com"
-curl -4 -I --max-time 10 https://api.vk.com/ 2>&1 | head -n3 || true
+echo "--- /etc/resolv.conf"
+cat /etc/resolv.conf || true
+probe_https "https://www.wildberries.ru/"
+probe_https "https://api.vk.com/"
+probe_https "https://dns.google/resolve?name=www.wildberries.ru&type=A"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> Recreate app containers"
-docker compose up -d --force-recreate server bots
+echo "==> Recreate app containers (with rebuild — DoH in Ipv4Http)"
+docker compose up -d --build --force-recreate server bots
 
 echo "==> Container DNS probe (wba-server)"
-sleep 2
-docker exec wba-server getent ahostsv4 www.wildberries.ru | head -n3 || \
-  docker exec wba-server sh -c 'command -v getent >/dev/null || true; cat /etc/resolv.conf'
-docker exec wba-server sh -c 'curl -4 -I --max-time 10 https://www.wildberries.ru/ 2>&1 | head -n3' || \
-  docker exec wba-server sh -c 'echo "(curl missing in image — OK if app uses DoH fallback)"'
+sleep 3
+docker exec wba-server cat /etc/resolv.conf || true
+# В slim-образе curl/getent может не быть — это нормально.
+if docker exec wba-server sh -c 'command -v curl >/dev/null 2>&1'; then
+  docker exec wba-server sh -c 'curl -4 -sS -o /dev/null -w "WB HTTP %{http_code}\n" --connect-timeout 5 --max-time 12 https://www.wildberries.ru/' || true
+else
+  echo "(no curl in image — смотрите логи обновления цен / DoH в Ipv4Http)"
+fi
 
 echo "==> Done"
-echo "Если host curl всё ещё падает, но getent ок — перезалейте server с новым Ipv4Http (DoH fallback)."
+echo "Проверка: docker logs wba-server --tail 50"
+echo "Ожидаем отсутствие 'AAAA-only / broken DNS'."
