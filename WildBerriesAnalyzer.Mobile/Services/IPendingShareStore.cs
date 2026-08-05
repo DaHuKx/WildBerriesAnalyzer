@@ -24,6 +24,9 @@ namespace WildBerriesAnalyzer.Mobile.Services
 
         bool TryDequeue(out string? articleOrUrl, out string? errorMessage);
 
+        /// <summary>Ожидает обработки ссылка на общую корзину (shareId), а не карточку.</summary>
+        bool TryPeekIsBasketShare();
+
         event EventHandler? PendingChanged;
     }
 }

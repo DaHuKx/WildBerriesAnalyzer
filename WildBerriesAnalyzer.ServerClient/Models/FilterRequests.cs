@@ -23,6 +23,11 @@ namespace WildBerriesAnalyzer.ServerClient.Models
         public List<string> Articles { get; set; } = [];
     }
 
+    public class AddBagFromBasketShareRequest
+    {
+        public string ShareUrl { get; set; } = string.Empty;
+    }
+
     public class RemoveBagProductsRequest
     {
         public List<int> ProductIds { get; set; } = [];

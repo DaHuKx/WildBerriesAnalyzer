@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using WildBerriesAnalyzer.Business.Helpers;
+using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
@@ -682,8 +684,23 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     return;
                 }
 
-                var rawIds = NewArticleText.Split([' ', '\n', '\t', ',', ';'], StringSplitOptions.RemoveEmptyEntries);
-                var result = await _filtersService.AddProductsToBagAsync(user.Id, rawIds);
+                var input = NewArticleText?.Trim() ?? string.Empty;
+                if (input.Length == 0)
+                {
+                    ErrorMessage = "Укажите артикулы или ссылку на общую корзину WB.";
+                    return;
+                }
+
+                AddBagProductsResult result;
+                if (ProductHelper.TryExtractBasketShareId(input, out _))
+                {
+                    result = await _filtersService.AddProductsToBagFromBasketShareAsync(user.Id, input);
+                }
+                else
+                {
+                    var rawIds = input.Split([' ', '\n', '\t', ',', ';'], StringSplitOptions.RemoveEmptyEntries);
+                    result = await _filtersService.AddProductsToBagAsync(user.Id, rawIds);
+                }
 
                 NewArticleText = string.Empty;
                 ApplyBagProducts(result.BagProducts);

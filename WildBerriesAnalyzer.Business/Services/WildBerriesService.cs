@@ -177,7 +177,53 @@ namespace WildBerriesAnalyzer.Business.Services
             return InitializeProductsFromResponse(desserializedWbResponse);
         }
 
-        private async Task<string> SendAuthorizedGetAsync(string url)
+        public async Task<List<string>> GetArticlesFromBasketShareAsync(string shareId)
+        {
+            if (string.IsNullOrWhiteSpace(shareId))
+            {
+                throw new ArgumentException("shareId пустой.", nameof(shareId));
+            }
+
+            shareId = shareId.Trim();
+            var url =
+                $"https://www.wildberries.ru/__internal/basket-api/webapi/lk/basket/data_v2?shareId={Uri.EscapeDataString(shareId)}";
+
+            // Минимальное тело: полный payload корзины зрителя не нужен для чтения share.
+            const string bodyJson = """{"items":[],"currency":"RUB"}""";
+            var referer = $"https://www.wildberries.ru/lk/basket?shareId={Uri.EscapeDataString(shareId)}";
+
+            var responseBody = await SendAuthorizedPostAsync(url, bodyJson, referer);
+            var parsed = JsonConvert.DeserializeObject<WbBasketDataV2Response>(responseBody);
+            var items = parsed?.Value?.Data?.Basket?.BasketItems;
+            if (items is null || items.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "Общая корзина пуста или ссылка недействительна.");
+            }
+
+            return items
+                .Select(i => i.Cod1S)
+                .Where(id => id > 0)
+                .Distinct()
+                .Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                .ToList();
+        }
+
+        private async Task<string> SendAuthorizedGetAsync(string url) =>
+            await SendAuthorizedAsync(HttpMethod.Get, url, content: null, referer: null);
+
+        private async Task<string> SendAuthorizedPostAsync(string url, string jsonBody, string? referer) =>
+            await SendAuthorizedAsync(
+                HttpMethod.Post,
+                url,
+                new StringContent(jsonBody, System.Text.Encoding.UTF8, "application/json"),
+                referer);
+
+        private async Task<string> SendAuthorizedAsync(
+            HttpMethod method,
+            string url,
+            HttpContent? content,
+            string? referer)
         {
             var auth = _authStore.GetSnapshot();
             if (string.IsNullOrWhiteSpace(auth.AccessToken))
@@ -191,8 +237,11 @@ namespace WildBerriesAnalyzer.Business.Services
             {
                 Timeout = TimeSpan.FromSeconds(60)
             };
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            ApplyRequestHeaders(request, auth);
+            using var request = new HttpRequestMessage(method, url)
+            {
+                Content = content
+            };
+            ApplyRequestHeaders(request, auth, referer);
 
             using var response = await client.SendAsync(request);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
@@ -207,7 +256,10 @@ namespace WildBerriesAnalyzer.Business.Services
             return await response.Content.ReadAsStringAsync();
         }
 
-        private static void ApplyRequestHeaders(HttpRequestMessage request, WbScrapingAuthState auth)
+        private static void ApplyRequestHeaders(
+            HttpRequestMessage request,
+            WbScrapingAuthState auth,
+            string? referer = null)
         {
             request.Headers.TryAddWithoutValidation("accept", "*/*");
             request.Headers.TryAddWithoutValidation(
@@ -216,9 +268,10 @@ namespace WildBerriesAnalyzer.Business.Services
             request.Headers.TryAddWithoutValidation("authorization", $"Bearer {auth.AccessToken}");
             request.Headers.TryAddWithoutValidation("deviceid", auth.DeviceId);
             request.Headers.TryAddWithoutValidation("priority", "u=1, i");
+            request.Headers.TryAddWithoutValidation("origin", "https://www.wildberries.ru");
             request.Headers.TryAddWithoutValidation(
                 "referer",
-                "https://www.wildberries.ru/");
+                string.IsNullOrWhiteSpace(referer) ? "https://www.wildberries.ru/" : referer);
             request.Headers.TryAddWithoutValidation("sec-ch-ua", auth.SecChUa);
             request.Headers.TryAddWithoutValidation("sec-ch-ua-mobile", "?0");
             request.Headers.TryAddWithoutValidation("sec-ch-ua-platform", "\"Windows\"");

@@ -12,6 +12,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
         private readonly object _gate = new();
         private string? _articleOrUrl;
         private string? _errorMessage;
+        private bool _isBasketShare;
 
         public bool HasPending
         {
@@ -35,16 +36,24 @@ namespace WildBerriesAnalyzer.Mobile.Services
 
             lock (_gate)
             {
-                if (ProductHelper.TryExtractArticleInput(sharedText, out var articleOrUrl))
+                if (ProductHelper.TryExtractBasketShareId(sharedText, out _))
+                {
+                    _articleOrUrl = sharedText.Trim();
+                    _isBasketShare = true;
+                    _errorMessage = null;
+                }
+                else if (ProductHelper.TryExtractArticleInput(sharedText, out var articleOrUrl))
                 {
                     _articleOrUrl = articleOrUrl;
+                    _isBasketShare = false;
                     _errorMessage = null;
                 }
                 else
                 {
                     _articleOrUrl = null;
+                    _isBasketShare = false;
                     _errorMessage =
-                        "Не удалось распознать товар Wildberries. Откройте карточку товара и поделитесь ссылкой.";
+                        "Не удалось распознать товар или корзину Wildberries. Поделитесь ссылкой на карточку или basket?shareId=…";
                 }
             }
 
@@ -87,7 +96,16 @@ namespace WildBerriesAnalyzer.Mobile.Services
 
                 _articleOrUrl = null;
                 _errorMessage = null;
+                _isBasketShare = false;
                 return true;
+            }
+        }
+
+        public bool TryPeekIsBasketShare()
+        {
+            lock (_gate)
+            {
+                return _isBasketShare && _articleOrUrl is not null;
             }
         }
     }

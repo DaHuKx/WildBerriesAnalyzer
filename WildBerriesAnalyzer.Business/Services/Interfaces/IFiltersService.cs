@@ -16,6 +16,11 @@ namespace WildBerriesAnalyzer.Business.Services.Interfaces
 
         Task<AddBagProductsResult> AddProductsToBagAsync(int userId, IEnumerable<string> articleInputs);
 
+        /// <summary>
+        /// Добавить в корзину товары из общей корзины WB (ссылка с shareId).
+        /// </summary>
+        Task<AddBagProductsResult> AddProductsToBagFromBasketShareAsync(int userId, string shareUrlOrId);
+
         Task RemoveProductsFromBagAsync(int userId, IEnumerable<int> productIds);
 
         Task<List<WbFilterCategory>> GetFilterCategoriesAsync(int userId);

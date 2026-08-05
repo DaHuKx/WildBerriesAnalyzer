@@ -76,6 +76,22 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
             return (await response.Content.ReadFromJsonAsync<AddBagProductsResult>(WbServerJson.Options).ConfigureAwait(false))!;
         }
 
+        public async Task<AddBagProductsResult> AddProductsToBagFromBasketShareAsync(int userId, string shareUrlOrId)
+        {
+            var request = new AddBagFromBasketShareRequest
+            {
+                ShareUrl = shareUrlOrId ?? string.Empty
+            };
+
+            using var response = await _httpClient.PostAsJsonAsync(
+                    $"api/filters/{userId}/bag/from-share",
+                    request,
+                    WbServerJson.Options)
+                .ConfigureAwait(false);
+            await WbServerJson.EnsureSuccessOrThrowAsync(response).ConfigureAwait(false);
+            return (await response.Content.ReadFromJsonAsync<AddBagProductsResult>(WbServerJson.Options).ConfigureAwait(false))!;
+        }
+
         public async Task RemoveProductsFromBagAsync(int userId, IEnumerable<int> productIds)
         {
             ArgumentNullException.ThrowIfNull(productIds);

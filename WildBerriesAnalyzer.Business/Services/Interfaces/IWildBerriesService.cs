@@ -27,5 +27,10 @@ namespace WildBerriesAnalyzer.Business.Services.Interfaces
         /// <param name="ids">Список артикулов</param>
         /// <returns></returns>
         Task<List<WbProduct>> GetProductsForIdsAsync(IEnumerable<string> ids);
+
+        /// <summary>
+        /// Артикулы (nm / cod1S) из общей корзины WB по shareId.
+        /// </summary>
+        Task<List<string>> GetArticlesFromBasketShareAsync(string shareId);
     }
 }

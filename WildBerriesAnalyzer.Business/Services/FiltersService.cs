@@ -157,6 +157,52 @@ namespace WildBerriesAnalyzer.Business.Services
             };
         }
 
+        public async Task<AddBagProductsResult> AddProductsToBagFromBasketShareAsync(
+            int userId,
+            string shareUrlOrId)
+        {
+            if (string.IsNullOrWhiteSpace(shareUrlOrId))
+            {
+                throw new ArgumentException("Укажите ссылку на общую корзину Wildberries.");
+            }
+
+            if (!ProductHelper.TryExtractBasketShareId(shareUrlOrId, out var shareId))
+            {
+                // Допускаем «голый» shareId без URL.
+                var trimmed = shareUrlOrId.Trim();
+                if (trimmed.Contains('/') || trimmed.Contains('?') || trimmed.Length < 4)
+                {
+                    throw new ArgumentException(
+                        "Некорректная ссылка. Ожидается вида https://wildberries.ru/basket?shareId=…");
+                }
+
+                shareId = trimmed;
+            }
+
+            List<string> articles;
+            try
+            {
+                articles = await _wildBerriesService.GetArticlesFromBasketShareAsync(shareId);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw;
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new InvalidOperationException(
+                    "Сервер не может подключиться к Wildberries. Повторите позже или проверьте DNS/IPv6 на VDS.",
+                    ex);
+            }
+
+            if (articles.Count == 0)
+            {
+                throw new InvalidOperationException("В общей корзине нет товаров.");
+            }
+
+            return await AddProductsToBagAsync(userId, articles);
+        }
+
         public async Task RemoveProductsFromBagAsync(int userId, IEnumerable<int> productIds)
         {
             await _filtersRepository.RemoveProductsFromUserBagAsync(userId, productIds);

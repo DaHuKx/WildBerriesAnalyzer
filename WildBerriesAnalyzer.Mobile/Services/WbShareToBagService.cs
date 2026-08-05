@@ -33,7 +33,6 @@ namespace WildBerriesAnalyzer.Mobile.Services
                 return null;
             }
 
-            // Ошибку разбора можно показать без авторизации.
             if (!string.IsNullOrWhiteSpace(parseError))
             {
                 _pendingShareStore.TryDequeue(out _, out _);
@@ -50,6 +49,8 @@ namespace WildBerriesAnalyzer.Mobile.Services
                 return null;
             }
 
+            var isBasketShare = _pendingShareStore.TryPeekIsBasketShare();
+
             if (!_pendingShareStore.TryDequeue(out articleOrUrl, out _) || string.IsNullOrWhiteSpace(articleOrUrl))
             {
                 return null;
@@ -57,6 +58,21 @@ namespace WildBerriesAnalyzer.Mobile.Services
 
             try
             {
+                if (isBasketShare || ProductHelper.TryExtractBasketShareId(articleOrUrl, out _))
+                {
+                    var bagResult = await _filtersService.AddProductsToBagFromBasketShareAsync(
+                        user.Id,
+                        articleOrUrl);
+
+                    return new WbShareProcessResult
+                    {
+                        Message = bagResult.AddedProducts.Count > 0
+                            ? $"Из общей корзины добавлено: {bagResult.AddedProducts.Count}."
+                            : "Товары из общей корзины уже есть в вашей корзине.",
+                        IsError = false
+                    };
+                }
+
                 var result = await _filtersService.AddProductsToBagAsync(user.Id, [articleOrUrl]);
                 var article = ProductHelper.ExtractCleanArticle(articleOrUrl);
                 var name = result.AddedProducts.FirstOrDefault()?.Name
@@ -97,7 +113,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
             {
                 return new WbShareProcessResult
                 {
-                    Message = $"Не удалось добавить товар: {ex.Message}",
+                    Message = $"Не удалось добавить: {ex.Message}",
                     IsError = true
                 };
             }

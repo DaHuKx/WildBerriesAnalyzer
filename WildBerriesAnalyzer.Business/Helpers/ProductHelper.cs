@@ -12,6 +12,32 @@ namespace WildBerriesAnalyzer.Business.Helpers
             @"(?:www\.)?wildberries\.ru/catalog/(\d+)(?:/[^\s]*)?",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        private static readonly Regex BasketShareIdRegex = new(
+            @"(?:https?://)?(?:www\.)?wildberries\.ru/(?:lk/)?basket\?(?:[^#\s]*&)?shareId=([A-Za-z0-9_-]+)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// Извлекает shareId из ссылки на общую корзину WB.
+        /// Пример: https://wildberries.ru/basket?shareId=6byrsfmed6
+        /// </summary>
+        public static bool TryExtractBasketShareId(string? text, out string shareId)
+        {
+            shareId = string.Empty;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            var match = BasketShareIdRegex.Match(text.Trim());
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            shareId = match.Groups[1].Value;
+            return shareId.Length > 0;
+        }
+
         public static string ExtractCleanArticle(string input)
         {
             if (string.IsNullOrWhiteSpace(input))

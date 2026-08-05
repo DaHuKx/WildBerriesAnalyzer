@@ -119,6 +119,43 @@ namespace WildBerriesAnalyzer.Server.Controllers
         }
 
         /// <summary>
+        /// Добавить товары из общей корзины WB (ссылка ?shareId=…).
+        /// </summary>
+        [HttpPost("{userId:int}/bag/from-share")]
+        [ProducesResponseType(typeof(AddBagProductsResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+        public async Task<ActionResult<AddBagProductsResult>> AddProductsToBagFromShare(
+            int userId,
+            [FromBody] AddBagFromBasketShareRequest request)
+        {
+            try
+            {
+                var result = await _filtersService.AddProductsToBagFromBasketShareAsync(
+                    userId,
+                    request?.ShareUrl ?? string.Empty);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, ex.Message);
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    $"Wildberries недоступен с сервера: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Удалить товары из корзины.
         /// </summary>
         [HttpDelete("{userId:int}/bag")]
