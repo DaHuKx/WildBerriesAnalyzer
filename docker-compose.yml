@@ -46,6 +46,8 @@ services:
       # Миграции при старте server (отдельный db-migrate на слабом VDS падал с exit 139).
       APPLY_DB_MIGRATIONS: ${APPLY_DB_MIGRATIONS:-true}
       DOTNET_EnableDiagnostics: "0"
+      # Не ходим в IPv6: на RUVDS AAAA часто ломает сокеты / DNS.
+      DOTNET_SYSTEM_NET_DISABLEIPV6: "1"
       ConnectionStrings__DefaultConnection: >-
         Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env}
@@ -88,6 +90,7 @@ services:
     environment:
       DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       DOTNET_EnableDiagnostics: "0"
+      DOTNET_SYSTEM_NET_DISABLEIPV6: "1"
       ConnectionStrings__DefaultConnection: >-
         Host=postgresdb;Port=5432;Database=${POSTGRES_DB:-WildBerriesAnalyzerDb};Username=${POSTGRES_USER:-WbAdmin};Password=${POSTGRES_PASSWORD}
       VK_BOT_ACCESS_TOKEN: ${VK_BOT_ACCESS_TOKEN:?Set VK_BOT_ACCESS_TOKEN in .env}
