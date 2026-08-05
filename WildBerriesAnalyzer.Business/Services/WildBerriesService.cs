@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Sockets;
 using System.Web;
 using Newtonsoft.Json;
 using WildBerriesAnalyzer.Business.Helpers;
@@ -142,9 +143,13 @@ namespace WildBerriesAnalyzer.Business.Services
             {
                 return ParseProductsPricesResult.Failed(ex.Message, isAuthFailure: true);
             }
+            catch (Exception ex) when (IsNetworkFailure(ex))
+            {
+                return ParseProductsPricesResult.Failed(ex.Message, isNetworkFailure: true);
+            }
             catch (Exception ex)
             {
-                return ParseProductsPricesResult.Failed(ex.Message, isAuthFailure: false);
+                return ParseProductsPricesResult.Failed(ex.Message);
             }
         }
 
@@ -181,12 +186,11 @@ namespace WildBerriesAnalyzer.Business.Services
                     "WB AccessToken пустой. Обновите вручную (oauth-bff-token.json / ConsoleTest / WbScrapingAuth).");
             }
 
-            using var handler = new HttpClientHandler
+            using var handler = Ipv4Http.CreateHandler();
+            using var client = new HttpClient(handler)
             {
-                AutomaticDecompression = DecompressionMethods.All,
-                UseCookies = false
+                Timeout = TimeSpan.FromSeconds(60)
             };
-            using var client = new HttpClient(handler);
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             ApplyRequestHeaders(request, auth);
 
@@ -260,10 +264,8 @@ namespace WildBerriesAnalyzer.Business.Services
                             },
                         PriceFromInit = new WbPrice()
                         {
-                            CheckTime = DateTime.Now.ToUniversalTime(),
-                            Price = product.sizes?.FirstOrDefault(p => p.price != null)?.price.product != null
-                                ? (product.sizes.First(p => p.price != null).price.product / 100)
-                                : product.sizes?.FirstOrDefault(p => p.price != null)?.price?.basic ?? 0 / 100
+                            CheckTime = DateTime.UtcNow,
+                            Price = ExtractPriceRub(product)
                         }
                     });
                 }
@@ -274,6 +276,47 @@ namespace WildBerriesAnalyzer.Business.Services
             }
 
             return products;
+        }
+
+        private static bool IsNetworkFailure(Exception ex)
+        {
+            for (var current = ex; current is not null; current = current.InnerException)
+            {
+                if (current is HttpRequestException or SocketException or IOException)
+                {
+                    return true;
+                }
+
+                var message = current.Message;
+                if (message.Contains("Network is unreachable", StringComparison.OrdinalIgnoreCase) ||
+                    message.Contains("Name or service not known", StringComparison.OrdinalIgnoreCase) ||
+                    message.Contains("cannot assign requested address", StringComparison.OrdinalIgnoreCase) ||
+                    message.Contains("Connection refused", StringComparison.OrdinalIgnoreCase) ||
+                    message.Contains("No such host", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Цена в рублях из карточки WB (в API суммы в копейках).
+        /// </summary>
+        private static decimal ExtractPriceRub(Product product)
+        {
+            var sizeWithPrice = product.sizes?.FirstOrDefault(s => s.price is not null);
+            if (sizeWithPrice?.price is null)
+            {
+                return 0;
+            }
+
+            var kopecks = sizeWithPrice.price.product > 0
+                ? sizeWithPrice.price.product
+                : sizeWithPrice.price.basic;
+
+            return kopecks > 0 ? kopecks / 100m : 0;
         }
 
         /// <summary>

@@ -6,7 +6,7 @@ using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Mobile.Clients;
 using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Services;
-using WildBerriesAnalyzer.Modules.Account;
+using WildBerriesAnalyzer.Modules.Settings;
 using WildBerriesAnalyzer.Modules.ActualDiscounts;
 using WildBerriesAnalyzer.Modules.AddProducts;
 using WildBerriesAnalyzer.Modules.Auth;
@@ -67,13 +67,6 @@ namespace WildBerriesAnalyzer.Mobile
             var discontsClient = new DiscontsClient(discontsHttpClient);
             containerRegistry.RegisterInstance<IDiscontsClient>(discontsClient);
 
-            var accountHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
-            {
-                InnerHandler = CreateHttpMessageHandler()
-            });
-            var accountClient = new AccountClient(accountHttpClient);
-            containerRegistry.RegisterInstance<IAccountClient>(accountClient);
-
             var dashboardHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
             {
                 InnerHandler = CreateHttpMessageHandler()
@@ -95,7 +88,7 @@ namespace WildBerriesAnalyzer.Mobile
             moduleCatalog.AddModule<AddProductsModule>();
             moduleCatalog.AddModule<ActualDiscountsModule>();
             moduleCatalog.AddModule<MyFiltersModule>();
-            moduleCatalog.AddModule<AccountModule>();
+            moduleCatalog.AddModule<SettingsModule>();
         }
 
         /// <summary>

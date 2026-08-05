@@ -46,24 +46,51 @@ namespace WildBerriesAnalyzer.Data.Repositories
 
         public async Task AddPricesFromProductsAsync(IEnumerable<WbProduct> products)
         {
-            var productsIds = products.Select(p => p.IdInMarket);
+            var productsList = products?.ToList() ?? [];
+            if (productsList.Count == 0)
+            {
+                return;
+            }
+
+            var productsIds = productsList.Select(p => p.IdInMarket);
 
             var dbProducts = await Context.Products.Where(prod => productsIds.Contains(prod.IdInMarket))
                                                    .ToListAsync();
 
             var prices = new List<WbPrice>();
 
-            foreach (var product in products)
+            foreach (var product in productsList)
             {
-                var currentProduct = dbProducts.FirstOrDefault(p => p.IdInMarket == product.IdInMarket);
+                if (product.PriceFromInit is null || product.PriceFromInit.Price <= 0)
+                {
+                    continue;
+                }
 
+                var currentProduct = dbProducts.FirstOrDefault(p => p.IdInMarket == product.IdInMarket);
                 if (currentProduct is null)
                 {
                     continue;
                 }
 
-                product.PriceFromInit.ProductId = currentProduct.Id;
-                prices.Add(product.PriceFromInit);
+                var checkTime = product.PriceFromInit.CheckTime;
+                if (checkTime == default)
+                {
+                    checkTime = DateTime.UtcNow;
+                }
+
+                prices.Add(new WbPrice
+                {
+                    ProductId = currentProduct.Id,
+                    Price = product.PriceFromInit.Price,
+                    CheckTime = checkTime.Kind == DateTimeKind.Unspecified
+                        ? DateTime.SpecifyKind(checkTime, DateTimeKind.Utc)
+                        : checkTime.ToUniversalTime()
+                });
+            }
+
+            if (prices.Count == 0)
+            {
+                return;
             }
 
             await Context.PricesHistory.AddRangeAsync(prices);

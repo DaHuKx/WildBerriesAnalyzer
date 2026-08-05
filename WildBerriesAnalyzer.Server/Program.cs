@@ -7,6 +7,7 @@ using Microsoft.OpenApi;
 using Microsoft.Extensions.Options;
 using Serilog;
 using WildBerriesAnalyzer.Business;
+using WildBerriesAnalyzer.Business.Helpers;
 using WildBerriesAnalyzer.Business.Options;
 using WildBerriesAnalyzer.Business.Services;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
@@ -20,6 +21,7 @@ using WildBerriesAnalyzer.Server.Middleware;
 using WildBerriesAnalyzer.Server.Options;
 using WildBerriesAnalyzer.Server.Services;
 using WildBerriesAnalyzer.Server.Services.Auth;
+using WildBerriesAnalyzer.Server.Services.PriceUpdate;
 using WildBerriesAnalyzer.Server.Services.VkBot;
 using WildBerriesAnalyzer.Server.Services.VkId;
 
@@ -150,6 +152,7 @@ try
         return new FileWbScrapingAuthStore(options);
     });
     builder.Services.AddSingleton<IWbScrapingAuthUpdater, WbScrapingAuthUpdater>();
+    builder.Services.AddSingleton<IPriceUpdateScheduler, PriceUpdateScheduler>();
     builder.Services.AddScoped<IWildBerriesService, WildBerriesService>();
     builder.Services.AddScoped<IDiscontsService, DiscontsService>();
     builder.Services.AddScoped<IActualDiscontsService, ActualDiscontsService>();
@@ -157,8 +160,10 @@ try
     builder.Services.AddScoped<IProductsService, ProductsService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IAccountService, AccountService>();
-    builder.Services.AddHttpClient<IVkIdOAuthClient, VkIdOAuthClient>();
-    builder.Services.AddHttpClient<IVkCommunityMessenger, VkCommunityMessenger>();
+    builder.Services.AddHttpClient<IVkIdOAuthClient, VkIdOAuthClient>()
+        .ConfigurePrimaryHttpMessageHandler(() => Ipv4Http.CreateHandler(useCookies: false));
+    builder.Services.AddHttpClient<IVkCommunityMessenger, VkCommunityMessenger>()
+        .ConfigurePrimaryHttpMessageHandler(() => Ipv4Http.CreateHandler(useCookies: false));
     builder.Services.AddSingleton<IPendingRegistrationStore, PendingRegistrationStore>();
 
     builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();

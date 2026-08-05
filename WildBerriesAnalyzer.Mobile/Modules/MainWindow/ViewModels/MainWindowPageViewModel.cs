@@ -3,13 +3,12 @@ using Prism.Ioc;
 using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
-using WildBerriesAnalyzer.Modules.Account.ViewModels;
-using WildBerriesAnalyzer.Modules.Account.Views;
+using WildBerriesAnalyzer.Modules.Settings.ViewModels;
+using WildBerriesAnalyzer.Modules.Settings.Views;
 using WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels;
 using WildBerriesAnalyzer.Modules.ActualDiscounts.Views;
 using WildBerriesAnalyzer.Modules.AddProducts.ViewModels;
 using WildBerriesAnalyzer.Modules.AddProducts.Views;
-using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.Modules.MainWindow.Views;
 using WildBerriesAnalyzer.Modules.MyFilters.ViewModels;
 using WildBerriesAnalyzer.Modules.MyFilters.Views;
@@ -21,34 +20,19 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
     public class MainWindowPageViewModel : BindableBase, INavigatedAware
     {
         private readonly IContainerProvider _container;
-        private readonly IAuthSessionService _authSessionService;
 
         private bool _isMenuOpen;
         private string _currentSectionTitle = "Главное меню";
-        private string _welcomeText = string.Empty;
         private View? _currentContent;
 
-        public MainWindowPageViewModel(
-            IContainerProvider container,
-            IAuthSessionService authSessionService)
+        public MainWindowPageViewModel(IContainerProvider container)
         {
             _container = container;
-            _authSessionService = authSessionService;
-
-            WelcomeText = string.IsNullOrWhiteSpace(_authSessionService.Login)
-                ? "Пользователь"
-                : $"Логин: {_authSessionService.Login}";
 
             ToggleMenuCommand = new DelegateCommand(() => IsMenuOpen = !IsMenuOpen);
             CloseMenuCommand = new DelegateCommand(() => IsMenuOpen = false);
             NavigateCommand = new DelegateCommand<string>(Navigate);
             GoHomeCommand = new DelegateCommand(() => Navigate(NavigationNames.Home));
-        }
-
-        public string WelcomeText
-        {
-            get => _welcomeText;
-            set => SetProperty(ref _welcomeText, value);
         }
 
         public string CurrentSectionTitle
@@ -112,7 +96,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                 NavigationNames.AddProducts => "Добавление товаров",
                 NavigationNames.ActualDiscounts => "Актуальные скидки",
                 NavigationNames.MyFilters => "Мои фильтры",
-                NavigationNames.Account => "Аккаунт",
+                NavigationNames.Settings => "Настройки",
                 _ => CurrentSectionTitle
             };
 
@@ -123,7 +107,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                 NavigationNames.AddProducts => CreateContent<AddProductsPage, AddProductsPageViewModel>(),
                 NavigationNames.ActualDiscounts => CreateContent<ActualDiscountsPage, ActualDiscountsPageViewModel>(),
                 NavigationNames.MyFilters => CreateContent<MyFiltersPage, MyFiltersPageViewModel>(),
-                NavigationNames.Account => CreateContent<AccountPage, AccountPageViewModel>(),
+                NavigationNames.Settings => CreateContent<SettingsPage, SettingsPageViewModel>(),
                 _ => CurrentContent
             };
         }

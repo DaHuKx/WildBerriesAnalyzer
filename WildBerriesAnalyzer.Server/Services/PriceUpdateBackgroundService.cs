@@ -1,14 +1,19 @@
 using Microsoft.Extensions.Options;
 using WildBerriesAnalyzer.Business.Consts;
+using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Business.Services.WbScraping;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
+using WildBerriesAnalyzer.Domain.Models.DataBase;
 using WildBerriesAnalyzer.Server.Options;
+using WildBerriesAnalyzer.Server.Services.PriceUpdate;
 using WildBerriesAnalyzer.Server.Services.VkBot;
 
 namespace WildBerriesAnalyzer.Server.Services
 {
     /// <summary>
     /// Периодически загружает цены через WildBerriesService и сохраняет их в PricesHistory.
+    /// При смене Cookie/Token цикл прерывается и запускается заново.
     /// </summary>
     public sealed class PriceUpdateBackgroundService : BackgroundService
     {
@@ -20,15 +25,22 @@ namespace WildBerriesAnalyzer.Server.Services
 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IOptionsMonitor<PriceUpdateOptions> _options;
+        private readonly IPriceUpdateScheduler _scheduler;
+        private readonly IWbScrapingAuthStore _authStore;
         private readonly ILogger<PriceUpdateBackgroundService> _logger;
+        private FileSystemWatcher? _authFileWatcher;
 
         public PriceUpdateBackgroundService(
             IServiceScopeFactory scopeFactory,
             IOptionsMonitor<PriceUpdateOptions> options,
+            IPriceUpdateScheduler scheduler,
+            IWbScrapingAuthStore authStore,
             ILogger<PriceUpdateBackgroundService> logger)
         {
             _scopeFactory = scopeFactory;
             _options = options;
+            _scheduler = scheduler;
+            _authStore = authStore;
             _logger = logger;
         }
 
@@ -36,33 +48,127 @@ namespace WildBerriesAnalyzer.Server.Services
         {
             _logger.LogInformation("PriceUpdateBackgroundService запущен.");
 
-            while (!stoppingToken.IsCancellationRequested)
+            _authStore.CredentialsChanged += OnCredentialsChanged;
+            StartAuthFileWatcher();
+
+            try
             {
-                var options = _options.CurrentValue;
-                if (!options.Enabled)
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    _logger.LogDebug("PriceUpdate отключён (PriceUpdate:Enabled=false).");
-                    await DelayAsync(options.Interval, stoppingToken);
-                    continue;
-                }
+                    var options = _options.CurrentValue;
+                    if (!options.Enabled)
+                    {
+                        _logger.LogDebug("PriceUpdate отключён (PriceUpdate:Enabled=false).");
+                        await _scheduler.WaitForNextTriggerAsync(options.Interval, stoppingToken);
+                        continue;
+                    }
 
-                try
-                {
-                    await UpdatePricesAsync(options, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Ошибка обновления цен.");
-                }
+                    var cycleToken = _scheduler.BeginCycle(stoppingToken);
+                    var restartRequested = false;
 
-                await DelayAsync(options.Interval, stoppingToken);
+                    try
+                    {
+                        await UpdatePricesAsync(options, cycleToken);
+                    }
+                    catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+                    {
+                        restartRequested = true;
+                        _logger.LogInformation(
+                            "Цикл обновления цен прерван из‑за смены Cookie/Token — перезапуск.");
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Ошибка обновления цен.");
+                    }
+
+                    if (restartRequested)
+                    {
+                        continue;
+                    }
+
+                    await _scheduler.WaitForNextTriggerAsync(options.Interval, stoppingToken);
+                }
+            }
+            finally
+            {
+                _authStore.CredentialsChanged -= OnCredentialsChanged;
+                StopAuthFileWatcher();
             }
 
             _logger.LogInformation("PriceUpdateBackgroundService остановлен.");
+        }
+
+        private void OnCredentialsChanged(object? sender, EventArgs e) =>
+            _scheduler.RequestImmediateRun("CredentialsChanged (AccessToken/Cookie)");
+
+        private void StartAuthFileWatcher()
+        {
+            try
+            {
+                var path = _authStore.PersistFilePath;
+                var directory = Path.GetDirectoryName(path);
+                var fileName = Path.GetFileName(path);
+                if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
+                {
+                    return;
+                }
+
+                Directory.CreateDirectory(directory);
+
+                _authFileWatcher = new FileSystemWatcher(directory, fileName)
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+                    EnableRaisingEvents = true
+                };
+
+                _authFileWatcher.Changed += OnAuthFileChanged;
+                _authFileWatcher.Created += OnAuthFileChanged;
+                _authFileWatcher.Renamed += OnAuthFileRenamed;
+
+                _logger.LogInformation("Слежение за WB auth файлом: {Path}", path);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось подписаться на изменение файла WB auth.");
+            }
+        }
+
+        private void StopAuthFileWatcher()
+        {
+            if (_authFileWatcher is null)
+            {
+                return;
+            }
+
+            _authFileWatcher.EnableRaisingEvents = false;
+            _authFileWatcher.Changed -= OnAuthFileChanged;
+            _authFileWatcher.Created -= OnAuthFileChanged;
+            _authFileWatcher.Renamed -= OnAuthFileRenamed;
+            _authFileWatcher.Dispose();
+            _authFileWatcher = null;
+        }
+
+        private void OnAuthFileChanged(object sender, FileSystemEventArgs e) =>
+            OnAuthFileTouched();
+
+        private void OnAuthFileRenamed(object sender, RenamedEventArgs e) =>
+            OnAuthFileTouched();
+
+        private void OnAuthFileTouched()
+        {
+            // Bots пишет файл в другом процессе — подтянуть в память и при смене credentials перезапустить цикл.
+            try
+            {
+                _ = _authStore.GetSnapshot();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Reload WB auth после изменения файла не удался.");
+            }
         }
 
         private async Task UpdatePricesAsync(PriceUpdateOptions options, CancellationToken stoppingToken)
@@ -99,7 +205,7 @@ namespace WildBerriesAnalyzer.Server.Services
                 stoppingToken.ThrowIfCancellationRequested();
                 batchIndex++;
 
-                var parsed = await wbService.ParseProductsPricesAsync(batch);
+                var parsed = await ParseBatchWithRetriesAsync(wbService, batch, batchIndex, stoppingToken);
                 if (!parsed.Success)
                 {
                     _logger.LogWarning(
@@ -108,7 +214,12 @@ namespace WildBerriesAnalyzer.Server.Services
                         parsed.ErrorMessage,
                         savedTotal);
 
-                    await NotifyAdminAsync(vkMessenger, stoppingToken);
+                    // Уведомление про token/cookie — только при реальной auth-ошибке, не при DNS/сети.
+                    if (parsed.IsAuthFailure)
+                    {
+                        await NotifyAdminAsync(vkMessenger, stoppingToken);
+                    }
+
                     return;
                 }
 
@@ -155,6 +266,43 @@ namespace WildBerriesAnalyzer.Server.Services
                 job.Id);
         }
 
+        private async Task<ParseProductsPricesResult> ParseBatchWithRetriesAsync(
+            IWildBerriesService wbService,
+            WbProduct[] batch,
+            int batchIndex,
+            CancellationToken stoppingToken)
+        {
+            const int maxAttempts = 3;
+            ParseProductsPricesResult? last = null;
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                stoppingToken.ThrowIfCancellationRequested();
+                last = await wbService.ParseProductsPricesAsync(batch);
+                if (last.Success || last.IsAuthFailure || !last.IsNetworkFailure)
+                {
+                    return last;
+                }
+
+                if (attempt >= maxAttempts)
+                {
+                    break;
+                }
+
+                var delay = TimeSpan.FromSeconds(5 * attempt);
+                _logger.LogWarning(
+                    "Батч #{BatchIndex}: сетевая ошибка (попытка {Attempt}/{Max}): {Error}. Повтор через {Delay}.",
+                    batchIndex,
+                    attempt,
+                    maxAttempts,
+                    last.ErrorMessage,
+                    delay);
+                await Task.Delay(delay, stoppingToken);
+            }
+
+            return last ?? ParseProductsPricesResult.Failed("Неизвестная ошибка батча.", isNetworkFailure: true);
+        }
+
         private async Task NotifyAdminAsync(IVkCommunityMessenger vkMessenger, CancellationToken stoppingToken)
         {
             if (!vkMessenger.IsConfigured)
@@ -180,12 +328,6 @@ namespace WildBerriesAnalyzer.Server.Services
                     "Не удалось отправить админу {AdminVkId} уведомление о сбое WB.",
                     AdminAccounts.VkId);
             }
-        }
-
-        private static async Task DelayAsync(TimeSpan interval, CancellationToken stoppingToken)
-        {
-            var delay = interval <= TimeSpan.Zero ? TimeSpan.FromHours(1) : interval;
-            await Task.Delay(delay, stoppingToken);
         }
     }
 }

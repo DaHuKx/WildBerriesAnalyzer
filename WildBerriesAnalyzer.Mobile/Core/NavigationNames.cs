@@ -10,6 +10,7 @@ namespace WildBerriesAnalyzer.Mobile.Core
         public const string AddProducts = "AddProducts";
         public const string ActualDiscounts = "ActualDiscounts";
         public const string MyFilters = "MyFilters";
-        public const string Account = "Account";
+        public const string Settings = "Settings";
     }
 }
+

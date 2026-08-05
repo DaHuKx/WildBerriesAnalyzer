@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:WildBerriesAnalyzer.Modules.Settings.ViewModels"
+             x:Class="WildBerriesAnalyzer.Modules.Settings.Views.SettingsPage"
+             x:DataType="viewModels:SettingsPageViewModel"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+
+    <Grid Padding="16">
+        <ScrollView>
+            <VerticalStackLayout Spacing="16"
+                                 MaximumWidthRequest="520"
+                                 HorizontalOptions="Center">
+
+                <Label Text="{Binding Title}"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                <Label Text="{Binding StatusMessage}"
+                       TextColor="{AppThemeBinding Light={StaticResource Success}, Dark={StaticResource SuccessDark}}"
+                       FontSize="13"
+                       IsVisible="{Binding HasStatus}"
+                       HorizontalTextAlignment="Center" />
+
+                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Padding="16">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Оформление"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                               FontAttributes="Bold"
+                               FontSize="18" />
+
+                        <Label Text="{Binding ThemeStatusText, StringFormat='Текущая тема: {0}'}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                               FontSize="13" />
+
+                        <Grid ColumnDefinitions="*,*,*"
+                              ColumnSpacing="8">
+                            <Button Text="Светлая"
+                                    Command="{Binding SetThemeCommand}"
+                                    CommandParameter="Light"
+                                    BackgroundColor="{Binding LightThemeButtonBackground}"
+                                    TextColor="{Binding LightThemeButtonTextColor}"
+                                    FontAttributes="Bold"
+                                    HeightRequest="42"
+                                    CornerRadius="10"
+                                    FontSize="13" />
+                            <Button Grid.Column="1"
+                                    Text="Тёмная"
+                                    Command="{Binding SetThemeCommand}"
+                                    CommandParameter="Dark"
+                                    BackgroundColor="{Binding DarkThemeButtonBackground}"
+                                    TextColor="{Binding DarkThemeButtonTextColor}"
+                                    FontAttributes="Bold"
+                                    HeightRequest="42"
+                                    CornerRadius="10"
+                                    FontSize="13" />
+                            <Button Grid.Column="2"
+                                    Text="Система"
+                                    Command="{Binding SetThemeCommand}"
+                                    CommandParameter="System"
+                                    BackgroundColor="{Binding SystemThemeButtonBackground}"
+                                    TextColor="{Binding SystemThemeButtonTextColor}"
+                                    FontAttributes="Bold"
+                                    HeightRequest="42"
+                                    CornerRadius="10"
+                                    FontSize="13" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Выйти из аккаунта"
+                        Command="{Binding SignOutCommand}"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                        BorderColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                        BorderWidth="1.5"
+                        FontAttributes="Bold"
+                        HeightRequest="48"
+                        CornerRadius="10"
+                        FontSize="15"
+                        Margin="0,8,0,24" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentView>

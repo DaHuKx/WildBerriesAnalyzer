@@ -21,11 +21,24 @@ namespace WildBerriesAnalyzer.Business.Services.WbScraping
 
         public string PersistFilePath { get; }
 
+        public event EventHandler? CredentialsChanged;
+
         public WbScrapingAuthState GetSnapshot()
         {
+            var raiseChanged = false;
+
             lock (_sync)
             {
-                TryReloadFromDiskUnlocked();
+                raiseChanged = TryReloadFromDiskUnlocked();
+            }
+
+            if (raiseChanged)
+            {
+                RaiseCredentialsChanged();
+            }
+
+            lock (_sync)
+            {
                 return _state.Clone();
             }
         }
@@ -34,10 +47,23 @@ namespace WildBerriesAnalyzer.Business.Services.WbScraping
         {
             ArgumentNullException.ThrowIfNull(update);
 
+            var raiseChanged = false;
+
             lock (_sync)
             {
+                var previousToken = _state.AccessToken;
+                var previousCookie = _state.Cookie;
+
                 update(_state);
                 PersistUnlocked();
+
+                raiseChanged = !CredentialsEqual(previousToken, _state.AccessToken) ||
+                               !CredentialsEqual(previousCookie, _state.Cookie);
+            }
+
+            if (raiseChanged)
+            {
+                RaiseCredentialsChanged();
             }
         }
 
@@ -53,26 +79,7 @@ namespace WildBerriesAnalyzer.Business.Services.WbScraping
                     var fromFile = JsonConvert.DeserializeObject<WbScrapingAuthState>(json);
                     if (fromFile is not null && !string.IsNullOrWhiteSpace(fromFile.AccessToken))
                     {
-                        if (string.IsNullOrWhiteSpace(fromFile.DeviceId))
-                        {
-                            fromFile.DeviceId = seeded.DeviceId;
-                        }
-
-                        if (string.IsNullOrWhiteSpace(fromFile.UserAgent))
-                        {
-                            fromFile.UserAgent = seeded.UserAgent;
-                        }
-
-                        if (string.IsNullOrWhiteSpace(fromFile.SpaVersion))
-                        {
-                            fromFile.SpaVersion = seeded.SpaVersion;
-                        }
-
-                        if (string.IsNullOrWhiteSpace(fromFile.SecChUa))
-                        {
-                            fromFile.SecChUa = seeded.SecChUa;
-                        }
-
+                        FillMissingMeta(fromFile, seeded);
                         TouchLoadedUtcUnlocked();
                         return fromFile;
                     }
@@ -88,54 +95,41 @@ namespace WildBerriesAnalyzer.Business.Services.WbScraping
             return seeded;
         }
 
-        private void TryReloadFromDiskUnlocked()
+        /// <returns>true, если AccessToken/Cookie изменились.</returns>
+        private bool TryReloadFromDiskUnlocked()
         {
             try
             {
                 if (!File.Exists(PersistFilePath))
                 {
-                    return;
+                    return false;
                 }
 
                 var lastWrite = File.GetLastWriteTimeUtc(PersistFilePath);
                 if (lastWrite <= _lastLoadedUtc)
                 {
-                    return;
+                    return false;
                 }
 
                 var json = File.ReadAllText(PersistFilePath);
                 var fromFile = JsonConvert.DeserializeObject<WbScrapingAuthState>(json);
                 if (fromFile is null)
                 {
-                    return;
+                    return false;
                 }
 
-                if (string.IsNullOrWhiteSpace(fromFile.DeviceId))
-                {
-                    fromFile.DeviceId = _state.DeviceId;
-                }
+                FillMissingMeta(fromFile, _state);
 
-                if (string.IsNullOrWhiteSpace(fromFile.UserAgent))
-                {
-                    fromFile.UserAgent = _state.UserAgent;
-                }
-
-                if (string.IsNullOrWhiteSpace(fromFile.SpaVersion))
-                {
-                    fromFile.SpaVersion = _state.SpaVersion;
-                }
-
-                if (string.IsNullOrWhiteSpace(fromFile.SecChUa))
-                {
-                    fromFile.SecChUa = _state.SecChUa;
-                }
+                var changed = !CredentialsEqual(_state.AccessToken, fromFile.AccessToken) ||
+                              !CredentialsEqual(_state.Cookie, fromFile.Cookie);
 
                 _state = fromFile;
                 _lastLoadedUtc = lastWrite;
+                return changed;
             }
             catch
             {
-                // keep in-memory state
+                return false;
             }
         }
 
@@ -173,6 +167,44 @@ namespace WildBerriesAnalyzer.Business.Services.WbScraping
                 _lastLoadedUtc = DateTime.UtcNow;
             }
         }
+
+        private void RaiseCredentialsChanged()
+        {
+            try
+            {
+                CredentialsChanged?.Invoke(this, EventArgs.Empty);
+            }
+            catch
+            {
+                // подписчики не должны ломать обновление auth
+            }
+        }
+
+        private static void FillMissingMeta(WbScrapingAuthState target, WbScrapingAuthState fallback)
+        {
+            if (string.IsNullOrWhiteSpace(target.DeviceId))
+            {
+                target.DeviceId = fallback.DeviceId;
+            }
+
+            if (string.IsNullOrWhiteSpace(target.UserAgent))
+            {
+                target.UserAgent = fallback.UserAgent;
+            }
+
+            if (string.IsNullOrWhiteSpace(target.SpaVersion))
+            {
+                target.SpaVersion = fallback.SpaVersion;
+            }
+
+            if (string.IsNullOrWhiteSpace(target.SecChUa))
+            {
+                target.SecChUa = fallback.SecChUa;
+            }
+        }
+
+        private static bool CredentialsEqual(string? left, string? right) =>
+            string.Equals(left?.Trim(), right?.Trim(), StringComparison.Ordinal);
 
         private static string ResolvePath(string? path)
         {

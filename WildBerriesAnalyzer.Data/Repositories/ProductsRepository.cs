@@ -38,10 +38,12 @@ namespace WildBerriesAnalyzer.Data.Repositories
                                                       .Select(product => product.IdInMarket)
                                                       .ToListAsync();
 
-            var productsToAdd = products.Where(product => !existProducts.Contains(product.IdInMarket));
+            var productsToAdd = products.Where(product => !existProducts.Contains(product.IdInMarket))
+                                        .ToList();
 
             await Context.Products.AddRangeAsync(productsToAdd);
             await Context.SaveChangesAsync();
+            await SaveInitPricesAsync(productsToAdd);
 
             return productsToAdd;
         }
@@ -73,11 +75,62 @@ namespace WildBerriesAnalyzer.Data.Repositories
             {
                 await Context.Products.AddRangeAsync(productsToAdd);
                 await Context.SaveChangesAsync();
+                await SaveInitPricesAsync(productsToAdd);
             }
 
             existProducts.AddRange(productsToAdd);
 
             return existProducts;
+        }
+
+        /// <summary>
+        /// Сохраняет цену из WB (PriceFromInit) сразу при добавлении товара.
+        /// </summary>
+        private async Task SaveInitPricesAsync(IEnumerable<WbProduct> newProducts)
+        {
+            var prices = new List<WbPrice>();
+
+            foreach (var product in newProducts)
+            {
+                if (product.Id <= 0 || product.PriceFromInit is null)
+                {
+                    continue;
+                }
+
+                if (product.PriceFromInit.Price <= 0)
+                {
+                    continue;
+                }
+
+                var checkTime = product.PriceFromInit.CheckTime;
+                if (checkTime == default)
+                {
+                    checkTime = DateTime.UtcNow;
+                }
+                else if (checkTime.Kind == DateTimeKind.Unspecified)
+                {
+                    checkTime = DateTime.SpecifyKind(checkTime, DateTimeKind.Utc);
+                }
+                else if (checkTime.Kind == DateTimeKind.Local)
+                {
+                    checkTime = checkTime.ToUniversalTime();
+                }
+
+                prices.Add(new WbPrice
+                {
+                    ProductId = product.Id,
+                    Price = product.PriceFromInit.Price,
+                    CheckTime = checkTime
+                });
+            }
+
+            if (prices.Count == 0)
+            {
+                return;
+            }
+
+            await Context.PricesHistory.AddRangeAsync(prices);
+            await Context.SaveChangesAsync();
         }
 
         public async Task<WbPrice> GetProductLastPriceAsync(int id)

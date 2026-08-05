@@ -21,7 +21,7 @@
 		<ApplicationTitle>PriceLab</ApplicationTitle>
 		<ApplicationId>com.companyname.wildberriesanalyzer.mobile</ApplicationId>
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-		<ApplicationVersion>10</ApplicationVersion>
+		<ApplicationVersion>11</ApplicationVersion>
 		<WindowsPackageType>None</WindowsPackageType>
 
 		<!-- Только arm64: на телефоне исключает известные сбои resource id / Fragment на ABI mix -->

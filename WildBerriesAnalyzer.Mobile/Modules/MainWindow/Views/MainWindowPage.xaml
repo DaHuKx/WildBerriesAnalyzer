@@ -230,8 +230,8 @@
                         <Grid ColumnDefinitions="36,*"
                               ColumnSpacing="12"
                               HorizontalOptions="Fill">
-                            <Label Text="⚙"
-                                   FontSize="18"
+                            <Label Text="⧩"
+                                   FontSize="16"
                                    TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
                                    HorizontalOptions="Start"
                                    VerticalOptions="Center" />
@@ -250,25 +250,25 @@
                              Margin="4,6"
                              HorizontalOptions="Fill" />
 
-                    <!-- Аккаунт -->
+                    <!-- Настройки -->
                     <Border StrokeThickness="0"
                             BackgroundColor="Transparent"
                             Padding="10,12"
                             HorizontalOptions="Fill">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding NavigateCommand}"
-                                                  CommandParameter="{x:Static core:NavigationNames.Account}" />
+                                                  CommandParameter="{x:Static core:NavigationNames.Settings}" />
                         </Border.GestureRecognizers>
                         <Grid ColumnDefinitions="36,*"
                               ColumnSpacing="12"
                               HorizontalOptions="Fill">
-                            <Label Text="◎"
+                            <Label Text="⚙"
                                    FontSize="18"
                                    TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
                                    HorizontalOptions="Start"
                                    VerticalOptions="Center" />
                             <Label Grid.Column="1"
-                                   Text="Аккаунт"
+                                   Text="Настройки"
                                    FontSize="16"
                                    TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
                                    HorizontalOptions="Start"
@@ -278,42 +278,32 @@
                     </Border>
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Row="2"
-                                     Spacing="4"
-                                     Margin="0,16,0,8"
-                                     HorizontalOptions="Start">
-                    <Label Text="{Binding WelcomeText}"
+                <Grid Grid.Row="2"
+                      ColumnDefinitions="Auto,*"
+                      ColumnSpacing="10"
+                      Margin="0,16,0,8"
+                      HorizontalOptions="Start">
+                    <Image Source="pricelab_logo"
+                           WidthRequest="36"
+                           HeightRequest="36"
+                           Aspect="AspectFit"
+                           VerticalOptions="Center">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Label Grid.Column="1"
+                           Text="PriceLab"
                            TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
-                           FontSize="12"
-                           Opacity="0.85"
-                           HorizontalOptions="Start"
-                           HorizontalTextAlignment="Start"
-                           LineBreakMode="TailTruncation" />
-                    <Grid ColumnDefinitions="Auto,*"
-                          ColumnSpacing="10"
-                          HorizontalOptions="Start">
-                        <Image Source="pricelab_logo"
-                               WidthRequest="36"
-                               HeightRequest="36"
-                               Aspect="AspectFit"
-                               VerticalOptions="Center">
-                            <Image.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
-                            </Image.GestureRecognizers>
-                        </Image>
-                        <Label Grid.Column="1"
-                               Text="PriceLab"
-                               TextColor="{AppThemeBinding Light={StaticResource OnNav}, Dark={StaticResource OnNavDark}}"
-                               FontAttributes="Bold"
-                               FontSize="16"
-                               VerticalOptions="Center"
-                               HorizontalOptions="Start">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                    </Grid>
-                </VerticalStackLayout>
+                           FontAttributes="Bold"
+                           FontSize="16"
+                           VerticalOptions="Center"
+                           HorizontalOptions="Start">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding GoHomeCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Grid>
             </Grid>
         </Border>
     </Grid>

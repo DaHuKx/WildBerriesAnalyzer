@@ -11,6 +11,11 @@ namespace WildBerriesAnalyzer.Business.Models
         /// </summary>
         public bool IsAuthFailure { get; init; }
 
+        /// <summary>
+        /// Временный сетевой сбой (DNS, IPv6 unreachable и т.п.) — не про token/cookie.
+        /// </summary>
+        public bool IsNetworkFailure { get; init; }
+
         public string? ErrorMessage { get; init; }
 
         public IReadOnlyList<WbPrice> Prices { get; init; } = Array.Empty<WbPrice>();
@@ -20,11 +25,15 @@ namespace WildBerriesAnalyzer.Business.Models
         /// </summary>
         public IReadOnlyList<WbProduct> ProductsWithRefreshedMeta { get; init; } = Array.Empty<WbProduct>();
 
-        public static ParseProductsPricesResult Failed(string errorMessage, bool isAuthFailure = false) =>
+        public static ParseProductsPricesResult Failed(
+            string errorMessage,
+            bool isAuthFailure = false,
+            bool isNetworkFailure = false) =>
             new()
             {
                 Success = false,
                 IsAuthFailure = isAuthFailure,
+                IsNetworkFailure = isNetworkFailure,
                 ErrorMessage = errorMessage
             };
     }

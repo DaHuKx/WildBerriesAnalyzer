@@ -32,7 +32,11 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Views
         protected override void OnSizeAllocated(double width, double height)
         {
             base.OnSizeAllocated(width, height);
-            var (tileWidth, imageHeight) = CatalogTileSizing.FromPageWidth(width);
+            // Grid Padding 12*2 + Border корзины 14*2 — иначе плитки не влазят в 2 колонки.
+            var (tileWidth, imageHeight) = CatalogTileSizing.FromPageWidth(
+                width,
+                horizontalPadding: 52,
+                gap: 8);
             if (Math.Abs(TileWidth - tileWidth) > 0.5)
             {
                 TileWidth = tileWidth;

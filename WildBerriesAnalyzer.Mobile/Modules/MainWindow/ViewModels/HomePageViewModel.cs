@@ -2,7 +2,6 @@ using System.Globalization;
 using Prism.Commands;
 using Prism.Mvvm;
 using WildBerriesAnalyzer.Mobile.Core;
-using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
 namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
@@ -10,7 +9,6 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
     public class HomePageViewModel : BindableBase
     {
         private readonly IDashboardClient _dashboardClient;
-        private readonly IAuthSessionService _authSessionService;
 
         private Action<string>? _navigator;
         private bool _isBusy;
@@ -22,12 +20,9 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
         private string _lastUpdatedText = "—";
         private string _nextUpdateText = "—";
 
-        public HomePageViewModel(
-            IDashboardClient dashboardClient,
-            IAuthSessionService authSessionService)
+        public HomePageViewModel(IDashboardClient dashboardClient)
         {
             _dashboardClient = dashboardClient;
-            _authSessionService = authSessionService;
 
             RefreshCommand = new DelegateCommand(async () => await LoadAsync(), () => !IsBusy)
                 .ObservesProperty(() => IsBusy);
@@ -43,16 +38,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
 
         public string Tagline => "Аналитика цен и скидок";
 
-        public string GreetingText
-        {
-            get
-            {
-                var login = _authSessionService.Login;
-                return string.IsNullOrWhiteSpace(login)
-                    ? "Добро пожаловать"
-                    : $"Здравствуйте, {login}";
-            }
-        }
+        public string GreetingText => "Добро пожаловать";
 
         public string Description =>
             "Отслеживает цены, считает скидки по стратегиям и показывает " +
