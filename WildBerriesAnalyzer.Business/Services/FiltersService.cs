@@ -190,8 +190,11 @@ namespace WildBerriesAnalyzer.Business.Services
             }
             catch (HttpRequestException ex)
             {
+                // Сохраняем текст (share-basket HTTP …) — иначе в логах только общий 400.
                 throw new InvalidOperationException(
-                    "Сервер не может подключиться к Wildberries. Повторите позже или проверьте DNS/IPv6 на VDS.",
+                    string.IsNullOrWhiteSpace(ex.Message)
+                        ? "Сервер не может подключиться к Wildberries (share-basket)."
+                        : ex.Message,
                     ex);
             }
 

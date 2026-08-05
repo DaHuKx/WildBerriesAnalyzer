@@ -13,10 +13,12 @@ namespace WildBerriesAnalyzer.Server.Controllers
     public class FiltersController : ControllerBase
     {
         private readonly IFiltersService _filtersService;
+        private readonly ILogger<FiltersController> _logger;
 
-        public FiltersController(IFiltersService filtersService)
+        public FiltersController(IFiltersService filtersService, ILogger<FiltersController> logger)
         {
             _filtersService = filtersService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -138,18 +140,25 @@ namespace WildBerriesAnalyzer.Server.Controllers
             }
             catch (ArgumentException ex)
             {
+                _logger.LogWarning(ex, "from-share 400 (bad input) userId={UserId} shareUrl={ShareUrl}",
+                    userId, request?.ShareUrl);
                 return BadRequest(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "from-share 400 userId={UserId} shareUrl={ShareUrl}: {Message}",
+                    userId, request?.ShareUrl, ex.Message);
                 return BadRequest(ex.Message);
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "from-share 503 (WB auth) userId={UserId}", userId);
                 return StatusCode(StatusCodes.Status503ServiceUnavailable, ex.Message);
             }
             catch (HttpRequestException ex)
             {
+                _logger.LogWarning(ex, "from-share 503 (WB network) userId={UserId}: {Message}",
+                    userId, ex.Message);
                 return StatusCode(StatusCodes.Status503ServiceUnavailable,
                     $"Wildberries недоступен с сервера: {ex.Message}");
             }

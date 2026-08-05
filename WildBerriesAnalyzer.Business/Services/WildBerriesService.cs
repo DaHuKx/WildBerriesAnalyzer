@@ -191,12 +191,24 @@ namespace WildBerriesAnalyzer.Business.Services
             var referer = $"https://www.wildberries.ru/lk/basket?shareId={Uri.EscapeDataString(shareId)}";
 
             var responseBody = await SendPublicGetAsync(url, referer);
-            var parsed = JsonConvert.DeserializeObject<WbShareBasketResponse>(responseBody);
+            WbShareBasketResponse? parsed;
+            try
+            {
+                parsed = JsonConvert.DeserializeObject<WbShareBasketResponse>(responseBody);
+            }
+            catch (JsonException ex)
+            {
+                var snip = responseBody.Length > 180 ? responseBody[..180] : responseBody;
+                throw new InvalidOperationException(
+                    $"share-basket: неожиданный ответ WB: {snip}",
+                    ex);
+            }
+
             var items = parsed?.Items;
             if (items is null || items.Count == 0)
             {
                 throw new InvalidOperationException(
-                    "Общая корзина пуста или ссылка недействительна.");
+                    $"share-basket: корзина «{shareId}» пуста или ссылка недействительна.");
             }
 
             return items
@@ -234,14 +246,21 @@ namespace WildBerriesAnalyzer.Business.Services
             request.Headers.TryAddWithoutValidation("sec-fetch-site", "same-site");
 
             using var response = await client.SendAsync(request);
+            var body = await response.Content.ReadAsStringAsync();
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 throw new InvalidOperationException(
-                    "Общая корзина не найдена или ссылка устарела.");
+                    "share-basket: корзина не найдена или ссылка устарела.");
             }
 
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                var snip = body.Length > 180 ? body[..180] : body;
+                throw new HttpRequestException(
+                    $"share-basket HTTP {(int)response.StatusCode}: {snip}");
+            }
+
+            return body;
         }
 
         private async Task<string> SendAuthorizedGetAsync(string url) =>
