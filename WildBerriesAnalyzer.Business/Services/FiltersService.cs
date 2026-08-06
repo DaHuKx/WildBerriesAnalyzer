@@ -123,6 +123,7 @@ namespace WildBerriesAnalyzer.Business.Services
             {
                 try
                 {
+                    // GetProductsForIdsAsync сам режет на батчи — иначе WB отдаёт только часть.
                     var fromWb = await _wildBerriesService.GetProductsForIdsAsync(missingIds);
                     if (fromWb.Count > 0)
                     {

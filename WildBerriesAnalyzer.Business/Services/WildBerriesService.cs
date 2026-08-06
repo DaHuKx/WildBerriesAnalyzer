@@ -153,7 +153,43 @@ namespace WildBerriesAnalyzer.Business.Services
             }
         }
 
+        /// <summary>
+        /// Карточки WB по артикулам. API cards/v4/detail стабильно отрабатывает батчами
+        /// (~до 100 nm); длинный список одним запросом обрезается/теряется.
+        /// </summary>
         public async Task<List<WbProduct>> GetProductsForIdsAsync(IEnumerable<string> ids)
+        {
+            const int batchSize = 50;
+            var allIds = ids
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (allIds.Count == 0)
+            {
+                return [];
+            }
+
+            var result = new List<WbProduct>(allIds.Count);
+            var seen = new HashSet<long>();
+
+            foreach (var batch in allIds.Chunk(batchSize))
+            {
+                var batchProducts = await GetProductsForIdsBatchAsync(batch);
+                foreach (var product in batchProducts)
+                {
+                    if (seen.Add(product.IdInMarket))
+                    {
+                        result.Add(product);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private async Task<List<WbProduct>> GetProductsForIdsBatchAsync(IReadOnlyList<string> ids)
         {
             var uriBuilder = new UriBuilder("https://www.wildberries.ru/__internal/u-card/cards/v4/detail");
 

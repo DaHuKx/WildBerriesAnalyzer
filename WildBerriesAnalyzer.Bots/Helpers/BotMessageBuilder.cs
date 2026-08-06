@@ -240,22 +240,24 @@ namespace WildBerriesAnalyzer.Bots.Helpers
                 return $"{header}\n\nСписок пуст.";
             }
 
+            var totalProducts = products.Count;
+            // Запас под «... и ещё N товаров», чтобы не обрезать список без хвоста.
+            var worstSuffix = $"\n\n... и ещё {totalProducts} {GetProductPlural(totalProducts)}";
+            var listBudget = Math.Max(0, maxLength - worstSuffix.Length);
+
             var sb = new StringBuilder();
             sb.AppendLine(header);
+            sb.AppendLine($"Всего: {totalProducts}");
 
-            int addedCount = 0;
-            int totalProducts = products.Count;
+            var addedCount = 0;
 
-            for (int i = 0; i < totalProducts; i++)
+            for (var i = 0; i < totalProducts; i++)
             {
                 var product = products[i];
                 var line = $"• {product.Name ?? "Без названия"}";
+                var newlineLength = addedCount == 0 ? 0 : 1;
 
-                int remaining = totalProducts - (addedCount + 1);
-                string suffix = remaining > 0 ? $"\n\n... и ещё {remaining} {GetProductPlural(remaining)}" : "";
-                int newlineLength = (addedCount == 0) ? 0 : 1;
-
-                if (sb.Length + newlineLength + line.Length + suffix.Length <= maxLength)
+                if (sb.Length + newlineLength + line.Length <= listBudget)
                 {
                     if (addedCount > 0)
                         sb.AppendLine();
@@ -265,12 +267,14 @@ namespace WildBerriesAnalyzer.Bots.Helpers
                 }
                 else
                 {
-                    if (remaining > 0 && sb.Length + suffix.Length <= maxLength)
-                    {
-                        sb.Append(suffix);
-                    }
                     break;
                 }
+            }
+
+            var remaining = totalProducts - addedCount;
+            if (remaining > 0)
+            {
+                sb.Append($"\n\n... и ещё {remaining} {GetProductPlural(remaining)}");
             }
 
             if (sb.Length > maxLength)

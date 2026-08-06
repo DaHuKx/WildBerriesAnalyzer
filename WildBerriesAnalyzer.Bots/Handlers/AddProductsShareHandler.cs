@@ -58,7 +58,9 @@ namespace WildBerriesAnalyzer.Bots.Handlers
                 {
                     return new BotMessage
                     {
-                        Text = "Товары из ссылки уже есть в вашей корзине (новых не добавлено)."
+                        Text =
+                            $"Новых товаров нет — всё из ссылки уже в корзине.\n" +
+                            $"Всего в корзине: {result.BagProducts.Count}."
                     };
                 }
 
@@ -66,7 +68,9 @@ namespace WildBerriesAnalyzer.Bots.Handlers
                 {
                     Text = BotMessageBuilder.BuildProductsMessage(
                         result.AddedProducts,
-                        "Добавленные в корзину продукты:")
+                        $"Добавлено новых: {result.AddedProducts.Count}\n" +
+                        $"Всего в корзине: {result.BagProducts.Count}\n\n" +
+                        "Новые товары:")
                 };
             }
             catch (ArgumentException ex)
