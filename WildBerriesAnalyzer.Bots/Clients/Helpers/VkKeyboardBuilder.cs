@@ -129,8 +129,6 @@ namespace WildBerriesAnalyzer.Bots.Clients.Helpers
             builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_AddShare, Color = KeyboardButtonColor.Primary });
             //builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_RemoveProducts, Color = KeyboardButtonColor.Primary });
             builder.AddLine();
-            builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_Instruction, Color = KeyboardButtonColor.Primary });
-            builder.AddLine();
             builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Back, Color = KeyboardButtonColor.Secondary });
 
             _keyboards.Add(BotUserPlace.Filters_ChangeProducts_OwnBag, builder.Build());

@@ -34,13 +34,6 @@ namespace WildBerriesAnalyzer.Bots.Handlers
                     Text = BotMessageBuilder.BuildProductsMessage(userBagProducts, "Товары в вашей корзине:")
                 };
             }
-            else if (message.Text == ExpectedUserMessages.Filters_OwnBag_Instruction)
-            {
-                return new BotMessage
-                {
-                    Text = ExpectedBotAnswers.Filters_ChangeProducts_OwnBag_Instruction
-                };
-            }
 
             return new BotMessage
             {

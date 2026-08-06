@@ -1,5 +1,4 @@
 ﻿using WildBerriesAnalyzer.Domain.Enums;
-using WildBerriesAnalyzer.Domain.Helpers;
 
 namespace WildBerriesAnalyzer.Bots.Consts
 {
@@ -49,28 +48,16 @@ namespace WildBerriesAnalyzer.Bots.Consts
 
 Здесь вы можете добавить или удалить конкретные товары, за которыми бот будет следить.
 
-➕ ДОБАВИТЬ ТОВАРЫ
-Отправьте в чат артикул товара (ID на Wildberries) или прямую ссылку на него.
+➕ ДОБАВИТЬ ШТУЧНО
+Отправьте артикул товара или прямую ссылку на карточку Wildberries.
 
-🔗 ПО ССЫЛКЕ НА КОРЗИНУ
+🔗 ИМПОРТ КОРЗИНЫ ИЗ WB
 Отправьте ссылку вида https://wildberries.ru/basket?shareId=…
-
-➖ УДАЛИТЬ ТОВАРЫ
-Выберите товар из списка ниже, чтобы убрать его из корзины.
 
 📋 МОЙ СПИСОК
 Посмотреть все товары, которые сейчас находятся в вашей корзине.
 
-📖 БЫСТРОЕ ДОБАВЛЕНИЕ
-Узнайте, как быстро добавить товары из вашей корзины Wildberries в бота.
-
 💡 Совет: Добавляйте только те товары, которые вы действительно планируете купить, чтобы бот присылал только полезные уведомления!";
-
-        public static string Filters_ChangeProducts_OwnBag_Instruction =>
-            WbBasketBookmarklet.ShortInstructions +
-            "\n\n" +
-            "Закладка (скопируйте целиком):\n" +
-            WbBasketBookmarklet.BookmarkletUri;
 
         public static string Filters_Strategy =>
 @"📊 Выбор стратегии расчета скидки

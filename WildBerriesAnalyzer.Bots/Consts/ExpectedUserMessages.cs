@@ -21,11 +21,10 @@ namespace WildBerriesAnalyzer.Bots.Consts
         public const string Filters_Type_BlackList = "Чёрный список категорий";
         public const string Filters_Type_WhiteList = "Белый список категорий";
 
-        public const string Filters_OwnBag_AddProducts = "Добавить товары";
-        public const string Filters_OwnBag_AddShare = "По ссылке на корзину";
+        public const string Filters_OwnBag_AddProducts = "Добавить штучно";
+        public const string Filters_OwnBag_AddShare = "Импорт корзины из WB";
         public const string Filters_OwnBag_RemoveProducts = "Удалить товары";
         public const string Filters_OwnBag_ProductsList = "Мой список";
-        public const string Filters_OwnBag_Instruction = "Быстрое добавление";
 
         public const string AddProducts_Name = "По названию";
         public const string AddProducts_Ids = "По артикулу";
@@ -57,7 +56,6 @@ namespace WildBerriesAnalyzer.Bots.Consts
             [Filters_OwnBag_AddProducts] = BotUserPlace.Filters_ChangeProducts_OwnBag_Add,
             [Filters_OwnBag_AddShare] = BotUserPlace.Filters_ChangeProducts_OwnBag_AddShare,
             [Filters_OwnBag_RemoveProducts] = BotUserPlace.Filters_ChangeProducts_OwnBag_Remove,
-            [Filters_OwnBag_Instruction] = null,
             [Back] = BotUserPlace.Filters
         };
 
