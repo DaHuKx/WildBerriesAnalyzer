@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using VkNet.Abstractions;
 using VkNet.Enums.Filters;
 using VkNet.Enums.StringEnums;
@@ -19,6 +20,7 @@ namespace WildBerriesAnalyzer.Bots.Clients
 
         private readonly IVkApi _api;
         private readonly Random _random;
+        private readonly ILogger<VkClient> _logger;
 
         private ulong? _ts;
 
@@ -26,9 +28,10 @@ namespace WildBerriesAnalyzer.Bots.Clients
 
         public BotType BotType => BotType.Vk;
 
-        public VkClient(IVkApi api)
+        public VkClient(IVkApi api, ILogger<VkClient> logger)
         {
             _api = api;
+            _logger = logger;
             _random = new Random();
             _groupId = ResolveGroupId();
         }
@@ -41,12 +44,20 @@ namespace WildBerriesAnalyzer.Bots.Clients
                 Settings = Settings.All
             });
 
-            SendMessage(new BotMessage
+            // Уведомление админу не должно валить процесс при сбое DNS/сети.
+            try
             {
-                BotType = BotType.Vk,
-                Text = "Запущен.",
-                UserSocialId = AdminAccounts.VkId
-            });
+                SendMessage(new BotMessage
+                {
+                    BotType = BotType.Vk,
+                    Text = "Запущен.",
+                    UserSocialId = AdminAccounts.VkId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось отправить «Запущен.» админу (VK сеть). Бот продолжит работу.");
+            }
         }
 
         public void SendMessage(BotMessage message)
@@ -56,12 +67,20 @@ namespace WildBerriesAnalyzer.Bots.Clients
                 return;
             }
 
-            _api.Messages.Send(new MessagesSendParams
+            try
             {
-                Message = message.Text,
-                UserId = long.Parse(message.UserSocialId),
-                RandomId = _random.Next()
-            });
+                _api.Messages.Send(new MessagesSendParams
+                {
+                    Message = message.Text,
+                    UserId = long.Parse(message.UserSocialId),
+                    RandomId = _random.Next()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "VK SendMessage failed user={UserId}", message.UserSocialId);
+                throw;
+            }
         }
 
         public async Task SendMessageAsync(BotMessage message)
@@ -70,31 +89,6 @@ namespace WildBerriesAnalyzer.Bots.Clients
             {
                 return;
             }
-
-            //List<MediaAttachment>? attachments = null;
-            //if (!string.IsNullOrEmpty(message.DocumentPath))
-            //{
-            //    var server = await _api.Docs.GetMessagesUploadServerAsync(long.Parse(message.UserId), DocMessageType.Doc);
-
-            //    var response = await UploadFile(server.UploadUrl, message.DocumentPath, Path.GetExtension(message.DocumentPath));
-
-            //    string title = Path.GetFileName(message.DocumentPath);
-
-            //    try
-            //    {
-            //        attachments = new List<MediaAttachment>
-            //        {
-            //            _api.Docs.Save(response, title ?? Guid.NewGuid().ToString(), null)
-            //                     .First()
-            //                     .Instance
-            //        };
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        message.Message = "Ошибка во время отправки файла на сервер. Попробуй позже. 🚫";
-            //        _logger.LogError($"UploadFile error: {ex.Message}, User: {message.UserId}");
-            //    }
-            //}
 
             var sendParams = new MessagesSendParams
             {
@@ -108,7 +102,15 @@ namespace WildBerriesAnalyzer.Bots.Clients
                 sendParams.Keyboard = VkKeyboardBuilder.GetKeyboardByPlace(place);
             }
 
-            await _api.Messages.SendAsync(sendParams);
+            try
+            {
+                await _api.Messages.SendAsync(sendParams);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "VK SendMessageAsync failed user={UserId}", message.UserSocialId);
+                throw;
+            }
         }
 
         public async Task StartListeningMessages()
@@ -121,7 +123,7 @@ namespace WildBerriesAnalyzer.Bots.Clients
 
                     if (response?.Updates is null || response.Updates.Count == 0)
                     {
-                        Thread.Sleep(1000);
+                        await Task.Delay(TimeSpan.FromSeconds(1));
                         continue;
                     }
 
@@ -132,7 +134,8 @@ namespace WildBerriesAnalyzer.Bots.Clients
                 }
                 catch (Exception ex)
                 {
-                    //logger
+                    _logger.LogWarning(ex, "VK long poll cycle error");
+                    await Task.Delay(TimeSpan.FromSeconds(3));
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(1));
@@ -155,15 +158,13 @@ namespace WildBerriesAnalyzer.Bots.Clients
             });
         }
 
-        private async Task<BotsLongPollHistoryResponse> GetBotsLongPollHistoryResponseAsync()
+        private async Task<BotsLongPollHistoryResponse?> GetBotsLongPollHistoryResponseAsync()
         {
             var pollResponse = await _api.Groups.GetLongPollServerAsync(_groupId);
 
-            BotsLongPollHistoryResponse response;
-
             try
             {
-                response = await _api.Groups.GetBotsLongPollHistoryAsync(new BotsLongPollHistoryParams
+                var response = await _api.Groups.GetBotsLongPollHistoryAsync(new BotsLongPollHistoryParams
                 {
                     Server = pollResponse.Server,
                     Ts = _ts ?? pollResponse.Ts,
@@ -178,33 +179,27 @@ namespace WildBerriesAnalyzer.Bots.Clients
             catch (LongPollOutdateException outDateEx)
             {
                 _ts = outDateEx.Ts;
-
                 return null;
             }
             catch (Exception ex)
             {
-                var type = ex.GetType();
-
+                _logger.LogDebug(ex, "GetBotsLongPollHistory failed");
                 return null;
             }
         }
 
         private async Task<string> UploadFile(string serverUrl, string file, string fileExtension)
         {
-            // Получение массива байтов из файла
             var data = File.ReadAllBytes(file);
 
-            // Создание запроса на загрузку файла на сервер
-            using (var client = new HttpClient())
-            {
-                var requestContent = new MultipartFormDataContent();
-                var content = new ByteArrayContent(data);
-                content.Headers.ContentType = MediaTypeHeaderValue.Parse("multipart/form-data");
-                requestContent.Add(content, "file", $"file.{fileExtension}");
+            using var client = new HttpClient();
+            var requestContent = new MultipartFormDataContent();
+            var content = new ByteArrayContent(data);
+            content.Headers.ContentType = MediaTypeHeaderValue.Parse("multipart/form-data");
+            requestContent.Add(content, "file", $"file.{fileExtension}");
 
-                var response = client.PostAsync(serverUrl, requestContent).Result;
-                return Encoding.Default.GetString(await response.Content.ReadAsByteArrayAsync());
-            }
+            var response = await client.PostAsync(serverUrl, requestContent);
+            return Encoding.Default.GetString(await response.Content.ReadAsByteArrayAsync());
         }
 
         private static string ResolveAccessToken()

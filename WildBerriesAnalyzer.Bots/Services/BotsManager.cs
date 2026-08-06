@@ -46,13 +46,45 @@ namespace WildBerriesAnalyzer.Bots.Services
             _writer = channel.Writer;
         }
 
+        private bool _botsInitialized;
+
         private void InitializeBots()
         {
+            if (_botsInitialized)
+            {
+                return;
+            }
+
             foreach (var bot in _bots)
             {
                 bot.Value.Initialize();
                 _ = bot.Value.StartListeningMessages();
                 bot.Value.OnMessageReceived += HandleMessage;
+            }
+
+            _botsInitialized = true;
+        }
+
+        private async Task InitializeBotsWithRetryAsync(CancellationToken cancellationToken)
+        {
+            var delay = TimeSpan.FromSeconds(5);
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    InitializeBots();
+                    _logger.LogInformation("VK-боты инициализированы.");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Инициализация VK не удалась (часто DNS api.vk.com). Повтор через {Delay}s",
+                        delay.TotalSeconds);
+                    await Task.Delay(delay, cancellationToken);
+                    delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, 60));
+                }
             }
         }
 
@@ -153,7 +185,7 @@ namespace WildBerriesAnalyzer.Bots.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            InitializeBots();
+            await InitializeBotsWithRetryAsync(stoppingToken);
             await StartReadingAsync(stoppingToken);
         }
     }

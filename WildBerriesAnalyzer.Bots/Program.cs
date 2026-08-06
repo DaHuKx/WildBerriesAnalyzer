@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using VkNet;
 using VkNet.Abstractions;
+using VkNet.Abstractions.Utils;
 using WildBerriesAnalyzer.Bots.Clients;
 using WildBerriesAnalyzer.Bots.Clients.Interfaces;
 using WildBerriesAnalyzer.Bots.Handlers;
@@ -71,7 +72,14 @@ var host = Host.CreateDefaultBuilder(args)
                    services.AddSingleton<IAccountService, AccountService>();
 
                    // Один VK-клиент на процесс: BotsManager инициализирует, CheckPriceService шлёт алерты.
-                   services.AddSingleton<IVkApi, VkApi>();
+                   // IPv4/DoH RestClient — иначе на RUVDS api.vk.com часто «Name or service not known».
+                   services.AddSingleton<IRestClient, VkIpv4RestClient>();
+                   services.AddSingleton<IVkApi>(sp =>
+                   {
+                       var api = new VkApi(sp.GetService<Microsoft.Extensions.Logging.ILogger<VkApi>>());
+                       api.RestClient = sp.GetRequiredService<IRestClient>();
+                       return api;
+                   });
                    services.AddSingleton<IClient, VkClient>();
 
                    services.AddHostedService<BotsManager>();
