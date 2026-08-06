@@ -52,6 +52,9 @@ namespace WildBerriesAnalyzer.Bots.Consts
 ➕ ДОБАВИТЬ ТОВАРЫ
 Отправьте в чат артикул товара (ID на Wildberries) или прямую ссылку на него.
 
+🔗 ПО ССЫЛКЕ НА КОРЗИНУ
+Отправьте ссылку вида https://wildberries.ru/basket?shareId=…
+
 ➖ УДАЛИТЬ ТОВАРЫ
 Выберите товар из списка ниже, чтобы убрать его из корзины.
 
@@ -130,6 +133,20 @@ namespace WildBerriesAnalyzer.Bots.Consts
                                                                   "Я проверю каждый артикул. Если товар уже есть в базе — добавлю его в вашу корзину. Если товара нет — добавлю в базу и в вашу корзину.\n\n" +
                                                                   "❌ Для отмены нажмите /cancel";
 
+        public static string Filters_ChangeProducts_OwnBag_AddShare =>
+@"🔗 *ДОБАВЛЕНИЕ ПО ССЫЛКЕ НА КОРЗИНУ*
+
+В Wildberries откройте корзину → «Поделиться» и скопируйте ссылку.
+
+Отправьте её сюда одним сообщением.
+
+📝 *Пример:*
+`https://www.wildberries.ru/basket?shareId=32fdvg6pes`
+
+⚙️ Все товары из общей корзины будут добавлены в вашу корзину бота для отслеживания скидок.
+
+⬅️ Назад — вернуться в меню корзины.";
+
         public static string GetTextForPlace(BotUserPlace place)
         {
             return place switch
@@ -143,6 +160,7 @@ namespace WildBerriesAnalyzer.Bots.Consts
                 BotUserPlace.Filters_Type => Filters_Type,
                 BotUserPlace.Filters_ChangeProducts_OwnBag => Filters_ChangeProducts_OwnBag,
                 BotUserPlace.Filters_ChangeProducts_OwnBag_Add => Filters_ChangeProducts_OwnBag_Add,
+                BotUserPlace.Filters_ChangeProducts_OwnBag_AddShare => Filters_ChangeProducts_OwnBag_AddShare,
                 BotUserPlace.AddProducts => AddProducts,
                 BotUserPlace.AddProducts_Name => AddProducts_Name,
                 BotUserPlace.AddProducts_Ids => AddProducts_Ids,

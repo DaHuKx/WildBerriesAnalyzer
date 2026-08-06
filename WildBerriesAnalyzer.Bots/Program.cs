@@ -13,6 +13,7 @@ using WildBerriesAnalyzer.Business.Options;
 using WildBerriesAnalyzer.Business.Services;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Business.Services.WbScraping;
+using WildBerriesAnalyzer.Business.Validators;
 using WildBerriesAnalyzer.Data;
 using WildBerriesAnalyzer.Data.Repositories;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
@@ -48,6 +49,9 @@ var host = Host.CreateDefaultBuilder(args)
                    services.AddSingleton<IWildBerriesService, WildBerriesService>();
                    services.AddSingleton<IDiscontsService, DiscontsService>();
                    services.AddSingleton<IActualDiscontsService, ActualDiscontsService>();
+                   services.AddSingleton<ProductIdValidator>();
+                   services.AddSingleton<WbFilterValidator>();
+                   services.AddSingleton<IFiltersService, FiltersService>();
 
                    services.AddSingleton<IProductsRepository, ProductsRepository>();
                    services.AddSingleton<IUsersRepository, UsersRepository>();
@@ -75,6 +79,7 @@ var host = Host.CreateDefaultBuilder(args)
                    services.AddSingleton<IMessageHandler, FiltersTypeHandler>();
                    services.AddSingleton<IMessageHandler, FiltersChangeOwnBagHandler>();
                    services.AddSingleton<IMessageHandler, FiltersAddOwnBagHandler>();
+                   services.AddSingleton<IMessageHandler, AddProductsShareHandler>();
                    services.AddSingleton<IMessageHandler, AddProductsHandler>();
                    services.AddSingleton<IMessageHandler, AddProductsNameHandler>();
                    services.AddSingleton<IMessageHandler, AddProductsIdHandler>();

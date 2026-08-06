@@ -52,6 +52,7 @@ namespace WildBerriesAnalyzer.Bots.Clients.Helpers
             _keyboards.Add(BotUserPlace.AddProducts_Ids, backButton);
             _keyboards.Add(BotUserPlace.AddProducts_Name, backButton);
             _keyboards.Add(BotUserPlace.Filters_ChangeProducts_OwnBag_Add, backButton);
+            _keyboards.Add(BotUserPlace.Filters_ChangeProducts_OwnBag_AddShare, backButton);
         }
 
         private static void InitMenuButtons(KeyboardBuilder builder)
@@ -124,6 +125,8 @@ namespace WildBerriesAnalyzer.Bots.Clients.Helpers
             builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_ProductsList, Color = KeyboardButtonColor.Positive });
             builder.AddLine();
             builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_AddProducts, Color = KeyboardButtonColor.Primary });
+            builder.AddLine();
+            builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_AddShare, Color = KeyboardButtonColor.Primary });
             //builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_RemoveProducts, Color = KeyboardButtonColor.Primary });
             builder.AddLine();
             builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters_OwnBag_Instruction, Color = KeyboardButtonColor.Primary });

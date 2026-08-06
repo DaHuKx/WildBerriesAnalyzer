@@ -12,6 +12,7 @@
         Filters_Type,
         Filters_ChangeProducts_OwnBag,
         Filters_ChangeProducts_OwnBag_Add,
+        Filters_ChangeProducts_OwnBag_AddShare,
         Filters_ChangeProducts_OwnBag_Remove,
         Filters_ChangeProducts_BlackList,
         Filters_ChangeProducts_BlackList_Add,
