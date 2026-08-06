@@ -173,6 +173,7 @@ try
     builder.Services.AddSingleton<LoginCredentialsValidator>();
     builder.Services.AddSingleton<RefreshCredentialsValidator>();
     builder.Services.AddSingleton<ProductIdValidator>();
+    builder.Services.AddSingleton<BasketShareUrlValidator>();
     builder.Services.AddSingleton<ProductNameValidator>();
     builder.Services.AddSingleton<WbFilterValidator>();
 

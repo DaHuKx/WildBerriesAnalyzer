@@ -69,8 +69,6 @@ namespace WildBerriesAnalyzer.Bots.Clients.Helpers
         {
             builder.Clear();
 
-            builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.AddProducts, Color = KeyboardButtonColor.Primary });
-            builder.AddLine();
             builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.Filters, Color = KeyboardButtonColor.Primary });
             builder.AddLine();
             builder.AddButton(new AddButtonParams { Label = ExpectedUserMessages.ActualDisconts, Color = KeyboardButtonColor.Primary });

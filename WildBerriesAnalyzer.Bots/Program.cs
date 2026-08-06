@@ -57,6 +57,7 @@ var host = Host.CreateDefaultBuilder(args)
                    services.AddSingleton<IDiscontsService, DiscontsService>();
                    services.AddSingleton<IActualDiscontsService, ActualDiscontsService>();
                    services.AddSingleton<ProductIdValidator>();
+                   services.AddSingleton<BasketShareUrlValidator>();
                    services.AddSingleton<WbFilterValidator>();
                    services.AddSingleton<IFiltersService, FiltersService>();
 

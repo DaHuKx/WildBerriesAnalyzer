@@ -113,10 +113,10 @@ namespace WildBerriesAnalyzer.Server.Controllers
             {
                 return BadRequest(ex.Message);
             }
-            catch (HttpRequestException ex)
+            catch (HttpRequestException)
             {
                 return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                    $"Wildberries недоступен с сервера: {ex.Message}");
+                    "Возникла проблема. Попробуйте позже.");
             }
         }
 
@@ -153,14 +153,15 @@ namespace WildBerriesAnalyzer.Server.Controllers
             catch (UnauthorizedAccessException ex)
             {
                 _logger.LogWarning(ex, "from-share 503 (WB auth) userId={UserId}", userId);
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, ex.Message);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    "Возникла проблема. Попробуйте позже.");
             }
             catch (HttpRequestException ex)
             {
                 _logger.LogWarning(ex, "from-share 503 (WB network) userId={UserId}: {Message}",
                     userId, ex.Message);
                 return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                    $"Wildberries недоступен с сервера: {ex.Message}");
+                    "Возникла проблема. Попробуйте позже.");
             }
         }
 

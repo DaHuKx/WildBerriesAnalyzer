@@ -11,10 +11,13 @@ namespace WildBerriesAnalyzer.Business.Services
 {
     public class FiltersService : IFiltersService
     {
+        private const string UserFacingProblem = "Возникла проблема. Попробуйте позже.";
+
         private readonly IFiltersRepository _filtersRepository;
         private readonly IProductsRepository _productsRepository;
         private readonly IWildBerriesService _wildBerriesService;
         private readonly ProductIdValidator _productIdValidator;
+        private readonly BasketShareUrlValidator _basketShareUrlValidator;
         private readonly WbFilterValidator _filterValidator;
 
         public FiltersService(
@@ -22,12 +25,14 @@ namespace WildBerriesAnalyzer.Business.Services
             IProductsRepository productsRepository,
             IWildBerriesService wildBerriesService,
             ProductIdValidator productIdValidator,
+            BasketShareUrlValidator basketShareUrlValidator,
             WbFilterValidator filterValidator)
         {
             _filtersRepository = filtersRepository;
             _productsRepository = productsRepository;
             _wildBerriesService = wildBerriesService;
             _productIdValidator = productIdValidator;
+            _basketShareUrlValidator = basketShareUrlValidator;
             _filterValidator = filterValidator;
         }
 
@@ -137,15 +142,13 @@ namespace WildBerriesAnalyzer.Business.Services
                 }
                 catch (HttpRequestException ex)
                 {
-                    throw new InvalidOperationException(
-                        "Сервер не может подключиться к Wildberries. Повторите позже или проверьте DNS/IPv6 на VDS.",
-                        ex);
+                    throw new InvalidOperationException(UserFacingProblem, ex);
                 }
             }
 
             if (dbProducts.Count == 0)
             {
-                throw new InvalidOperationException("Не удалось получить товары с WildBerries.");
+                throw new InvalidOperationException(UserFacingProblem);
             }
 
             var addedProducts = await _filtersRepository.AddProductsToUserBag(userId, dbProducts);
@@ -162,22 +165,16 @@ namespace WildBerriesAnalyzer.Business.Services
             int userId,
             string shareUrlOrId)
         {
-            if (string.IsNullOrWhiteSpace(shareUrlOrId))
+            var validation = _basketShareUrlValidator.Validate(shareUrlOrId ?? string.Empty);
+            if (!validation.IsValid)
             {
-                throw new ArgumentException("Укажите ссылку на общую корзину Wildberries.");
+                throw new ArgumentException(validation.Errors.First().ErrorMessage);
             }
 
-            if (!ProductHelper.TryExtractBasketShareId(shareUrlOrId, out var shareId))
+            if (!BasketShareUrlValidator.TryGetShareId(shareUrlOrId, out var shareId))
             {
-                // Допускаем «голый» shareId без URL.
-                var trimmed = shareUrlOrId.Trim();
-                if (trimmed.Contains('/') || trimmed.Contains('?') || trimmed.Length < 4)
-                {
-                    throw new ArgumentException(
-                        "Некорректная ссылка. Ожидается вида https://wildberries.ru/basket?shareId=…");
-                }
-
-                shareId = trimmed;
+                throw new ArgumentException(validation.Errors.FirstOrDefault()?.ErrorMessage
+                    ?? "Некорректная ссылка на корзину Wildberries.");
             }
 
             List<string> articles;
@@ -185,18 +182,23 @@ namespace WildBerriesAnalyzer.Business.Services
             {
                 articles = await _wildBerriesService.GetArticlesFromBasketShareAsync(shareId);
             }
-            catch (UnauthorizedAccessException)
+            catch (ArgumentException)
             {
                 throw;
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex) when (ex is HttpRequestException or UnauthorizedAccessException)
             {
-                // Сохраняем текст (share-basket HTTP …) — иначе в логах только общий 400.
-                throw new InvalidOperationException(
-                    string.IsNullOrWhiteSpace(ex.Message)
-                        ? "Сервер не может подключиться к Wildberries (share-basket)."
-                        : ex.Message,
-                    ex);
+                throw new InvalidOperationException(UserFacingProblem, ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Бизнес-кейсы (пуста / не найдена) — оставляем; технические share-basket/HTTP — прячем.
+                if (IsTechnicalFailureMessage(ex.Message))
+                {
+                    throw new InvalidOperationException(UserFacingProblem, ex);
+                }
+
+                throw;
             }
 
             if (articles.Count == 0)
@@ -205,6 +207,21 @@ namespace WildBerriesAnalyzer.Business.Services
             }
 
             return await AddProductsToBagAsync(userId, articles);
+        }
+
+        private static bool IsTechnicalFailureMessage(string? message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return true;
+            }
+
+            return message.Contains("share-basket", StringComparison.OrdinalIgnoreCase)
+                   || message.Contains("DNS", StringComparison.OrdinalIgnoreCase)
+                   || message.Contains("IPv6", StringComparison.OrdinalIgnoreCase)
+                   || message.Contains("IPv4", StringComparison.OrdinalIgnoreCase)
+                   || message.Contains("HTTP ", StringComparison.OrdinalIgnoreCase)
+                   || message.Contains("Name or service", StringComparison.OrdinalIgnoreCase);
         }
 
         public async Task RemoveProductsFromBagAsync(int userId, IEnumerable<int> productIds)

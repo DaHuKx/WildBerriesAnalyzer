@@ -2,8 +2,8 @@ using WildBerriesAnalyzer.Bots.Consts;
 using WildBerriesAnalyzer.Bots.Handlers.Interfaces;
 using WildBerriesAnalyzer.Bots.Helpers;
 using WildBerriesAnalyzer.Bots.Models.Messages;
-using WildBerriesAnalyzer.Business.Helpers;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Business.Validators;
 using WildBerriesAnalyzer.Domain.Enums;
 
 namespace WildBerriesAnalyzer.Bots.Handlers
@@ -13,13 +13,19 @@ namespace WildBerriesAnalyzer.Bots.Handlers
     /// </summary>
     public class AddProductsShareHandler : IMessageHandler
     {
+        private const string UserFacingProblem = "Возникла проблема. Попробуйте позже.";
+
         private readonly IFiltersService _filtersService;
+        private readonly BasketShareUrlValidator _basketShareUrlValidator;
 
         public BotUserPlace HandlePlace => BotUserPlace.Filters_ChangeProducts_OwnBag_AddShare;
 
-        public AddProductsShareHandler(IFiltersService filtersService)
+        public AddProductsShareHandler(
+            IFiltersService filtersService,
+            BasketShareUrlValidator basketShareUrlValidator)
         {
             _filtersService = filtersService;
+            _basketShareUrlValidator = basketShareUrlValidator;
         }
 
         public async Task<BotMessage> HandleMessage(UserMessage message)
@@ -34,18 +40,15 @@ namespace WildBerriesAnalyzer.Bots.Handlers
             }
 
             var input = message.Text?.Trim() ?? string.Empty;
-            if (!ProductHelper.TryExtractBasketShareId(input, out _) &&
-                (input.Contains('/') || input.Contains('?') || input.Length < 4))
+            var validation = _basketShareUrlValidator.Validate(input);
+            if (!validation.IsValid)
             {
-                return ErrorMessageHelper.CreateMessage(
-                    "Некорректная ссылка. Ожидается вида:\n" +
-                    "https://www.wildberries.ru/basket?shareId=…\n\n" +
-                    "Скопируйте ссылку «Поделиться корзиной» в Wildberries и отправьте снова.");
+                return ErrorMessageHelper.CreateMessage(validation.Errors.First().ErrorMessage);
             }
 
             if (!message.UserId.HasValue)
             {
-                return ErrorMessageHelper.CreateMessage("Не удалось определить пользователя. Напишите /start.");
+                return ErrorMessageHelper.CreateMessage(UserFacingProblem);
             }
 
             try
@@ -79,22 +82,18 @@ namespace WildBerriesAnalyzer.Bots.Handlers
             }
             catch (InvalidOperationException ex)
             {
-                return ErrorMessageHelper.CreateMessage(ex.Message);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return ErrorMessageHelper.CreateMessage(
-                    "Не удалось получить корзину Wildberries (нужна авторизация на сервере). Попробуйте позже.");
-            }
-            catch (HttpRequestException)
-            {
-                return ErrorMessageHelper.CreateMessage(
-                    "Не удалось подключиться к Wildberries. Попробуйте позже.");
+                // Бизнес-сообщения (пуста/устарела) — как есть; остальное — без деталей.
+                if (ex.Message.Contains("корзин", StringComparison.OrdinalIgnoreCase) ||
+                    ex.Message.Contains("ссылк", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ErrorMessageHelper.CreateMessage(ex.Message);
+                }
+
+                return ErrorMessageHelper.CreateMessage(UserFacingProblem);
             }
             catch
             {
-                return ErrorMessageHelper.CreateMessage(
-                    "Возникла ошибка при добавлении корзины. Попробуйте позже.");
+                return ErrorMessageHelper.CreateMessage(UserFacingProblem);
             }
         }
     }

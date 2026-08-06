@@ -46,8 +46,7 @@ namespace WildBerriesAnalyzer.Business.Helpers
             var ipv4 = await ResolveIpv4Async(host, cancellationToken).ConfigureAwait(false);
             if (ipv4.Length == 0)
             {
-                throw new HttpRequestException(
-                    $"No IPv4 addresses for {host}. Проверьте DNS / scripts/fix-vds-dns.sh.");
+                throw new HttpRequestException($"No IPv4 addresses for {host}.");
             }
 
             Exception? lastError = null;

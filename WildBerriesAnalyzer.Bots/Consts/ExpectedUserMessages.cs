@@ -34,7 +34,6 @@ namespace WildBerriesAnalyzer.Bots.Consts
         public static Dictionary<string, BotUserPlace?> MenuExpectsPlaces => new Dictionary<string, BotUserPlace?>()
         {
             [Filters] = BotUserPlace.Filters,
-            [AddProducts] = BotUserPlace.AddProducts,
             [ActualDisconts] = null
         };
 

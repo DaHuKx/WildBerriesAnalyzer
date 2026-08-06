@@ -234,9 +234,8 @@ namespace WildBerriesAnalyzer.Business.Services
             }
             catch (JsonException ex)
             {
-                var snip = responseBody.Length > 180 ? responseBody[..180] : responseBody;
                 throw new InvalidOperationException(
-                    $"share-basket: неожиданный ответ WB: {snip}",
+                    "Возникла проблема. Попробуйте позже.",
                     ex);
             }
 
@@ -244,7 +243,7 @@ namespace WildBerriesAnalyzer.Business.Services
             if (items is null || items.Count == 0)
             {
                 throw new InvalidOperationException(
-                    $"share-basket: корзина «{shareId}» пуста или ссылка недействительна.");
+                    "Общая корзина пуста или ссылка недействительна.");
             }
 
             return items
@@ -286,14 +285,13 @@ namespace WildBerriesAnalyzer.Business.Services
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 throw new InvalidOperationException(
-                    "share-basket: корзина не найдена или ссылка устарела.");
+                    "Общая корзина не найдена или ссылка устарела.");
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                var snip = body.Length > 180 ? body[..180] : body;
                 throw new HttpRequestException(
-                    $"share-basket HTTP {(int)response.StatusCode}: {snip}");
+                    $"WB share-basket HTTP {(int)response.StatusCode}");
             }
 
             return body;
