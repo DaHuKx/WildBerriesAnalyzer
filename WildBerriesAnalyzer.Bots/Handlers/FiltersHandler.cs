@@ -10,12 +10,16 @@ namespace WildBerriesAnalyzer.Bots.Handlers
     public class FiltersHandler : IMessageHandler
     {
         private readonly IFiltersRepository _filtersRepository;
+        private readonly IProductsRepository _productsRepository;
 
         public BotUserPlace HandlePlace => BotUserPlace.Filters;
 
-        public FiltersHandler(IFiltersRepository filtersRepository)
+        public FiltersHandler(
+            IFiltersRepository filtersRepository,
+            IProductsRepository productsRepository)
         {
             _filtersRepository = filtersRepository;
+            _productsRepository = productsRepository;
         }
 
         public async Task<BotMessage> HandleMessage(UserMessage message)
@@ -33,7 +37,12 @@ namespace WildBerriesAnalyzer.Bots.Handlers
 
                 if (message.Text == ExpectedUserMessages.Filters_Info)
                 {
-                    info = BotMessageBuilder.BuildUserFilter(userFilter);
+                    userFilter = await _filtersRepository.GetFilterWithDetailsAsync(message.UserId.Value)
+                                 ?? userFilter;
+                    var bagProducts = userFilter.ProductsFilterType == ProductsFilterType.OwnBag
+                        ? await _productsRepository.GetUserBagProductsAsync(message.UserId.Value)
+                        : null;
+                    info = BotMessageBuilder.BuildUserFilter(userFilter, bagProducts);
                 }
                 else
                 {

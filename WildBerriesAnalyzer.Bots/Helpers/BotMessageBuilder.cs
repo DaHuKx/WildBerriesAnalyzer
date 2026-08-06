@@ -6,106 +6,87 @@ namespace WildBerriesAnalyzer.Bots.Helpers
 {
     public static class BotMessageBuilder
     {
-        public static string BuildUserFilter(WbFilter filter)
+        /// <summary>
+        /// Текст «Мои текущие фильтры». Список товаров/категорий обрезается под лимит VK (4096).
+        /// </summary>
+        /// <param name="bagProducts">
+        /// Товары корзины с именами (предпочтительно из GetUserBagProductsAsync).
+        /// Если null — берём filter.BagProducts → Product.Name.
+        /// </param>
+        public static string BuildUserFilter(
+            WbFilter filter,
+            IReadOnlyList<WbProduct>? bagProducts = null,
+            int maxLength = 4096)
         {
             if (filter == null)
-                return " Фильтр не задан";
+                return "Фильтр не задан";
+
+            if (maxLength < 256)
+                maxLength = 256;
+
+            var listLines = BuildFilterListLines(filter, bagProducts, out var listTotalCount, out var listLabel);
+            var strategies = BuildFilterStrategies(filter);
+            var footer = strategies + new string('─', 40);
 
             var sb = new StringBuilder();
-
-            // Заголовок
-            sb.AppendLine(" *ИНФОРМАЦИЯ О ФИЛЬТРЕ*");
+            sb.AppendLine("*ИНФОРМАЦИЯ О ФИЛЬТРЕ*");
             sb.AppendLine(new string('─', 40));
-
-            // 🔷 БАЗОВЫЕ ПАРАМЕТРЫ
-            sb.AppendLine(" *Базовые параметры:*");
+            sb.AppendLine("*Базовые параметры:*");
             sb.AppendLine($"   💰 Мин. скидка: {filter.DiscontMinPercent}%");
             sb.AppendLine($"   💬 Мин. отзывов: {filter.MinReviewsCount}");
             sb.AppendLine($"   ⭐ Мин. рейтинг: {filter.MinRating}");
             sb.AppendLine();
-
-            // 🔷 ФИЛЬТРАЦИЯ ТОВАРОВ
             sb.AppendLine("🔹 *Фильтрация товаров:*");
+            sb.AppendLine($"   {GetFilterTypeLine(filter.ProductsFilterType)}");
 
-            switch (filter.ProductsFilterType)
+            if (listLabel != null)
             {
-                case ProductsFilterType.None:
-                    sb.AppendLine("   🔘 Тип: *Не применяется*");
-                    break;
-
-                case ProductsFilterType.OwnBag:
-                    sb.AppendLine("   🛍️ Тип: *Собственная корзина*");
-
-                    if (filter.BagProducts == null || !filter.BagProducts.Any())
-                    {
-                        sb.AppendLine("   📦 Товаров: *0* (корзина пуста)");
-                    }
-                    else
-                    {
-                        var products = filter.BagProducts.Select(b =>
-                            b.Product != null
-                                ? $"• {b.Product.Name} (арт. {b.Product.IdInMarket})"
-                                : $"• ID товара: {b.ProductId}"
-                        ).ToList();
-
-                        sb.AppendLine($"   📦 Товаров: *{products.Count}*");
-                        foreach (var product in products)
-                        {
-                            sb.AppendLine($"   {product}");
-                        }
-                    }
-                    break;
-
-                case ProductsFilterType.Categories_BlackList:
-                    sb.AppendLine("   🚫 Тип: *Черный список категорий*");
-
-                    if (filter.FilterCategories == null || !filter.FilterCategories.Any())
-                    {
-                        sb.AppendLine("   📂 Категорий: *0* (список пуст)");
-                    }
-                    else
-                    {
-                        var categories = filter.FilterCategories.Select(c =>
-                            c.Category != null && !string.IsNullOrEmpty(c.Category.Name)
-                                ? $"• {c.Category.Name} (ID: {c.CategoryId})"
-                                : $"• ID категории: {c.CategoryId}"
-                        ).ToList();
-
-                        sb.AppendLine($"   📂 Категорий: *{categories.Count}*");
-                        foreach (var category in categories)
-                        {
-                            sb.AppendLine($"   {category}");
-                        }
-                    }
-                    break;
-
-                case ProductsFilterType.Categories_WhiteList:
-                    sb.AppendLine("   ✅ Тип: *Белый список категорий*");
-
-                    if (filter.FilterCategories == null || !filter.FilterCategories.Any())
-                    {
-                        sb.AppendLine("   📂 Категорий: *0* (список пуст)");
-                    }
-                    else
-                    {
-                        var categories = filter.FilterCategories.Select(c =>
-                            c.Category != null && !string.IsNullOrEmpty(c.Category.Name)
-                                ? $"• {c.Category.Name} (ID: {c.CategoryId})"
-                                : $"• ID категории: {c.CategoryId}"
-                        ).ToList();
-
-                        sb.AppendLine($"   📂 Категорий: *{categories.Count}*");
-                        foreach (var category in categories)
-                        {
-                            sb.AppendLine($"   {category}");
-                        }
-                    }
-                    break;
+                sb.AppendLine($"   📦 {listLabel}: *{listTotalCount}*");
+                if (listTotalCount == 0)
+                {
+                    sb.AppendLine(listLabel == "Категорий"
+                        ? "   (список пуст)"
+                        : "   (корзина пуста)");
+                }
+                else
+                {
+                    AppendBoundedLines(sb, listLines, footer.Length, maxLength);
+                }
             }
 
             sb.AppendLine();
 
-            // 🔷 СТРАТЕГИИ ЦЕНЫ
+            // Если хвост не влезает — обрезаем список ещё сильнее (повторная сборка не нужна:
+            // AppendBoundedLines уже резервировал footer.Length).
+            if (sb.Length + footer.Length > maxLength)
+            {
+                var keep = Math.Max(0, maxLength - footer.Length - 3);
+                var head = sb.ToString(0, Math.Min(sb.Length, keep)).TrimEnd() + "...\n\n";
+                return head + footer;
+            }
+
+            sb.Append(footer);
+
+            if (sb.Length > maxLength)
+            {
+                return sb.ToString(0, maxLength - 3) + "...";
+            }
+
+            return sb.ToString();
+        }
+
+        private static string GetFilterTypeLine(ProductsFilterType type) => type switch
+        {
+            ProductsFilterType.None => "🔘 Тип: *Не применяется*",
+            ProductsFilterType.OwnBag => "🛍️ Тип: *Собственная корзина*",
+            ProductsFilterType.Categories_BlackList => "🚫 Тип: *Черный список категорий*",
+            ProductsFilterType.Categories_WhiteList => "✅ Тип: *Белый список категорий*",
+            _ => $"Тип: *{type}*"
+        };
+
+        private static string BuildFilterStrategies(WbFilter filter)
+        {
+            var sb = new StringBuilder();
             sb.AppendLine("🔹 *Стратегии расчета цены:*");
 
             if (filter.ReferencePriceStrartegies != null && filter.ReferencePriceStrartegies.Any())
@@ -116,7 +97,7 @@ namespace WildBerriesAnalyzer.Bots.Helpers
                 {
                     string emoji = strategy switch
                     {
-                        ReferencePriceStrategy.LastKnownPrice => "",
+                        ReferencePriceStrategy.LastKnownPrice => "⏱️",
                         ReferencePriceStrategy.AveragePrice => "📈",
                         ReferencePriceStrategy.Median => "📊",
                         ReferencePriceStrategy.MinimumHistorical => "📉",
@@ -134,13 +115,110 @@ namespace WildBerriesAnalyzer.Bots.Helpers
                 sb.AppendLine("   📊 Стратегии: *все*");
             }
 
-            sb.AppendLine(new string('─', 40));
-
+            sb.AppendLine();
             return sb.ToString();
         }
 
-        // Метод расширения для красивого отображения названий стратегий
-        private static string ToReadableString(this ReferencePriceStrategy strategy)
+        private static List<string> BuildFilterListLines(
+            WbFilter filter,
+            IReadOnlyList<WbProduct>? bagProducts,
+            out int totalCount,
+            out string? listLabel)
+        {
+            listLabel = null;
+            totalCount = 0;
+            var lines = new List<string>();
+
+            switch (filter.ProductsFilterType)
+            {
+                case ProductsFilterType.OwnBag:
+                    listLabel = "Товаров";
+                    if (bagProducts != null)
+                    {
+                        totalCount = bagProducts.Count;
+                        foreach (var p in bagProducts)
+                        {
+                            var name = string.IsNullOrWhiteSpace(p.Name) ? "Без названия" : p.Name.Trim();
+                            lines.Add($"   • {name}");
+                        }
+                    }
+                    else
+                    {
+                        var bags = filter.BagProducts ?? [];
+                        totalCount = bags.Count;
+                        foreach (var b in bags)
+                        {
+                            var name = b.Product?.Name;
+                            lines.Add(string.IsNullOrWhiteSpace(name)
+                                ? "   • Без названия"
+                                : $"   • {name.Trim()}");
+                        }
+                    }
+
+                    break;
+
+                case ProductsFilterType.Categories_BlackList:
+                case ProductsFilterType.Categories_WhiteList:
+                    listLabel = "Категорий";
+                    var cats = filter.FilterCategories ?? [];
+                    totalCount = cats.Count;
+                    foreach (var c in cats)
+                    {
+                        lines.Add(
+                            c.Category != null && !string.IsNullOrEmpty(c.Category.Name)
+                                ? $"   • {c.Category.Name} (ID: {c.CategoryId})"
+                                : $"   • ID категории: {c.CategoryId}");
+                    }
+
+                    break;
+            }
+
+            return lines;
+        }
+
+        /// <summary>
+        /// Добавляет строки списка, оставляя reservedTail символов под блок стратегий.
+        /// </summary>
+        private static void AppendBoundedLines(
+            StringBuilder sb,
+            List<string> lines,
+            int reservedTail,
+            int maxLength)
+        {
+            var added = 0;
+
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                var remainingAfterThis = lines.Count - (added + 1);
+                var moreSuffix = remainingAfterThis > 0
+                    ? $"\n   ... и ещё {remainingAfterThis}"
+                    : string.Empty;
+
+                var chunk = line + "\n";
+                if (sb.Length + chunk.Length + moreSuffix.Length + reservedTail <= maxLength)
+                {
+                    sb.Append(chunk);
+                    added++;
+                }
+                else
+                {
+                    var left = lines.Count - added;
+                    if (left > 0)
+                    {
+                        var suffix = $"   ... и ещё {left}\n";
+                        if (sb.Length + suffix.Length + reservedTail <= maxLength)
+                        {
+                            sb.Append(suffix);
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        private static string ToReadableString(ReferencePriceStrategy strategy)
         {
             return strategy switch
             {
@@ -171,18 +249,12 @@ namespace WildBerriesAnalyzer.Bots.Helpers
             for (int i = 0; i < totalProducts; i++)
             {
                 var product = products[i];
-                // Добавляем маркер • для красоты. Если имя null, ставим заглушку
                 var line = $"• {product.Name ?? "Без названия"}";
 
                 int remaining = totalProducts - (addedCount + 1);
-
-                // Формируем суффикс, если товары не влезут
                 string suffix = remaining > 0 ? $"\n\n... и ещё {remaining} {GetProductPlural(remaining)}" : "";
-
-                // Длина переноса строки (\n), если это не первый добавляемый товар
                 int newlineLength = (addedCount == 0) ? 0 : 1;
 
-                // Проверяем, влезет ли текущая строка + суффикс в лимит
                 if (sb.Length + newlineLength + line.Length + suffix.Length <= maxLength)
                 {
                     if (addedCount > 0)
@@ -193,7 +265,6 @@ namespace WildBerriesAnalyzer.Bots.Helpers
                 }
                 else
                 {
-                    // Не влезает. Добавляем суффикс, если он сам влезает, и прерываем цикл
                     if (remaining > 0 && sb.Length + suffix.Length <= maxLength)
                     {
                         sb.Append(suffix);
@@ -202,7 +273,6 @@ namespace WildBerriesAnalyzer.Bots.Helpers
                 }
             }
 
-            // Финальная страховка: если даже заголовок + суффикс длиннее лимита (крайне редкий случай)
             if (sb.Length > maxLength)
             {
                 return sb.ToString(0, Math.Max(0, maxLength - 3)) + "...";
@@ -211,9 +281,6 @@ namespace WildBerriesAnalyzer.Bots.Helpers
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Вспомогательный метод для правильного склонения слова "товар" (1 товар, 2 товара, 5 товаров)
-        /// </summary>
         private static string GetProductPlural(int count)
         {
             int mod10 = count % 10;

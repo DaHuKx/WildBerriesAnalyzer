@@ -41,8 +41,10 @@ namespace WildBerriesAnalyzer.Data.Repositories
         {
             return Context.Filters
                 .Include(f => f.User)
-                .Include(f => f.BagProducts)
-                .Include(f => f.FilterCategories)
+                .Include(f => f.BagProducts!)
+                    .ThenInclude(b => b.Product)
+                .Include(f => f.FilterCategories!)
+                    .ThenInclude(c => c.Category)
                 .FirstOrDefaultAsync(f => f.UserId == userId);
         }
 
