@@ -54,13 +54,13 @@ namespace WildBerriesAnalyzer.Bots.Handlers
                     {
                         newPlace = BotUserPlace.Filters_ChangeProducts_OwnBag;
                     }
-                    else if (userFilter.ProductsFilterType == ProductsFilterType.Categories_BlackList)
-                    {
-                        newPlace = BotUserPlace.Filters_ChangeProducts_BlackList;
-                    }
                     else
                     {
-                        newPlace = BotUserPlace.Filters_ChangeProducts_WhiteList;
+                        // Меню категорий пока не реализовано — не уводим в WhiteList/BlackList
+                        // (там нет handler → бот зависал / падал на клавиатуре).
+                        return ErrorMessageHelper.CreateMessage(
+                            "Управление категориями пока недоступно.\n" +
+                            "Выберите тип фильтрации «Корзина», затем снова откройте «Корзина/категории».");
                     }
                 }
             }

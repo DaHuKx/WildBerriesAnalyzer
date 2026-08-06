@@ -21,6 +21,13 @@ using WildBerriesAnalyzer.Data.Repositories.Interfaces;
 var host = Host.CreateDefaultBuilder(args)
                .ConfigureServices((hostContext, services) =>
                {
+                   // Сбой одного сообщения (DNS VK и т.п.) не должен гасить весь процесс.
+                   services.Configure<HostOptions>(options =>
+                   {
+                       options.BackgroundServiceExceptionBehavior =
+                           BackgroundServiceExceptionBehavior.Ignore;
+                   });
+
                    // Singleton: BotsManager (hosted) получает зависимости в ctor.
                    services.AddDbContext<WbDataBase>(ServiceLifetime.Singleton);
 

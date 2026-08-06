@@ -18,7 +18,13 @@ namespace WildBerriesAnalyzer.Bots.Clients.Helpers
 
         public static MessageKeyboard GetKeyboardByPlace(BotUserPlace place)
         {
-            return _keyboards[place];
+            if (_keyboards.TryGetValue(place, out var keyboard))
+            {
+                return keyboard;
+            }
+
+            // Неизвестное / незавершённое место — не роняем бота KeyNotFoundException.
+            return _keyboards[BotUserPlace.Menu];
         }
 
         private static void InitializeKeyboards()
@@ -53,6 +59,10 @@ namespace WildBerriesAnalyzer.Bots.Clients.Helpers
             _keyboards.Add(BotUserPlace.AddProducts_Name, backButton);
             _keyboards.Add(BotUserPlace.Filters_ChangeProducts_OwnBag_Add, backButton);
             _keyboards.Add(BotUserPlace.Filters_ChangeProducts_OwnBag_AddShare, backButton);
+            _keyboards.Add(BotUserPlace.Filters_ChangeProducts_BlackList, backButton);
+            _keyboards.Add(BotUserPlace.Filters_ChangeProducts_WhiteList, backButton);
+            _keyboards.Add(BotUserPlace.Filters_ChangeProducts_BlackList_Add, backButton);
+            _keyboards.Add(BotUserPlace.Filters_ChangeProducts_WhiteList_Add, backButton);
         }
 
         private static void InitMenuButtons(KeyboardBuilder builder)
