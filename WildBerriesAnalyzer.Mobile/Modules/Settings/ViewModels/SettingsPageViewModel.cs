@@ -33,6 +33,8 @@ namespace WildBerriesAnalyzer.Modules.Settings.ViewModels
 
         public string Title => "Настройки";
 
+        public string AppVersionText => $"Версия {AppClientVersion.Version}";
+
         public DelegateCommand SignOutCommand { get; }
 
         public DelegateCommand<string> SetThemeCommand { get; }

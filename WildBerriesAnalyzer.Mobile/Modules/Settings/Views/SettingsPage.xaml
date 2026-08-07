@@ -89,7 +89,13 @@
                         HeightRequest="48"
                         CornerRadius="10"
                         FontSize="15"
-                        Margin="0,8,0,24" />
+                        Margin="0,8,0,0" />
+
+                <Label Text="{Binding AppVersionText}"
+                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                       FontSize="12"
+                       HorizontalTextAlignment="Center"
+                       Margin="0,4,0,24" />
 
             </VerticalStackLayout>
         </ScrollView>
