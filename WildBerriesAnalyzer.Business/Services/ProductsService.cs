@@ -186,10 +186,30 @@ namespace WildBerriesAnalyzer.Business.Services
                 Count = points.Count,
                 Min = points.Min(p => p.Price),
                 Max = points.Max(p => p.Price),
-                Average = Math.Round(points.Average(p => p.Price), 2, MidpointRounding.AwayFromZero),
+                Median = CalculateMedian(points),
                 Last = last.Price,
                 LastCheckTime = last.CheckTime
             };
+        }
+
+        private static decimal? CalculateMedian(IReadOnlyList<ProductPricePoint> points)
+        {
+            var sorted = points
+                .Select(p => p.Price)
+                .Where(p => p > 0)
+                .OrderBy(p => p)
+                .ToArray();
+
+            if (sorted.Length == 0)
+            {
+                return null;
+            }
+
+            var mid = sorted.Length / 2;
+            var median = sorted.Length % 2 == 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2m
+                : sorted[mid];
+            return Math.Round(median, 2, MidpointRounding.AwayFromZero);
         }
 
         public List<WbProduct> FilterProductsByName(IEnumerable<WbProduct> products, string productName)

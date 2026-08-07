@@ -213,7 +213,7 @@
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
                             <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
-                                <Label Text="Средн."
+                                <Label Text="Сред."
                                        FontSize="11"
                                        HorizontalTextAlignment="Center"
                                        TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />

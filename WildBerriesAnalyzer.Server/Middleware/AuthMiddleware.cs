@@ -29,9 +29,11 @@ namespace WildBerriesAnalyzer.Server.Middleware
             _next = next;
         }
 
-        public async Task InvokeAsync(HttpContext context,
-                                      ITokenIssuer tokenIssuer,
-                                      IUsersRepository usersRepository)
+        public async Task InvokeAsync(
+            HttpContext context,
+            ITokenIssuer tokenIssuer,
+            IUsersRepository usersRepository,
+            IClientVersionTracker clientVersionTracker)
         {
             if (IsAnonymousPath(context.Request.Path))
             {
@@ -69,6 +71,15 @@ namespace WildBerriesAnalyzer.Server.Middleware
 
             var identity = new ClaimsIdentity(claims, JwtBearerDefaults.AuthenticationScheme);
             context.User = new ClaimsPrincipal(identity);
+
+            try
+            {
+                await clientVersionTracker.TrackFromRequestAsync(user.Id, context.Request, context.RequestAborted);
+            }
+            catch
+            {
+                // Не блокируем API из‑за учёта версии.
+            }
 
             await _next(context);
         }

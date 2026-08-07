@@ -45,6 +45,8 @@ namespace WildBerriesAnalyzer.ServerClient.Handlers
                 .ConfigureAwait(false);
             if (!refreshed)
             {
+                // Сессия мертва: очищаем токены → клиент (AuthSessionGuard) уходит на логин.
+                _tokenStore.Clear();
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized)
                 {
                     RequestMessage = request,

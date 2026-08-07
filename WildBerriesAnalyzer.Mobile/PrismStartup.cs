@@ -37,45 +37,34 @@ namespace WildBerriesAnalyzer.Mobile
             var tokenStore = new WbAuthTokenStore();
             containerRegistry.RegisterInstance<IWbAuthTokenStore>(tokenStore);
 
-            var authHttpClient = CreateHttpClient();
+            var authHttpClient = CreateHttpClient(CreateClientVersionHandler());
             var authClient = new AuthClient(authHttpClient, tokenStore);
             containerRegistry.RegisterInstance<IAuthClient>(authClient);
             containerRegistry.RegisterInstance<IAuthService>(authClient);
 
-            var tokenRefresher = new AuthTokenRefresher(CreateHttpClient(), tokenStore);
+            var tokenRefresher = new AuthTokenRefresher(CreateHttpClient(CreateClientVersionHandler()), tokenStore);
             containerRegistry.RegisterInstance<IAuthTokenRefresher>(tokenRefresher);
 
-            var filtersHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
-            {
-                InnerHandler = CreateHttpMessageHandler()
-            });
+            var filtersHttpClient = CreateHttpClient(CreateAuthenticatedHandler(tokenStore, tokenRefresher));
             var filtersClient = new FiltersClient(filtersHttpClient);
             containerRegistry.RegisterInstance<IFiltersClient>(filtersClient);
             containerRegistry.RegisterInstance<IFiltersService>(filtersClient);
 
-            var productsHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
-            {
-                InnerHandler = CreateHttpMessageHandler()
-            });
+            var productsHttpClient = CreateHttpClient(CreateAuthenticatedHandler(tokenStore, tokenRefresher));
             var productsClient = new ProductsClient(productsHttpClient);
             containerRegistry.RegisterInstance<IProductsClient>(productsClient);
             containerRegistry.RegisterInstance<IProductsService>(productsClient);
 
-            var discontsHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
-            {
-                InnerHandler = CreateHttpMessageHandler()
-            });
+            var discontsHttpClient = CreateHttpClient(CreateAuthenticatedHandler(tokenStore, tokenRefresher));
             var discontsClient = new DiscontsClient(discontsHttpClient);
             containerRegistry.RegisterInstance<IDiscontsClient>(discontsClient);
 
-            var dashboardHttpClient = CreateHttpClient(new BearerTokenHandler(tokenStore, tokenRefresher)
-            {
-                InnerHandler = CreateHttpMessageHandler()
-            });
+            var dashboardHttpClient = CreateHttpClient(CreateAuthenticatedHandler(tokenStore, tokenRefresher));
             var dashboardClient = new DashboardClient(dashboardHttpClient);
             containerRegistry.RegisterInstance<IDashboardClient>(dashboardClient);
 
             containerRegistry.RegisterSingleton<IAuthSessionService, AuthSessionService>();
+            containerRegistry.RegisterSingleton<IAuthSessionGuard, AuthSessionGuard>();
             containerRegistry.RegisterSingleton<IVkIdLoginService, VkIdLoginService>();
             containerRegistry.RegisterSingleton<IAppThemeService, AppThemeService>();
             containerRegistry.RegisterSingleton<IProductImageCache, ProductImageCache>();
@@ -102,6 +91,7 @@ namespace WildBerriesAnalyzer.Mobile
         private static Task CreateWindow(IContainerProvider container, INavigationService navigationService)
         {
             _ = container.Resolve<IAppThemeService>();
+            container.Resolve<IAuthSessionGuard>().Attach(navigationService);
             return navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
         }
 
@@ -115,6 +105,22 @@ namespace WildBerriesAnalyzer.Mobile
             client.Timeout = TimeSpan.FromSeconds(30);
             return client;
         }
+
+        private static HttpMessageHandler CreateAuthenticatedHandler(
+            IWbAuthTokenStore tokenStore,
+            IAuthTokenRefresher tokenRefresher) =>
+            new BearerTokenHandler(tokenStore, tokenRefresher)
+            {
+                InnerHandler = CreateClientVersionHandler()
+            };
+
+        private static HttpMessageHandler CreateClientVersionHandler() =>
+            new ClientVersionHandler(
+                static () => AppClientVersion.Version,
+                AppClientVersion.Platform)
+            {
+                InnerHandler = CreateHttpMessageHandler()
+            };
 
         private static HttpMessageHandler CreateHttpMessageHandler() =>
             new SocketsHttpHandler

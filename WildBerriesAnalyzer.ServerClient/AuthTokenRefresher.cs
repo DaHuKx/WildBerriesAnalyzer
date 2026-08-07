@@ -43,6 +43,7 @@ namespace WildBerriesAnalyzer.ServerClient
                 var refreshToken = _tokenStore.RefreshToken;
                 if (string.IsNullOrWhiteSpace(refreshToken))
                 {
+                    _tokenStore.Clear();
                     return false;
                 }
 

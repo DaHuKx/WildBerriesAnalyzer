@@ -776,9 +776,12 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 return;
             }
 
+            // Modal: MainWindow остаётся под деталкой (иначе Prism заменяет страницу,
+            // GoBack уходит на Login → снова MainWindow с домашним экраном).
             var parameters = new NavigationParameters
             {
-                { "productId", item.Id }
+                { "productId", item.Id },
+                { KnownNavigationParameters.UseModalNavigation, true }
             };
 
             await _navigationService.NavigateAsync(NavigationNames.ProductDetail, parameters);

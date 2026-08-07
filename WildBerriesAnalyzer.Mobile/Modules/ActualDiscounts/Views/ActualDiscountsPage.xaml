@@ -266,7 +266,7 @@
                                                  Margin="0,0,0,14"
                                                  WidthRequest="{Binding Source={x:Reference ActualDiscountsRoot}, Path=TileWidth}">
                                 <VerticalStackLayout.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={x:Reference ActualDiscountsRoot}, Path=BindingContext.OpenLinkCommand}"
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference ActualDiscountsRoot}, Path=BindingContext.OpenProductCommand}"
                                                           CommandParameter="{Binding .}" />
                                 </VerticalStackLayout.GestureRecognizers>
 

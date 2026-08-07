@@ -4,6 +4,7 @@ using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Server.Models;
 using WildBerriesAnalyzer.Server.Options;
+using WildBerriesAnalyzer.Server.Services;
 
 namespace WildBerriesAnalyzer.Server.Controllers
 {
@@ -12,11 +13,16 @@ namespace WildBerriesAnalyzer.Server.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IClientVersionTracker _clientVersionTracker;
         private readonly VkIdOptions _vkIdOptions;
 
-        public AuthController(IAuthService authService, IOptions<VkIdOptions> vkIdOptions)
+        public AuthController(
+            IAuthService authService,
+            IClientVersionTracker clientVersionTracker,
+            IOptions<VkIdOptions> vkIdOptions)
         {
             _authService = authService;
+            _clientVersionTracker = clientVersionTracker;
             _vkIdOptions = vkIdOptions.Value;
         }
 
@@ -146,6 +152,7 @@ namespace WildBerriesAnalyzer.Server.Controllers
             try
             {
                 var result = await _authService.LoginWithVkAsync(request);
+                await TrackClientVersionAsync(result.UserId);
                 return Ok(result);
             }
             catch (ArgumentException ex)
@@ -185,6 +192,7 @@ namespace WildBerriesAnalyzer.Server.Controllers
             try
             {
                 var result = await _authService.LoginAsync(request.Login, request.Password);
+                await TrackClientVersionAsync(result.UserId);
                 return Ok(result);
             }
             catch (ArgumentException ex)
@@ -245,6 +253,7 @@ namespace WildBerriesAnalyzer.Server.Controllers
             try
             {
                 var result = await _authService.ConfirmRegisterAsync(request.RegistrationId, request.Code);
+                await TrackClientVersionAsync(result.UserId);
                 return Ok(result);
             }
             catch (ArgumentException ex)
@@ -302,6 +311,7 @@ namespace WildBerriesAnalyzer.Server.Controllers
             try
             {
                 var result = await _authService.RefreshAsync(request.RefreshToken);
+                await TrackClientVersionAsync(result.UserId);
                 return Ok(result);
             }
             catch (ArgumentException ex)
@@ -311,6 +321,18 @@ namespace WildBerriesAnalyzer.Server.Controllers
             catch (UnauthorizedAccessException ex)
             {
                 return Unauthorized(ex.Message);
+            }
+        }
+
+        private async Task TrackClientVersionAsync(int userId)
+        {
+            try
+            {
+                await _clientVersionTracker.TrackFromRequestAsync(userId, Request, HttpContext.RequestAborted);
+            }
+            catch
+            {
+                // ignore
             }
         }
     }

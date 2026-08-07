@@ -436,6 +436,13 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .HasColumnType("character varying(100)")
                         .HasMaxLength(100);
 
+                    b.Property<string>("MobileClientVersion")
+                        .HasColumnType("character varying(32)")
+                        .HasMaxLength(32);
+
+                    b.Property<DateTime?>("MobileClientVersionReportedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("Password")
                         .HasColumnType("character varying(500)")
                         .HasMaxLength(500);

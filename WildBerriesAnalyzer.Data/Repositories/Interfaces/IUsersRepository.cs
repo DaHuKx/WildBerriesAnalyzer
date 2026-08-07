@@ -12,5 +12,10 @@ namespace WildBerriesAnalyzer.Data.Repositories.Interfaces
         Task<WbUser?> GetUserByRefreshTokenAsync(string refreshToken);
 
         Task<WbUser?> GetUserByAccessTokenAsync(string accessToken);
+
+        /// <summary>
+        /// Обновляет semver Mobile-клиента (major.minor.patch), если она изменилась.
+        /// </summary>
+        Task TryUpdateMobileClientVersionAsync(int userId, string version);
     }
 }

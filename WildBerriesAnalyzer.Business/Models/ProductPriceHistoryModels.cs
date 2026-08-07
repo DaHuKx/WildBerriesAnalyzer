@@ -58,7 +58,7 @@ namespace WildBerriesAnalyzer.Business.Models
 
         public decimal? Max { get; init; }
 
-        public decimal? Average { get; init; }
+        public decimal? Median { get; init; }
 
         public decimal? Last { get; init; }
 

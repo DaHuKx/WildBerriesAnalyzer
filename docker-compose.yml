@@ -65,6 +65,8 @@ services:
       PriceUpdate__Interval: ${PRICE_UPDATE_INTERVAL:-01:00:00}
       PriceUpdate__BatchSize: ${PRICE_UPDATE_BATCH_SIZE:-100}
       PriceUpdate__BatchDelay: ${PRICE_UPDATE_BATCH_DELAY:-00:00:03}
+      # Актуальная версия Mobile (semver; сверять с ApplicationDisplayVersion в csproj).
+      Mobile__LatestVersion: ${MOBILE_LATEST_VERSION:-1.0.19}
       WbScrapingAuth__PersistFilePath: /app/data/wb-scraping-auth.json
     volumes:
       - server-data:/app/data

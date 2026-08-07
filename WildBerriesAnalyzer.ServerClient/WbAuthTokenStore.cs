@@ -72,12 +72,17 @@ namespace WildBerriesAnalyzer.ServerClient
 
         public void Clear()
         {
+            var hadTokens = false;
             lock (_sync)
             {
+                hadTokens = _tokens is not null;
                 _tokens = null;
             }
 
-            TokensCleared?.Invoke(this, EventArgs.Empty);
+            if (hadTokens)
+            {
+                TokensCleared?.Invoke(this, EventArgs.Empty);
+            }
         }
     }
 }

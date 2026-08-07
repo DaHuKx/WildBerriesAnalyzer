@@ -73,6 +73,8 @@ try
         builder.Configuration.GetSection(VkIdOptions.SectionName));
     builder.Services.Configure<VkBotOptions>(
         builder.Configuration.GetSection(VkBotOptions.SectionName));
+    builder.Services.Configure<MobileVersionOptions>(
+        builder.Configuration.GetSection(MobileVersionOptions.SectionName));
 
     var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
         ?? throw new InvalidOperationException("Секция Jwt не найдена в конфигурации.");
@@ -124,6 +126,7 @@ try
     builder.Services.AddScoped<WbDataBase>();
 
     builder.Services.AddScoped<IUsersRepository, UsersRepository>();
+    builder.Services.AddScoped<IClientVersionTracker, ClientVersionTracker>();
     builder.Services.AddScoped<IFiltersRepository, FiltersRepository>();
     builder.Services.AddScoped<IProductsRepository, ProductsRepository>();
     builder.Services.AddScoped<IPricesRepository, PricesRepository>();

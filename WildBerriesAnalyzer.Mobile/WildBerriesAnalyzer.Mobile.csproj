@@ -20,8 +20,9 @@
 
 		<ApplicationTitle>PriceLab</ApplicationTitle>
 		<ApplicationId>com.companyname.wildberriesanalyzer.mobile</ApplicationId>
-		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-		<ApplicationVersion>14</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0.19</ApplicationDisplayVersion>
+		<!-- Android/iOS store build number (целое); продуктовая версия — ApplicationDisplayVersion. -->
+		<ApplicationVersion>19</ApplicationVersion>
 		<WindowsPackageType>None</WindowsPackageType>
 
 		<!-- Только arm64: на телефоне исключает известные сбои resource id / Fragment на ABI mix -->

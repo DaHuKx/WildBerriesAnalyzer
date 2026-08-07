@@ -83,6 +83,9 @@ namespace WildBerriesAnalyzer.Data
                 entity.Property(u => u.RefreshToken)
                       .HasMaxLength(2000);
 
+                entity.Property(u => u.MobileClientVersion)
+                      .HasMaxLength(32);
+
                 entity.HasIndex(u => u.Login)
                       .IsUnique();
 

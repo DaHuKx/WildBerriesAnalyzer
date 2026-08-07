@@ -248,7 +248,7 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
             CurrentPriceText = FormatPrice(s.Last);
             MinPriceText = FormatPrice(s.Min);
             MaxPriceText = FormatPrice(s.Max);
-            AvgPriceText = FormatPrice(s.Average);
+            AvgPriceText = FormatPrice(s.Median);
             PointsCountText = s.Count > 0
                 ? $"{s.Count} точ."
                 : "Нет точек";
@@ -261,7 +261,10 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
 
         private async Task GoBackAsync()
         {
-            await _navigationService.GoBackAsync();
+            await _navigationService.GoBackAsync(new NavigationParameters
+            {
+                { KnownNavigationParameters.UseModalNavigation, true }
+            });
         }
 
         private async Task OpenWbAsync()

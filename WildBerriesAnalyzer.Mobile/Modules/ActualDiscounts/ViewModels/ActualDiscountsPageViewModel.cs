@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using Prism.Commands;
 using Prism.Mvvm;
+using Prism.Navigation;
+using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.ActualDiscounts.Models;
@@ -15,6 +17,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
 
         private readonly IDiscontsClient _discontsClient;
         private readonly IProductImageCache _productImageCache;
+        private readonly INavigationService _navigationService;
         private readonly List<DiscontListItem> _sourceItems = [];
         private List<DiscontListItem> _pipelineItems = [];
 
@@ -40,10 +43,12 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
 
         public ActualDiscountsPageViewModel(
             IDiscontsClient discontsClient,
-            IProductImageCache productImageCache)
+            IProductImageCache productImageCache,
+            INavigationService navigationService)
         {
             _discontsClient = discontsClient;
             _productImageCache = productImageCache;
+            _navigationService = navigationService;
 
             SortOptions = DiscontSortOption.CreateAll();
             PercentOptions = DiscontPercentOption.CreateAll();
@@ -78,7 +83,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
                 .ObservesProperty(() => IsLoadingMore)
                 .ObservesProperty(() => HasMoreItems);
 
-            OpenLinkCommand = new DelegateCommand<DiscontListItem>(async item => await OpenLinkAsync(item));
+            OpenProductCommand = new DelegateCommand<DiscontListItem>(async item => await OpenProductAsync(item));
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
 
             Items.CollectionChanged += (_, _) =>
@@ -124,7 +129,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
 
         public DelegateCommand DismissSnackbarCommand { get; }
 
-        public DelegateCommand<DiscontListItem> OpenLinkCommand { get; }
+        public DelegateCommand<DiscontListItem> OpenProductCommand { get; }
 
         public string SearchText
         {
@@ -619,21 +624,20 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
             !string.IsNullOrEmpty(source) &&
             source.Contains(value, StringComparison.CurrentCultureIgnoreCase);
 
-        private static async Task OpenLinkAsync(DiscontListItem? item)
+        private async Task OpenProductAsync(DiscontListItem? item)
         {
-            if (item is null || string.IsNullOrWhiteSpace(item.Link))
+            if (item is null || item.ProductId <= 0)
             {
                 return;
             }
 
-            try
+            var parameters = new NavigationParameters
             {
-                await Launcher.Default.OpenAsync(item.Link);
-            }
-            catch
-            {
-                // ignore
-            }
+                { "productId", item.ProductId },
+                { KnownNavigationParameters.UseModalNavigation, true }
+            };
+
+            await _navigationService.NavigateAsync(NavigationNames.ProductDetail, parameters);
         }
     }
 }

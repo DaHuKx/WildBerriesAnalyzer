@@ -102,11 +102,18 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                     return;
                 }
 
-                Navigate(NavigationNames.Home);
+                // Не сбрасываем секцию при возврате с ProductDetail / других страниц стека.
+                if (CurrentContent is null)
+                {
+                    Navigate(NavigationNames.Home);
+                }
             }
             catch
             {
-                Navigate(NavigationNames.Home);
+                if (CurrentContent is null)
+                {
+                    Navigate(NavigationNames.Home);
+                }
             }
         }
 
