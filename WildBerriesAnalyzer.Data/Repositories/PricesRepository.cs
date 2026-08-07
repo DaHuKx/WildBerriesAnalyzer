@@ -25,15 +25,45 @@ namespace WildBerriesAnalyzer.Data.Repositories
 
         public async Task<IEnumerable<WbPrice>> GetProductPricesAsync(WbProduct product)
         {
-            var historyPrices = await Context.PricesHistory.Where(price => price.ProductId == product.Id)
-                                                           .ToListAsync();
+            var historyPrices = await GetProductPricesAsync(product.Id, fromUtc: null, take: null);
 
-            if (historyPrices != null && !historyPrices.Any())
+            if (historyPrices.Count == 0)
             {
                 _notifier.Warning($"GetProductPriceHistoryAsync: Продукт '{product.Name} (Id - {product.Id})' не имеет истории цен.");
             }
 
             return historyPrices;
+        }
+
+        public async Task<List<WbPrice>> GetProductPricesAsync(int productId, DateTime? fromUtc, int? take)
+        {
+            var query = Context.PricesHistory
+                .AsNoTracking()
+                .Where(price => price.ProductId == productId);
+
+            if (fromUtc is { } from)
+            {
+                var utc = from.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(from, DateTimeKind.Utc)
+                    : from.ToUniversalTime();
+                query = query.Where(price => price.CheckTime >= utc);
+            }
+
+            if (take is > 0)
+            {
+                // Берём последние N точек периода, затем отдаём ASC для графика.
+                var latest = await query
+                    .OrderByDescending(price => price.CheckTime)
+                    .Take(take.Value)
+                    .ToListAsync();
+
+                latest.Reverse();
+                return latest;
+            }
+
+            return await query
+                .OrderBy(price => price.CheckTime)
+                .ToListAsync();
         }
 
         public override async Task<IEnumerable<WbPrice>> AddRangeAsync(IEnumerable<WbPrice> newEntities)

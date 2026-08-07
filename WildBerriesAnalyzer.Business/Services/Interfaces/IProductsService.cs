@@ -15,6 +15,11 @@ namespace WildBerriesAnalyzer.Business.Services.Interfaces
 
         Task<WbPrice> GetLastPriceAsync(int productId);
 
+        /// <summary>
+        /// История цен товара за период (для графика Mobile).
+        /// </summary>
+        Task<ProductPriceHistory> GetPriceHistoryAsync(int productId, PriceHistoryPeriod period);
+
         List<WbProduct> FilterProductsByName(IEnumerable<WbProduct> products, string productName);
 
         /// <summary>

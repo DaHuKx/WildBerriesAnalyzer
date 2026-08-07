@@ -231,7 +231,7 @@
                                         <RoundRectangle CornerRadius="12" />
                                     </Border.StrokeShape>
                                     <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={x:Reference ProductsRoot}, Path=BindingContext.OpenLinkCommand}"
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference ProductsRoot}, Path=BindingContext.OpenProductCommand}"
                                                               CommandParameter="{Binding .}" />
                                     </Border.GestureRecognizers>
                                     <Grid>

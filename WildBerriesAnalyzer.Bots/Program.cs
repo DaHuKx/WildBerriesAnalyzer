@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using VkNet;
@@ -72,7 +71,6 @@ var host = Host.CreateDefaultBuilder(args)
                    services.AddSingleton<IAccountService, AccountService>();
 
                    // Один VK-клиент на процесс: BotsManager инициализирует, CheckPriceService шлёт алерты.
-                   // IPv4/DoH RestClient — иначе на RUVDS api.vk.com часто «Name or service not known».
                    services.AddSingleton<IRestClient, VkIpv4RestClient>();
                    services.AddSingleton<IVkApi>(sp =>
                    {

@@ -1,6 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Prism.Commands;
+using Prism.Mvvm;
+using Prism.Navigation;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
@@ -16,6 +20,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
         private readonly IFiltersService _filtersService;
         private readonly IAuthSessionService _authSessionService;
         private readonly IProductImageCache _productImageCache;
+        private readonly INavigationService _navigationService;
 
         private readonly List<ProductListItem> _sourceProducts = [];
         private readonly HashSet<int> _bagProductIds = [];
@@ -44,12 +49,14 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             IProductsService productsService,
             IFiltersService filtersService,
             IAuthSessionService authSessionService,
-            IProductImageCache productImageCache)
+            IProductImageCache productImageCache,
+            INavigationService navigationService)
         {
             _productsService = productsService;
             _filtersService = filtersService;
             _authSessionService = authSessionService;
             _productImageCache = productImageCache;
+            _navigationService = navigationService;
 
             SortOptions = ProductSortOption.CreateAll();
             RatingOptions = ProductRatingOption.CreateAll();
@@ -76,7 +83,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
 
             ToggleFiltersCommand = new DelegateCommand(() => IsFiltersExpanded = !IsFiltersExpanded);
 
-            OpenLinkCommand = new DelegateCommand<ProductListItem>(async item => await OpenLinkAsync(item));
+            OpenProductCommand = new DelegateCommand<ProductListItem>(async item => await OpenProductAsync(item));
             ToggleBagCommand = new DelegateCommand<ProductListItem>(async item => await ToggleBagAsync(item), _ => !IsBusy)
                 .ObservesProperty(() => IsBusy);
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
@@ -330,7 +337,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
 
         public DelegateCommand DismissSnackbarCommand { get; }
 
-        public DelegateCommand<ProductListItem> OpenLinkCommand { get; }
+        public DelegateCommand<ProductListItem> OpenProductCommand { get; }
 
         public DelegateCommand<ProductListItem> ToggleBagCommand { get; }
 
@@ -762,21 +769,19 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             }
         }
 
-        private static async Task OpenLinkAsync(ProductListItem? item)
+        private async Task OpenProductAsync(ProductListItem? item)
         {
-            if (item is null || string.IsNullOrWhiteSpace(item.Link))
+            if (item is null || item.Id <= 0)
             {
                 return;
             }
 
-            try
+            var parameters = new NavigationParameters
             {
-                await Launcher.Default.OpenAsync(item.Link);
-            }
-            catch
-            {
-                // ignore launcher errors
-            }
+                { "productId", item.Id }
+            };
+
+            await _navigationService.NavigateAsync(NavigationNames.ProductDetail, parameters);
         }
     }
 }

@@ -188,5 +188,32 @@ namespace WildBerriesAnalyzer.Server.Controllers
                 return NotFound(ex.Message);
             }
         }
+
+        /// <summary>
+        /// История цен товара за период (график Mobile).
+        /// period: Month | HalfYear | Year | AllTime
+        /// </summary>
+        [HttpGet("{id:int}/prices")]
+        [ProducesResponseType(typeof(ProductPriceHistory), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProductPriceHistory>> GetPriceHistory(
+            int id,
+            [FromQuery] PriceHistoryPeriod period = PriceHistoryPeriod.Month)
+        {
+            try
+            {
+                var history = await _productsService.GetPriceHistoryAsync(id, period);
+                return Ok(history);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
     }
 }

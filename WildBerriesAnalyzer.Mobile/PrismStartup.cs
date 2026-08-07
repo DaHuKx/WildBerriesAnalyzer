@@ -13,6 +13,7 @@ using WildBerriesAnalyzer.Modules.Auth;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.Modules.MainWindow;
 using WildBerriesAnalyzer.Modules.MyFilters;
+using WildBerriesAnalyzer.Modules.ProductDetail;
 using WildBerriesAnalyzer.Modules.Products;
 using WildBerriesAnalyzer.ServerClient;
 using WildBerriesAnalyzer.ServerClient.Clients;
@@ -87,6 +88,7 @@ namespace WildBerriesAnalyzer.Mobile
             moduleCatalog.AddModule<AuthModule>();
             moduleCatalog.AddModule<MainWindowModule>();
             moduleCatalog.AddModule<ProductsModule>();
+            moduleCatalog.AddModule<ProductDetailModule>();
             moduleCatalog.AddModule<AddProductsModule>();
             moduleCatalog.AddModule<ActualDiscountsModule>();
             moduleCatalog.AddModule<MyFiltersModule>();

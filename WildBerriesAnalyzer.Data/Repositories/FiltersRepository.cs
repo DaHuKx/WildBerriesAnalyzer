@@ -19,6 +19,11 @@ namespace WildBerriesAnalyzer.Data.Repositories
             return Context.Filters.FirstOrDefaultAsync(filter => filter.UserId == userId);
         }
 
+        public async Task<List<WbCategory>?> GetAllCategoriesAsync()
+        {
+            return await Context.Categories.ToListAsync();
+        }
+
         public async Task<WbFilter> GetOrCreateByUserIdAsync(int userId)
         {
             var filter = await Context.Filters.FirstOrDefaultAsync(f => f.UserId == userId);

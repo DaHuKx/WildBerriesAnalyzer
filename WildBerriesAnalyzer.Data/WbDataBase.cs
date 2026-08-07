@@ -33,7 +33,8 @@ namespace WildBerriesAnalyzer.Data
                 return;
             }
 
-            optionsBuilder.UseNpgsql(ResolveConnectionString());
+            //optionsBuilder.UseNpgsql(ResolveConnectionString());
+            optionsBuilder.UseNpgsql("User ID=WbAdmin;Password=W3s4m1p3g3h1c8z0.;Host=62.233.35.144;Port=5432;Database=WildBerriesAnalyzerDb;");
         }
 
         /// <summary>

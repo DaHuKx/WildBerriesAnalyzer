@@ -56,6 +56,14 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
             return (await response.Content.ReadFromJsonAsync<WbPrice>(WbServerJson.Options))!;
         }
 
+        public async Task<ProductPriceHistory> GetPriceHistoryAsync(int productId, PriceHistoryPeriod period)
+        {
+            using var response = await _httpClient.GetAsync(
+                $"api/products/{productId}/prices?period={Uri.EscapeDataString(period.ToString())}");
+            await WbServerJson.EnsureSuccessOrThrowAsync(response);
+            return (await response.Content.ReadFromJsonAsync<ProductPriceHistory>(WbServerJson.Options))!;
+        }
+
         public List<WbProduct> FilterProductsByName(IEnumerable<WbProduct> products, string productName)
         {
             if (products is null)

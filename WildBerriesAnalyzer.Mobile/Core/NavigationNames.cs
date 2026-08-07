@@ -4,6 +4,7 @@ namespace WildBerriesAnalyzer.Mobile.Core
     {
         public const string LoginPage = "LoginPage";
         public const string MainWindow = "MainWindow";
+        public const string ProductDetail = "ProductDetailPage";
 
         public const string Home = "Home";
         public const string Products = "Products";

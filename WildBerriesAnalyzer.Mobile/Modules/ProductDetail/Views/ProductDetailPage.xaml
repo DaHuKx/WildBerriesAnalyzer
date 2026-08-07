@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:WildBerriesAnalyzer.Modules.ProductDetail.ViewModels"
+             xmlns:models="clr-namespace:WildBerriesAnalyzer.Modules.ProductDetail.Models"
+             xmlns:controls="clr-namespace:WildBerriesAnalyzer.Modules.ProductDetail.Controls"
+             x:Class="WildBerriesAnalyzer.Modules.ProductDetail.Views.ProductDetailPage"
+             x:Name="ProductDetailRoot"
+             x:DataType="viewModels:ProductDetailPageViewModel"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Top bar -->
+        <Grid ColumnDefinitions="Auto,*,Auto"
+              Padding="12,10"
+              ColumnSpacing="8">
+            <Button Text="←"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                    FontSize="22"
+                    WidthRequest="44"
+                    HeightRequest="44"
+                    Padding="0"
+                    VerticalOptions="Center" />
+
+            <Label Grid.Column="1"
+                   Text="Товар"
+                   FontSize="17"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"
+                   HorizontalTextAlignment="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+            <Button Grid.Column="2"
+                    Text="WB"
+                    Command="{Binding OpenWbCommand}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    FontSize="13"
+                    WidthRequest="48"
+                    HeightRequest="36"
+                    CornerRadius="10"
+                    Padding="0"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <ScrollView Grid.Row="1"
+                    HorizontalScrollBarVisibility="Never">
+            <VerticalStackLayout Padding="16,4,16,28"
+                                 Spacing="14"
+                                 HorizontalOptions="Fill">
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                   HeightRequest="48"
+                                   WidthRequest="48"
+                                   HorizontalOptions="Center"
+                                   Margin="0,40,0,0" />
+
+                <VerticalStackLayout IsVisible="{Binding ShowError}"
+                                     Spacing="12"
+                                     Padding="8,32"
+                                     HorizontalOptions="Fill">
+                    <Label Text="{Binding ErrorMessage}"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center" />
+                    <Button Text="Повторить"
+                            Command="{Binding RetryCommand}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                            TextColor="White"
+                            HorizontalOptions="Center"
+                            HeightRequest="42"
+                            Padding="20,0"
+                            CornerRadius="10" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding ShowContent}"
+                                     Spacing="14"
+                                     HorizontalOptions="Fill">
+
+                    <!-- Product header -->
+                    <Grid ColumnDefinitions="96,*"
+                          ColumnSpacing="14"
+                          HorizontalOptions="Fill">
+                        <Border StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                HeightRequest="96"
+                                WidthRequest="96">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="14" />
+                            </Border.StrokeShape>
+                            <Image Source="{Binding DisplayImage}"
+                                   IsVisible="{Binding HasDisplayImage}"
+                                   Aspect="AspectFill"
+                                   HorizontalOptions="Fill"
+                                   VerticalOptions="Fill" />
+                        </Border>
+
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="4"
+                                             VerticalOptions="Center"
+                                             HorizontalOptions="Fill">
+                            <Label Text="{Binding Brand}"
+                                   IsVisible="{Binding HasBrand}"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding Name}"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                   LineBreakMode="WordWrap"
+                                   MaxLines="3" />
+                            <Label Text="{Binding CurrentPriceText}"
+                                   FontSize="22"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                   Margin="0,4,0,0" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- Chart -->
+                    <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Padding="8,10,8,6"
+                            HorizontalOptions="Fill">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="14" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="История цен"
+                                       FontSize="15"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding PointsCountText}"
+                                       FontSize="12"
+                                       VerticalOptions="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                            </Grid>
+
+                            <controls:PriceHistoryChartView Points="{Binding ChartPoints}"
+                                                            HeightRequest="220"
+                                                            HorizontalOptions="Fill" />
+
+                            <!-- Period chips -->
+                            <FlexLayout BindableLayout.ItemsSource="{Binding Periods}"
+                                        Wrap="Wrap"
+                                        JustifyContent="Start"
+                                        AlignItems="Start"
+                                        HorizontalOptions="Fill">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="models:PricePeriodOption">
+                                        <Border StrokeThickness="1"
+                                                Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                                BackgroundColor="{Binding Background}"
+                                                Padding="12,7"
+                                                Margin="0,0,8,8">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="18" />
+                                            </Border.StrokeShape>
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding Source={x:Reference ProductDetailRoot}, Path=BindingContext.SelectPeriodCommand}"
+                                                                      CommandParameter="{Binding .}" />
+                                            </Border.GestureRecognizers>
+                                            <Label Text="{Binding Title}"
+                                                   FontSize="13"
+                                                   TextColor="{Binding TextColor}"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Summary -->
+                    <Grid ColumnDefinitions="*,*,*"
+                          ColumnSpacing="8"
+                          HorizontalOptions="Fill">
+                        <Border StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                Padding="10,12">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="Мин."
+                                       FontSize="11"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                                <Label Text="{Binding MinPriceText}"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="1"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                Padding="10,12">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="Средн."
+                                       FontSize="11"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                                <Label Text="{Binding AvgPriceText}"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="2"
+                                StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                Padding="10,12">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="Макс."
+                                       FontSize="11"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                                <Label Text="{Binding MaxPriceText}"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

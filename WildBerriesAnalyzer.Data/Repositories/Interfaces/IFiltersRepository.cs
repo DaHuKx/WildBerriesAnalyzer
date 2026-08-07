@@ -37,6 +37,8 @@ namespace WildBerriesAnalyzer.Data.Repositories.Interfaces
         /// Удалить фильтр пользователя вместе с корзиной и категориями.
         /// </summary>
         Task DeleteFilterCascadeAsync(int userId);
+
+        Task<List<WbCategory>?> GetAllCategoriesAsync();
     }
 }
 
