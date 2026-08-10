@@ -78,6 +78,31 @@ namespace WildBerriesAnalyzer.Data.Repositories
                                                       .ToListAsync();
 
             var existIds = existProducts.Select(p => p.IdInMarket).ToList();
+            var incomingByMarketId = products
+                .GroupBy(p => p.IdInMarket)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var metaChanged = false;
+            foreach (var existing in existProducts)
+            {
+                if (!incomingByMarketId.TryGetValue(existing.IdInMarket, out var incoming))
+                {
+                    continue;
+                }
+
+                if (existing.IsAdult == incoming.IsAdult)
+                {
+                    continue;
+                }
+
+                existing.IsAdult = incoming.IsAdult;
+                metaChanged = true;
+            }
+
+            if (metaChanged)
+            {
+                await Context.SaveChangesAsync();
+            }
 
             var productsToAdd = products.Where(p => !existIds.Contains(p.IdInMarket))
                                         .GroupBy(p => p.IdInMarket)

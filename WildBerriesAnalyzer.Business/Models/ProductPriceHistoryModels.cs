@@ -32,6 +32,8 @@ namespace WildBerriesAnalyzer.Business.Models
 
         public string? ImageUrl { get; init; }
 
+        public bool IsAdult { get; init; }
+
         public PriceHistoryPeriod Period { get; init; }
 
         public DateTime? PeriodFromUtc { get; init; }

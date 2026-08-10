@@ -17,7 +17,7 @@ namespace WildBerriesAnalyzer.Business.Services.Interfaces
 
         /// <summary>
         /// Получение цен входного набора продуктов.
-        /// На входных сущностях обновляет Rating, ReviewRating и FeedBacksCount.
+        /// На входных сущностях обновляет Rating, ReviewRating, FeedBacksCount и IsAdult.
         /// </summary>
         Task<ParseProductsPricesResult> ParseProductsPricesAsync(IEnumerable<WbProduct> products);
 

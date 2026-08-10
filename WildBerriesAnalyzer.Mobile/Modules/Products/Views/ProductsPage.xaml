@@ -244,9 +244,33 @@
                                                            VerticalOptions="Center" />
                                         <Image Source="{Binding DisplayImage}"
                                                IsVisible="{Binding HasDisplayImage}"
+                                               Opacity="{Binding AdultImageOpacity}"
                                                Aspect="AspectFill"
                                                HorizontalOptions="Fill"
                                                VerticalOptions="Fill" />
+                                        <Border IsVisible="{Binding IsAdultContentRestricted}"
+                                                StrokeThickness="0"
+                                                BackgroundColor="#B31A1A1A"
+                                                InputTransparent="True"
+                                                HorizontalOptions="Fill"
+                                                VerticalOptions="Fill">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="12" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout VerticalOptions="Center"
+                                                                 HorizontalOptions="Center"
+                                                                 Spacing="2">
+                                                <Label Text="18+"
+                                                       FontAttributes="Bold"
+                                                       FontSize="22"
+                                                       TextColor="White"
+                                                       HorizontalTextAlignment="Center" />
+                                                <Label Text="Скрыто"
+                                                       FontSize="11"
+                                                       TextColor="#E0FFFFFF"
+                                                       HorizontalTextAlignment="Center" />
+                                            </VerticalStackLayout>
+                                        </Border>
                                     </Grid>
                                 </Border>
 

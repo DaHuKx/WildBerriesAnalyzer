@@ -21,6 +21,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
         private readonly IAuthSessionService _authSessionService;
         private readonly IProductImageCache _productImageCache;
         private readonly INavigationService _navigationService;
+        private readonly IAdultContentPreferenceService _adultContentPreference;
 
         private readonly List<ProductListItem> _sourceProducts = [];
         private readonly HashSet<int> _bagProductIds = [];
@@ -50,13 +51,16 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             IFiltersService filtersService,
             IAuthSessionService authSessionService,
             IProductImageCache productImageCache,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IAdultContentPreferenceService adultContentPreference)
         {
             _productsService = productsService;
             _filtersService = filtersService;
             _authSessionService = authSessionService;
             _productImageCache = productImageCache;
             _navigationService = navigationService;
+            _adultContentPreference = adultContentPreference;
+            _adultContentPreference.Changed += (_, _) => ApplyAdultContentPreferenceToAll();
 
             SortOptions = ProductSortOption.CreateAll();
             RatingOptions = ProductRatingOption.CreateAll();
@@ -687,9 +691,22 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 if (_sourceProducts.All(p => p.Id != item.Id))
                 {
                     item.IsInBag = _bagProductIds.Contains(item.Id);
+                    item.ApplyShowAdultContent(_adultContentPreference.ShowAdultContent);
                     _sourceProducts.Add(item);
                 }
             }
+        }
+
+        private void ApplyAdultContentPreferenceToAll()
+        {
+            var show = _adultContentPreference.ShowAdultContent;
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                foreach (var item in _sourceProducts)
+                {
+                    item.ApplyShowAdultContent(show);
+                }
+            });
         }
 
         private async Task ToggleBagAsync(ProductListItem? item)
@@ -773,6 +790,12 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
         {
             if (item is null || item.Id <= 0)
             {
+                return;
+            }
+
+            if (AdultContentAccess.IsRestricted(item.IsAdult, _adultContentPreference.ShowAdultContent))
+            {
+                await AdultContentAccess.ShowRestrictedAsync();
                 return;
             }
 

@@ -67,6 +67,7 @@ namespace WildBerriesAnalyzer.Mobile
             containerRegistry.RegisterSingleton<IAuthSessionGuard, AuthSessionGuard>();
             containerRegistry.RegisterSingleton<IVkIdLoginService, VkIdLoginService>();
             containerRegistry.RegisterSingleton<IAppThemeService, AppThemeService>();
+            containerRegistry.RegisterSingleton<IAdultContentPreferenceService, AdultContentPreferenceService>();
             containerRegistry.RegisterSingleton<IProductImageCache, ProductImageCache>();
             containerRegistry.RegisterInstance<IPendingShareStore>(PendingShareStore.Instance);
             containerRegistry.RegisterSingleton<IWbShareToBagService, WbShareToBagService>();

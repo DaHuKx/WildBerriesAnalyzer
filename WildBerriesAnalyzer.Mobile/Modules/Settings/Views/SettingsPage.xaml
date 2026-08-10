@@ -31,6 +31,35 @@
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
 
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="4"
+                                             VerticalOptions="Center">
+                            <Label Text="Товары 18+"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                   FontAttributes="Bold"
+                                   FontSize="18" />
+                            <Label Text="Если выключено, изображения таких товаров размыты, а история цены недоступна."
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   FontSize="13"
+                                   LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding ShowAdultContent, Mode=TwoWay}"
+                                OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Padding="16">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+
                     <VerticalStackLayout Spacing="12">
                         <Label Text="Оформление"
                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"

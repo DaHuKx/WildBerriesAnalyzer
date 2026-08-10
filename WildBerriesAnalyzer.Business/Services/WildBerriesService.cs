@@ -18,6 +18,11 @@ namespace WildBerriesAnalyzer.Business.Services
     /// </summary>
     public class WildBerriesService : IWildBerriesService
     {
+        /// <summary>
+        /// Бит adult/18+ в WB <c>viewFlags</c> (также использовался как hide_vflags).
+        /// </summary>
+        public const long AdultViewFlag = 1L << 32;
+
         private readonly IWbScrapingAuthStore _authStore;
 
         public WildBerriesService()
@@ -41,7 +46,6 @@ namespace WildBerriesAnalyzer.Business.Services
                     ["curr"] = "rub",
                     ["dest"] = "-1257786",
                     ["hide_dtype"] = "15",
-                    ["hide_vflags"] = "4294967296",
                     ["inheritFilters"] = "undefined",
                     ["lang"] = "ru",
                     ["locale"] = "ru",
@@ -88,7 +92,6 @@ namespace WildBerriesAnalyzer.Business.Services
                 query["curr"] = "rub";
                 query["dest"] = "-1257786";
                 query["spp"] = "30";
-                query["hide_vflags"] = "4294967296";
                 query["hide_dtype"] = "15";
                 query["mtype"] = "257";
                 query["lang"] = "ru";
@@ -121,6 +124,7 @@ namespace WildBerriesAnalyzer.Business.Services
                     existing.Rating = scraped.Rating;
                     existing.ReviewRating = scraped.ReviewRating;
                     existing.FeedBacksCount = scraped.FeedBacksCount;
+                    existing.IsAdult = scraped.IsAdult;
                     refreshed.Add(existing);
 
                     if (scraped.PriceFromInit is null)
@@ -198,7 +202,6 @@ namespace WildBerriesAnalyzer.Business.Services
             query["curr"] = "rub";
             query["dest"] = "-1257786";
             query["spp"] = "30";
-            query["hide_vflags"] = "4294967296";
             query["hide_dtype"] = "15";
             query["mtype"] = "257";
             query["lang"] = "ru";
@@ -385,6 +388,7 @@ namespace WildBerriesAnalyzer.Business.Services
                         IdInMarket = product.id,
                         Brand = product.brand,
                         FeedBacksCount = product.feedbacks,
+                        IsAdult = IsAdultProduct(product.viewFlags),
                         Link = $"https://www.wildberries.ru/catalog/{productId}/detail.aspx",
                         Name = product.name,
                         Rating = product.rating,
@@ -411,6 +415,8 @@ namespace WildBerriesAnalyzer.Business.Services
 
             return products;
         }
+
+        public static bool IsAdultProduct(long viewFlags) => (viewFlags & AdultViewFlag) != 0;
 
         private static bool IsNetworkFailure(Exception ex)
         {

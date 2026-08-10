@@ -13,6 +13,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
     {
         private readonly IProductsService _productsService;
         private readonly IProductImageCache _productImageCache;
+        private readonly IAdultContentPreferenceService _adultContentPreference;
 
         private bool _isArticlesTab = true;
         private bool _isBusy;
@@ -28,10 +29,13 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
         public AddProductsPageViewModel(
             IProductsService productsService,
-            IProductImageCache productImageCache)
+            IProductImageCache productImageCache,
+            IAdultContentPreferenceService adultContentPreference)
         {
             _productsService = productsService;
             _productImageCache = productImageCache;
+            _adultContentPreference = adultContentPreference;
+            _adultContentPreference.Changed += (_, _) => ApplyAdultContentPreferenceToAll();
 
             ShowArticlesTabCommand = new DelegateCommand(() => SelectTab(articles: true), () => !IsBusy)
                 .ObservesProperty(() => IsBusy);
@@ -51,6 +55,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             OpenLinkCommand = new DelegateCommand<ProductListItem>(async item => await OpenLinkAsync(item));
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
             CopyBasketBookmarkletCommand = new DelegateCommand(async () => await CopyBasketBookmarkletAsync());
+
 
             Results.CollectionChanged += (_, _) =>
             {
@@ -354,12 +359,26 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         {
             Results.Clear();
             var list = items.ToList();
+            var showAdult = _adultContentPreference.ShowAdultContent;
             foreach (var item in list)
             {
+                item.ApplyShowAdultContent(showAdult);
                 Results.Add(item);
             }
 
             PrefetchProductImages(list);
+        }
+
+        private void ApplyAdultContentPreferenceToAll()
+        {
+            var show = _adultContentPreference.ShowAdultContent;
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                foreach (var item in Results)
+                {
+                    item.ApplyShowAdultContent(show);
+                }
+            });
         }
 
         private void PrefetchProductImages(IReadOnlyList<ProductListItem> items)
@@ -461,10 +480,16 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             }
         }
 
-        private static async Task OpenLinkAsync(ProductListItem? item)
+        private async Task OpenLinkAsync(ProductListItem? item)
         {
             if (item is null || string.IsNullOrWhiteSpace(item.Link))
             {
+                return;
+            }
+
+            if (AdultContentAccess.IsRestricted(item.IsAdult, _adultContentPreference.ShowAdultContent))
+            {
+                await AdultContentAccess.ShowRestrictedAsync();
                 return;
             }
 

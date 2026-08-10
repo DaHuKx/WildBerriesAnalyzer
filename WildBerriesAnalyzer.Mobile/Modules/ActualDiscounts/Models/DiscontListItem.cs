@@ -2,6 +2,7 @@ using System.Globalization;
 using Prism.Mvvm;
 using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models;
+using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 
 namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
@@ -13,7 +14,9 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
         private ImageSource? _displayImage;
         private bool _isImageLoading;
         private bool _hasDisplayImage;
+        private bool _isAdultContentRestricted;
         private int _imageLoadGeneration;
+        private byte[]? _clearImageBytes;
 
         public int ProductId { get; init; }
 
@@ -47,6 +50,8 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
 
         public int FeedBacksCount { get; init; }
 
+        public bool IsAdult { get; init; }
+
         public ImageSource? DisplayImage
         {
             get => _displayImage;
@@ -63,6 +68,35 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
         {
             get => _hasDisplayImage;
             private set => SetProperty(ref _hasDisplayImage, value);
+        }
+
+        public bool IsAdultContentRestricted
+        {
+            get => _isAdultContentRestricted;
+            private set
+            {
+                if (SetProperty(ref _isAdultContentRestricted, value))
+                {
+                    RaisePropertyChanged(nameof(AdultImageOpacity));
+                }
+            }
+        }
+
+        public double AdultImageOpacity => IsAdultContentRestricted ? 0.35 : 1d;
+
+        public void ApplyShowAdultContent(bool showAdultContent)
+        {
+            var restricted = AdultContentAccess.IsRestricted(IsAdult, showAdultContent);
+            if (IsAdultContentRestricted == restricted)
+            {
+                return;
+            }
+
+            IsAdultContentRestricted = restricted;
+            if (_clearImageBytes is { Length: > 0 })
+            {
+                ApplyDisplayBytes(_clearImageBytes);
+            }
         }
 
         public string PercentText =>
@@ -126,7 +160,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
                     return;
                 }
 
-                var streamBytes = bytes;
+                _clearImageBytes = bytes;
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     if (generation != _imageLoadGeneration)
@@ -134,8 +168,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
                         return;
                     }
 
-                    DisplayImage = ImageSource.FromStream(() => new MemoryStream(streamBytes));
-                    HasDisplayImage = true;
+                    ApplyDisplayBytes(bytes);
                 });
             }
             finally
@@ -145,6 +178,17 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
                     await MainThread.InvokeOnMainThreadAsync(() => IsImageLoading = false);
                 }
             }
+        }
+
+        private void ApplyDisplayBytes(byte[] clearBytes)
+        {
+            var displayBytes = IsAdultContentRestricted
+                ? AdultImageEffects.CreateBlurredPreview(clearBytes) ?? clearBytes
+                : clearBytes;
+
+            var streamBytes = displayBytes;
+            DisplayImage = ImageSource.FromStream(() => new MemoryStream(streamBytes));
+            HasDisplayImage = true;
         }
 
         public static DiscontListItem FromDiscont(Discont discont)
@@ -185,7 +229,8 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
                 ReferencePricePeriodFrom = periodFrom,
                 Strategy = discont.ReferencePriceStrategy,
                 ReviewRating = product?.ReviewRating ?? 0,
-                FeedBacksCount = product?.FeedBacksCount ?? 0
+                FeedBacksCount = product?.FeedBacksCount ?? 0,
+                IsAdult = product?.IsAdult ?? false
             };
         }
 

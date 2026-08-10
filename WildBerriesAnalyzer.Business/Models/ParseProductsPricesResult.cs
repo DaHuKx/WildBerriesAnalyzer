@@ -21,7 +21,7 @@ namespace WildBerriesAnalyzer.Business.Models
         public IReadOnlyList<WbPrice> Prices { get; init; } = Array.Empty<WbPrice>();
 
         /// <summary>
-        /// Товары, для которых из ответа WB обновлены Rating / ReviewRating / FeedBacksCount.
+        /// Товары, для которых из ответа WB обновлены Rating / ReviewRating / FeedBacksCount / IsAdult.
         /// </summary>
         public IReadOnlyList<WbProduct> ProductsWithRefreshedMeta { get; init; } = Array.Empty<WbProduct>();
 

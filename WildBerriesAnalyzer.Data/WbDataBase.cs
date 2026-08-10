@@ -108,6 +108,10 @@ namespace WildBerriesAnalyzer.Data
                         .IsUnique();
 
             modelBuilder.Entity<WbProduct>()
+                        .HasIndex(prod => prod.IsAdult)
+                        .HasName("IX_Products_IsAdult");
+
+            modelBuilder.Entity<WbProduct>()
                         .HasOne(p => p.Category)
                         .WithMany(c => c.Products)
                         .HasForeignKey(p => p.CategoryId);

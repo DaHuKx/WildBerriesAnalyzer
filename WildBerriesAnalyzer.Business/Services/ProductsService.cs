@@ -153,6 +153,7 @@ namespace WildBerriesAnalyzer.Business.Services
                 Brand = product.Brand,
                 Link = product.Link,
                 ImageUrl = product.ImageUrl,
+                IsAdult = product.IsAdult,
                 Period = period,
                 PeriodFromUtc = fromUtc,
                 PeriodToUtc = toUtc,

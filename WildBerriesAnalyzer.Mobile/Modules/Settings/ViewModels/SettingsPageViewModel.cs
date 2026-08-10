@@ -13,22 +13,26 @@ namespace WildBerriesAnalyzer.Modules.Settings.ViewModels
         private readonly IAuthSessionService _authSessionService;
         private readonly INavigationService _navigationService;
         private readonly IAppThemeService _appThemeService;
+        private readonly IAdultContentPreferenceService _adultContentPreference;
 
         private string _statusMessage = string.Empty;
 
         public SettingsPageViewModel(
             IAuthSessionService authSessionService,
             INavigationService navigationService,
-            IAppThemeService appThemeService)
+            IAppThemeService appThemeService,
+            IAdultContentPreferenceService adultContentPreference)
         {
             _authSessionService = authSessionService;
             _navigationService = navigationService;
             _appThemeService = appThemeService;
+            _adultContentPreference = adultContentPreference;
 
             SignOutCommand = new DelegateCommand(async () => await SignOutAsync());
             SetThemeCommand = new DelegateCommand<string>(SetTheme);
 
             _appThemeService.ThemeChanged += (_, _) => RaiseThemeProperties();
+            _adultContentPreference.Changed += (_, _) => RaisePropertyChanged(nameof(ShowAdultContent));
         }
 
         public string Title => "Настройки";
@@ -38,6 +42,24 @@ namespace WildBerriesAnalyzer.Modules.Settings.ViewModels
         public DelegateCommand SignOutCommand { get; }
 
         public DelegateCommand<string> SetThemeCommand { get; }
+
+        public bool ShowAdultContent
+        {
+            get => _adultContentPreference.ShowAdultContent;
+            set
+            {
+                if (_adultContentPreference.ShowAdultContent == value)
+                {
+                    return;
+                }
+
+                _adultContentPreference.SetShowAdultContent(value);
+                RaisePropertyChanged();
+                StatusMessage = value
+                    ? "Товары 18+ отображаются без ограничений."
+                    : "Товары 18+ скрыты: изображения размыты, карточка недоступна.";
+            }
+        }
 
         public bool IsSystemTheme => _appThemeService.Preference == AppThemePreference.System;
 

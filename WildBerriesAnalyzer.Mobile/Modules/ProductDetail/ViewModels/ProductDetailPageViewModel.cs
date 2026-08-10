@@ -5,6 +5,8 @@ using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.ProductDetail.Models;
 
 namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
@@ -15,6 +17,7 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
 
         private readonly IProductsService _productsService;
         private readonly INavigationService _navigationService;
+        private readonly IAdultContentPreferenceService _adultContentPreference;
 
         private int _productId;
         private bool _isBusy;
@@ -23,6 +26,8 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
         private string _brand = string.Empty;
         private string? _link;
         private string? _imageUrl;
+        private bool _isAdult;
+        private bool _isAdultContentRestricted;
         private string _currentPriceText = "—";
         private string _minPriceText = "—";
         private string _maxPriceText = "—";
@@ -33,10 +38,12 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
 
         public ProductDetailPageViewModel(
             IProductsService productsService,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IAdultContentPreferenceService adultContentPreference)
         {
             _productsService = productsService;
             _navigationService = navigationService;
+            _adultContentPreference = adultContentPreference;
 
             Periods = new ObservableCollection<PricePeriodOption>(PricePeriodOption.CreateAll());
 
@@ -137,6 +144,20 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
 
         public bool HasDisplayImage => DisplayImage is not null;
 
+        public bool IsAdultContentRestricted
+        {
+            get => _isAdultContentRestricted;
+            private set
+            {
+                if (SetProperty(ref _isAdultContentRestricted, value))
+                {
+                    RaisePropertyChanged(nameof(AdultImageOpacity));
+                }
+            }
+        }
+
+        public double AdultImageOpacity => IsAdultContentRestricted ? 0.35 : 1d;
+
         public string CurrentPriceText
         {
             get => _currentPriceText;
@@ -213,6 +234,13 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
             try
             {
                 var history = await _productsService.GetPriceHistoryAsync(_productId, period);
+                if (AdultContentAccess.IsRestricted(history.IsAdult, _adultContentPreference.ShowAdultContent))
+                {
+                    await AdultContentAccess.ShowRestrictedAsync();
+                    await GoBackAsync();
+                    return;
+                }
+
                 ApplyHistory(history);
             }
             catch (Exception)
@@ -231,10 +259,18 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
             Brand = history.Brand ?? string.Empty;
             Link = history.Link;
             ImageUrl = history.ImageUrl;
+            _isAdult = history.IsAdult;
+            IsAdultContentRestricted = AdultContentAccess.IsRestricted(
+                _isAdult,
+                _adultContentPreference.ShowAdultContent);
 
-            if (!string.IsNullOrWhiteSpace(history.ImageUrl))
+            if (!string.IsNullOrWhiteSpace(history.ImageUrl) && !IsAdultContentRestricted)
             {
                 DisplayImage = ImageSource.FromUri(new Uri(history.ImageUrl));
+            }
+            else if (!string.IsNullOrWhiteSpace(history.ImageUrl) && IsAdultContentRestricted)
+            {
+                DisplayImage = null;
             }
             else
             {

@@ -388,6 +388,9 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsAdult")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Link")
                         .IsRequired()
                         .HasColumnType("text");
@@ -411,6 +414,9 @@ namespace WildBerriesAnalyzer.Data.Migrations
 
                     b.HasIndex("IdInMarket")
                         .IsUnique();
+
+                    b.HasIndex("IsAdult")
+                        .HasName("IX_Products_IsAdult");
 
                     b.ToTable("Products");
                 });

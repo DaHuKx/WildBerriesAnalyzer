@@ -1,5 +1,6 @@
 using Prism.Commands;
 using Prism.Mvvm;
+using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 
 namespace WildBerriesAnalyzer.Modules.MyFilters.Models
@@ -9,7 +10,9 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
         private ImageSource? _displayImage;
         private bool _isImageLoading;
         private bool _hasDisplayImage;
+        private bool _isAdultContentRestricted;
         private int _imageLoadGeneration;
+        private byte[]? _clearImageBytes;
 
         public int ProductId { get; init; }
 
@@ -18,6 +21,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
         public string Article { get; init; } = string.Empty;
 
         public string Brand { get; init; } = string.Empty;
+
+        public bool IsAdult { get; init; }
 
         public string? ImageUrl { get; init; }
 
@@ -41,11 +46,40 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
             private set => SetProperty(ref _hasDisplayImage, value);
         }
 
+        public bool IsAdultContentRestricted
+        {
+            get => _isAdultContentRestricted;
+            private set
+            {
+                if (SetProperty(ref _isAdultContentRestricted, value))
+                {
+                    RaisePropertyChanged(nameof(AdultImageOpacity));
+                }
+            }
+        }
+
+        public double AdultImageOpacity => IsAdultContentRestricted ? 0.35 : 1d;
+
         public string DisplayTitle => string.IsNullOrWhiteSpace(Brand)
             ? Name
             : $"{Name} ({Brand})";
 
         public DelegateCommand? RemoveCommand { get; set; }
+
+        public void ApplyShowAdultContent(bool showAdultContent)
+        {
+            var restricted = AdultContentAccess.IsRestricted(IsAdult, showAdultContent);
+            if (IsAdultContentRestricted == restricted)
+            {
+                return;
+            }
+
+            IsAdultContentRestricted = restricted;
+            if (_clearImageBytes is { Length: > 0 })
+            {
+                ApplyDisplayBytes(_clearImageBytes);
+            }
+        }
 
         public async Task LoadImageAsync(IProductImageCache imageCache, CancellationToken cancellationToken = default)
         {
@@ -71,7 +105,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
                     return;
                 }
 
-                var streamBytes = bytes;
+                _clearImageBytes = bytes;
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     if (generation != _imageLoadGeneration)
@@ -79,8 +113,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
                         return;
                     }
 
-                    DisplayImage = ImageSource.FromStream(() => new MemoryStream(streamBytes));
-                    HasDisplayImage = true;
+                    ApplyDisplayBytes(bytes);
                 });
             }
             finally
@@ -90,6 +123,17 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
                     await MainThread.InvokeOnMainThreadAsync(() => IsImageLoading = false);
                 }
             }
+        }
+
+        private void ApplyDisplayBytes(byte[] clearBytes)
+        {
+            var displayBytes = IsAdultContentRestricted
+                ? AdultImageEffects.CreateBlurredPreview(clearBytes) ?? clearBytes
+                : clearBytes;
+
+            var streamBytes = displayBytes;
+            DisplayImage = ImageSource.FromStream(() => new MemoryStream(streamBytes));
+            HasDisplayImage = true;
         }
     }
 }

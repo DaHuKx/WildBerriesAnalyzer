@@ -18,6 +18,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
         private readonly IDiscontsClient _discontsClient;
         private readonly IProductImageCache _productImageCache;
         private readonly INavigationService _navigationService;
+        private readonly IAdultContentPreferenceService _adultContentPreference;
         private readonly List<DiscontListItem> _sourceItems = [];
         private List<DiscontListItem> _pipelineItems = [];
 
@@ -44,11 +45,14 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
         public ActualDiscountsPageViewModel(
             IDiscontsClient discontsClient,
             IProductImageCache productImageCache,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IAdultContentPreferenceService adultContentPreference)
         {
             _discontsClient = discontsClient;
             _productImageCache = productImageCache;
             _navigationService = navigationService;
+            _adultContentPreference = adultContentPreference;
+            _adultContentPreference.Changed += (_, _) => ApplyAdultContentPreferenceToAll();
 
             SortOptions = DiscontSortOption.CreateAll();
             PercentOptions = DiscontPercentOption.CreateAll();
@@ -402,7 +406,11 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
                     : await _discontsClient.GetAllAsync(PageLimit);
 
                 _sourceItems.Clear();
-                _sourceItems.AddRange(disconts.Select(DiscontListItem.FromDiscont));
+                foreach (var item in disconts.Select(DiscontListItem.FromDiscont))
+                {
+                    item.ApplyShowAdultContent(_adultContentPreference.ShowAdultContent);
+                    _sourceItems.Add(item);
+                }
 
                 ApplyPipeline(showStatusSnackbar: true);
             }
@@ -631,6 +639,12 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
                 return;
             }
 
+            if (AdultContentAccess.IsRestricted(item.IsAdult, _adultContentPreference.ShowAdultContent))
+            {
+                await AdultContentAccess.ShowRestrictedAsync();
+                return;
+            }
+
             var parameters = new NavigationParameters
             {
                 { "productId", item.ProductId },
@@ -638,6 +652,18 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
             };
 
             await _navigationService.NavigateAsync(NavigationNames.ProductDetail, parameters);
+        }
+
+        private void ApplyAdultContentPreferenceToAll()
+        {
+            var show = _adultContentPreference.ShowAdultContent;
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                foreach (var item in _sourceItems)
+                {
+                    item.ApplyShowAdultContent(show);
+                }
+            });
         }
     }
 }

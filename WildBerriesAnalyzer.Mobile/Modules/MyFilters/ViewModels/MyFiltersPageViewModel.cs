@@ -29,6 +29,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         private readonly IProductImageCache _productImageCache;
         private readonly INavigationService _navigationService;
         private readonly IFilterPresetBridge _presetBridge;
+        private readonly IAdultContentPreferenceService _adultContentPreference;
         private CancellationTokenSource? _snackbarCts;
         private CancellationTokenSource? _bagImagesCts;
 
@@ -69,7 +70,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             IAppThemeService appThemeService,
             IProductImageCache productImageCache,
             INavigationService navigationService,
-            IFilterPresetBridge presetBridge)
+            IFilterPresetBridge presetBridge,
+            IAdultContentPreferenceService adultContentPreference)
         {
             _filtersService = filtersService;
             _authSessionService = authSessionService;
@@ -77,8 +79,10 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             _productImageCache = productImageCache;
             _navigationService = navigationService;
             _presetBridge = presetBridge;
+            _adultContentPreference = adultContentPreference;
             _presetBridge.OnPresetChosen = preset =>
                 MainThread.BeginInvokeOnMainThread(() => ApplyPreset(preset));
+            _adultContentPreference.Changed += (_, _) => ApplyAdultContentPreferenceToBag();
 
             FilterTypes =
             [
@@ -1022,8 +1026,9 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             ApplyPreparedBagProducts(BuildBagProductItems(products));
         }
 
-        private static List<BagProductItem> BuildBagProductItems(List<WbProduct> products)
+        private List<BagProductItem> BuildBagProductItems(List<WbProduct> products)
         {
+            var showAdult = _adultContentPreference.ShowAdultContent;
             return products.Select(product =>
             {
                 string? sizeImageUrl = null;
@@ -1032,16 +1037,31 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     sizeImageUrl = product.ImageUrl;
                 }
 
-                return new BagProductItem
+                var item = new BagProductItem
                 {
                     ProductId = product.Id,
                     Name = string.IsNullOrWhiteSpace(product.Name) ? "Без названия" : product.Name,
                     Brand = product.Brand ?? string.Empty,
                     Article = product.IdInMarket.ToString(),
+                    IsAdult = product.IsAdult,
                     ImageUrl = product.ImageUrl,
                     SizeImageUrl = sizeImageUrl ?? product.ImageUrl
                 };
+                item.ApplyShowAdultContent(showAdult);
+                return item;
             }).ToList();
+        }
+
+        private void ApplyAdultContentPreferenceToBag()
+        {
+            var show = _adultContentPreference.ShowAdultContent;
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                foreach (var item in _allBagProducts)
+                {
+                    item.ApplyShowAdultContent(show);
+                }
+            });
         }
 
         private void ApplyPreparedBagProducts(List<BagProductItem> items)

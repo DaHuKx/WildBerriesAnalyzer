@@ -47,6 +47,11 @@ namespace WildBerriesAnalyzer.Domain.Models.DataBase
         public int FeedBacksCount { get; set; }
 
         /// <summary>
+        /// Товар 18+ (adult) по WB viewFlags.
+        /// </summary>
+        public bool IsAdult { get; set; }
+
+        /// <summary>
         /// Ссылка на изображение
         /// </summary>
         public string ImageUrl { get; set; }
