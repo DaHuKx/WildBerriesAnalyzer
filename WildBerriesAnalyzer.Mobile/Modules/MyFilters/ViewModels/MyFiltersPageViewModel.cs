@@ -1,24 +1,34 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Prism.Commands;
+using Prism.Mvvm;
+using Prism.Navigation;
 using WildBerriesAnalyzer.Business.Helpers;
 using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
+using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.Modules.MyFilters.Helpers;
 using WildBerriesAnalyzer.Modules.MyFilters.Models;
+using WildBerriesAnalyzer.Modules.MyFilters.Services;
 
 namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 {
     public class MyFiltersPageViewModel : BindableBase
     {
+        private const int BagPageSize = 20;
+        private const string AllBrandsLabel = "Все бренды";
+
         private readonly IFiltersService _filtersService;
         private readonly IAuthSessionService _authSessionService;
         private readonly IAppThemeService _appThemeService;
         private readonly IProductImageCache _productImageCache;
+        private readonly INavigationService _navigationService;
+        private readonly IFilterPresetBridge _presetBridge;
         private CancellationTokenSource? _snackbarCts;
         private CancellationTokenSource? _bagImagesCts;
 
@@ -26,6 +36,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         private bool _isBusy = true;
         private bool _isLoaded;
         private bool _loadStarted;
+        private bool _isLoadingMoreBag;
+        private bool _hasMoreBagItems;
         private string _errorMessage = string.Empty;
         private string _statusMessage = string.Empty;
         private string _snackbarMessage = string.Empty;
@@ -48,19 +60,25 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         private string _strategyHelpExample = string.Empty;
         private List<WbFilterCategory> _allFilterCategories = [];
         private List<BagProductItem> _allBagProducts = [];
-
-        private const string AllBrandsLabel = "Все бренды";
+        private List<BagProductItem> _pipelineBagProducts = [];
+        private int _visibleBagCount;
 
         public MyFiltersPageViewModel(
             IFiltersService filtersService,
             IAuthSessionService authSessionService,
             IAppThemeService appThemeService,
-            IProductImageCache productImageCache)
+            IProductImageCache productImageCache,
+            INavigationService navigationService,
+            IFilterPresetBridge presetBridge)
         {
             _filtersService = filtersService;
             _authSessionService = authSessionService;
             _appThemeService = appThemeService;
             _productImageCache = productImageCache;
+            _navigationService = navigationService;
+            _presetBridge = presetBridge;
+            _presetBridge.OnPresetChosen = preset =>
+                MainThread.BeginInvokeOnMainThread(() => ApplyPreset(preset));
 
             FilterTypes =
             [
@@ -118,6 +136,9 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
             RefreshCommand = new DelegateCommand(async () => await LoadAsync(), () => !IsBusy)
                 .ObservesProperty(() => IsBusy);
+            OpenPresetsCommand = new DelegateCommand(async () => await OpenPresetsAsync(), () => !IsBusy && IsLoaded)
+                .ObservesProperty(() => IsBusy)
+                .ObservesProperty(() => IsLoaded);
             SaveFilterCommand = new DelegateCommand(async () => await SaveFilterAsync(), () => !IsBusy && IsLoaded)
                 .ObservesProperty(() => IsBusy)
                 .ObservesProperty(() => IsLoaded);
@@ -130,7 +151,15 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 .ObservesProperty(() => IsCategoryFilter);
             ClearBagFiltersCommand = new DelegateCommand(ClearBagFilters, () => HasActiveBagFilters)
                 .ObservesProperty(() => HasActiveBagFilters);
+            ClearBagCommand = new DelegateCommand(async () => await ClearBagAsync(), () => !IsBusy && IsLoaded && HasBagProducts)
+                .ObservesProperty(() => IsBusy)
+                .ObservesProperty(() => IsLoaded)
+                .ObservesProperty(() => HasBagProducts);
             ToggleBagFiltersCommand = new DelegateCommand(() => IsBagFiltersExpanded = !IsBagFiltersExpanded);
+            LoadMoreBagCommand = new DelegateCommand(async () => await LoadMoreBagAsync(), CanLoadMoreBag)
+                .ObservesProperty(() => IsBusy)
+                .ObservesProperty(() => IsLoadingMoreBag)
+                .ObservesProperty(() => HasMoreBagItems);
             SelectFilterTypeCommand = new DelegateCommand<FilterTypeOption>(SelectFilterType);
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
             DismissStrategyHelpCommand = new DelegateCommand(DismissStrategyHelp);
@@ -376,7 +405,19 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         public bool HasVisibleBagProducts => BagProducts.Count > 0;
 
-        public bool HasNoVisibleBagProducts => HasBagProducts && BagProducts.Count == 0;
+        public bool HasNoVisibleBagProducts => HasBagProducts && _pipelineBagProducts.Count == 0;
+
+        public bool IsLoadingMoreBag
+        {
+            get => _isLoadingMoreBag;
+            private set => SetProperty(ref _isLoadingMoreBag, value);
+        }
+
+        public bool HasMoreBagItems
+        {
+            get => _hasMoreBagItems;
+            private set => SetProperty(ref _hasMoreBagItems, value);
+        }
 
         public bool HasActiveBagFilters =>
             !string.IsNullOrWhiteSpace(BagSearchText) ||
@@ -397,9 +438,25 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         public string BagFiltersExpandIcon => IsBagFiltersExpanded ? "▲" : "▼";
 
-        public string BagVisibleCountText => HasActiveBagFilters || BagProducts.Count != BagProductsCount
-            ? $"{BagProducts.Count} из {BagProductsCount}"
-            : BagProductsCount.ToString(CultureInfo.InvariantCulture);
+        public string BagVisibleCountText
+        {
+            get
+            {
+                var matched = _pipelineBagProducts.Count;
+                var shown = BagProducts.Count;
+                if (matched == 0)
+                {
+                    return BagProductsCount.ToString(CultureInfo.InvariantCulture);
+                }
+
+                if (shown < matched || matched != BagProductsCount)
+                {
+                    return $"{shown} из {matched}";
+                }
+
+                return BagProductsCount.ToString(CultureInfo.InvariantCulture);
+            }
+        }
 
         public bool HasCategories => FilterCategories.Count > 0;
 
@@ -417,6 +474,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         public DelegateCommand RefreshCommand { get; }
 
+        public DelegateCommand OpenPresetsCommand { get; }
+
         public DelegateCommand SaveFilterCommand { get; }
 
         public DelegateCommand AddArticlesCommand { get; }
@@ -425,7 +484,11 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         public DelegateCommand ClearBagFiltersCommand { get; }
 
+        public DelegateCommand ClearBagCommand { get; }
+
         public DelegateCommand ToggleBagFiltersCommand { get; }
+
+        public DelegateCommand LoadMoreBagCommand { get; }
 
         public DelegateCommand<FilterTypeOption> SelectFilterTypeCommand { get; }
 
@@ -754,6 +817,71 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
         }
 
+        private async Task ClearBagAsync()
+        {
+            if (_allBagProducts.Count == 0)
+            {
+                return;
+            }
+
+            var confirmed = await ConfirmAsync(
+                "Очистить корзину?",
+                $"Будут удалены все товары из корзины ({_allBagProducts.Count}). Это действие нельзя отменить.",
+                "Очистить",
+                "Отмена");
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            try
+            {
+                IsBusy = true;
+                ErrorMessage = string.Empty;
+                StatusMessage = string.Empty;
+
+                var user = _authSessionService.CurrentUser;
+                if (user is null || user.Id <= 0)
+                {
+                    ErrorMessage = "Пользователь не авторизован.";
+                    return;
+                }
+
+                var productIds = _allBagProducts.Select(p => p.ProductId).ToList();
+                await _filtersService.RemoveProductsFromBagAsync(user.Id, productIds);
+
+                _allBagProducts = [];
+                RebuildBagBrandOptions();
+                RefreshVisibleBagProducts();
+                StatusMessage = "Корзина очищена.";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private static async Task<bool> ConfirmAsync(
+            string title,
+            string message,
+            string accept,
+            string cancel)
+        {
+            var page = Application.Current?.Windows.FirstOrDefault()?.Page;
+            if (page is null)
+            {
+                return false;
+            }
+
+            return await MainThread.InvokeOnMainThreadAsync(() =>
+                page.DisplayAlert(title, message, accept, cancel));
+        }
+
         private void ClearBagFilters()
         {
             _bagSearchText = string.Empty;
@@ -854,6 +982,41 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
         }
 
+        private async Task OpenPresetsAsync()
+        {
+            await _navigationService.NavigateAsync(
+                NavigationNames.FilterPresets,
+                new NavigationParameters
+                {
+                    { KnownNavigationParameters.UseModalNavigation, true }
+                });
+        }
+
+        private void ApplyPreset(FilterPreset preset)
+        {
+            ArgumentNullException.ThrowIfNull(preset);
+
+            DiscontMinPercentText = preset.DiscontMinPercent.ToString(CultureInfo.InvariantCulture);
+            MinReviewsCountText = preset.MinReviewsCount.ToString(CultureInfo.InvariantCulture);
+            MinRatingText = preset.MinRating.ToString("0.##", CultureInfo.InvariantCulture);
+
+            var type = FilterTypes.FirstOrDefault(t => t.Type == preset.ProductsFilterType)
+                       ?? FilterTypes[0];
+            SelectedFilterType = type;
+
+            var selected = preset.Strategies is { Count: > 0 }
+                ? preset.Strategies.ToHashSet()
+                : null;
+
+            foreach (var option in StrategyOptions)
+            {
+                option.IsSelected = selected is null || selected.Contains(option.Strategy);
+            }
+
+            ErrorMessage = string.Empty;
+            StatusMessage = $"Пресет «{preset.Title}» применён. Нажмите «Сохранить», чтобы зафиксировать.";
+        }
+
         private void ApplyBagProducts(List<WbProduct> products)
         {
             ApplyPreparedBagProducts(BuildBagProductItems(products));
@@ -919,9 +1082,48 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
         }
 
+        private bool CanLoadMoreBag() =>
+            !IsBusy && !IsLoadingMoreBag && HasMoreBagItems && IsOwnBagFilter;
+
+        private async Task LoadMoreBagAsync()
+        {
+            if (!CanLoadMoreBag())
+            {
+                return;
+            }
+
+            try
+            {
+                IsLoadingMoreBag = true;
+                await Task.Yield();
+                AppendNextBagPage();
+            }
+            finally
+            {
+                IsLoadingMoreBag = false;
+                RaisePropertyChanged(nameof(BagVisibleCountText));
+            }
+        }
+
         private void RefreshVisibleBagProducts()
         {
-            var query = _allBagProducts.AsEnumerable();
+            _pipelineBagProducts = BuildBagPipeline().ToList();
+            _visibleBagCount = 0;
+            BagProducts.Clear();
+            AppendNextBagPage();
+
+            BagProductsCount = _allBagProducts.Count;
+            RaisePropertyChanged(nameof(HasBagProducts));
+            RaisePropertyChanged(nameof(HasNoBagProducts));
+            RaisePropertyChanged(nameof(HasVisibleBagProducts));
+            RaisePropertyChanged(nameof(HasNoVisibleBagProducts));
+            RaisePropertyChanged(nameof(BagVisibleCountText));
+            RaisePropertyChanged(nameof(HasActiveBagFilters));
+        }
+
+        private IEnumerable<BagProductItem> BuildBagPipeline()
+        {
+            IEnumerable<BagProductItem> query = _allBagProducts;
 
             var search = BagSearchText?.Trim();
             if (!string.IsNullOrWhiteSpace(search))
@@ -938,7 +1140,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     string.Equals(p.Brand?.Trim(), SelectedBagBrand, StringComparison.OrdinalIgnoreCase));
             }
 
-            query = (SelectedBagSort?.Mode ?? BagSortMode.NameAsc) switch
+            return (SelectedBagSort?.Mode ?? BagSortMode.NameAsc) switch
             {
                 BagSortMode.NameDesc => query.OrderByDescending(p => p.Name, StringComparer.OrdinalIgnoreCase),
                 BagSortMode.ArticleAsc => query.OrderBy(p => p.Article, StringComparer.OrdinalIgnoreCase),
@@ -949,23 +1151,35 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase),
                 _ => query.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
             };
+        }
 
-            var visible = query.ToList();
-            BagProducts.Clear();
-            foreach (var item in visible)
+        private void AppendNextBagPage()
+        {
+            if (_visibleBagCount >= _pipelineBagProducts.Count)
+            {
+                HasMoreBagItems = false;
+                return;
+            }
+
+            var next = _pipelineBagProducts
+                .Skip(_visibleBagCount)
+                .Take(BagPageSize)
+                .ToList();
+
+            _visibleBagCount += next.Count;
+            foreach (var item in next)
             {
                 BagProducts.Add(item);
             }
 
-            BagProductsCount = _allBagProducts.Count;
-            RaisePropertyChanged(nameof(HasBagProducts));
-            RaisePropertyChanged(nameof(HasNoBagProducts));
+            HasMoreBagItems = _visibleBagCount < _pipelineBagProducts.Count;
             RaisePropertyChanged(nameof(HasVisibleBagProducts));
-            RaisePropertyChanged(nameof(HasNoVisibleBagProducts));
             RaisePropertyChanged(nameof(BagVisibleCountText));
-            RaisePropertyChanged(nameof(HasActiveBagFilters));
 
-            _ = PrefetchVisibleBagImagesAsync(visible);
+            if (next.Count > 0)
+            {
+                _ = PrefetchVisibleBagImagesAsync(next);
+            }
         }
 
         private async Task PrefetchVisibleBagImagesAsync(IReadOnlyList<BagProductItem> items)

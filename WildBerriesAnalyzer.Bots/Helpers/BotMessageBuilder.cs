@@ -35,6 +35,7 @@ namespace WildBerriesAnalyzer.Bots.Helpers
             sb.AppendLine($"   💰 Мин. скидка: {filter.DiscontMinPercent}%");
             sb.AppendLine($"   💬 Мин. отзывов: {filter.MinReviewsCount}");
             sb.AppendLine($"   ⭐ Мин. рейтинг: {filter.MinRating}");
+            sb.AppendLine("   (для товаров из корзины — только мин. скидка)");
             sb.AppendLine();
             sb.AppendLine("🔹 *Фильтрация товаров:*");
             sb.AppendLine($"   {GetFilterTypeLine(filter.ProductsFilterType)}");

@@ -20,9 +20,9 @@
 
 		<ApplicationTitle>PriceLab</ApplicationTitle>
 		<ApplicationId>com.companyname.wildberriesanalyzer.mobile</ApplicationId>
-		<ApplicationDisplayVersion>1.0.20</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>1.0.23</ApplicationDisplayVersion>
 		<!-- Android/iOS store build number (целое); продуктовая версия — ApplicationDisplayVersion. -->
-		<ApplicationVersion>20</ApplicationVersion>
+		<ApplicationVersion>23</ApplicationVersion>
 		<WindowsPackageType>None</WindowsPackageType>
 
 		<!-- Только arm64: на телефоне исключает известные сбои resource id / Fragment на ABI mix -->
@@ -34,6 +34,10 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
+	  <AndroidPackageFormat>apk</AndroidPackageFormat>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -63,10 +67,7 @@
 			<_AdbExe Condition="Exists('$(AndroidSdkDirectory)\platform-tools\adb.exe')">$(AndroidSdkDirectory)\platform-tools\adb.exe</_AdbExe>
 			<_AdbExe Condition="'$(_AdbExe)' == '' and Exists('$(AndroidSdkDirectory)/platform-tools/adb.exe')">$(AndroidSdkDirectory)/platform-tools/adb.exe</_AdbExe>
 		</PropertyGroup>
-		<Exec Command="&quot;$(_AdbExe)&quot; reverse tcp:5146 tcp:5146"
-		      Condition="'$(_AdbExe)' != ''"
-		      IgnoreExitCode="true"
-		      ContinueOnError="true" />
+		<Exec Command="&quot;$(_AdbExe)&quot; reverse tcp:5146 tcp:5146" Condition="'$(_AdbExe)' != ''" IgnoreExitCode="true" ContinueOnError="true" />
 		<Message Importance="high" Text="adb reverse tcp:5146 tcp:5146 (API для телефона через USB)" Condition="'$(_AdbExe)' != ''" />
 	</Target>
 

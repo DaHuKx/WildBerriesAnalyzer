@@ -9,8 +9,10 @@
              BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
 
     <Grid Padding="12">
-        <ScrollView HorizontalScrollBarVisibility="Never"
-                    VerticalScrollBarVisibility="Default">
+        <ScrollView x:Name="FiltersScroll"
+                    HorizontalScrollBarVisibility="Never"
+                    VerticalScrollBarVisibility="Default"
+                    Scrolled="OnFiltersScroll">
             <VerticalStackLayout Spacing="12"
                                  Padding="0,0,0,72"
                                  HorizontalOptions="Fill">
@@ -65,6 +67,34 @@
                 <VerticalStackLayout IsVisible="{Binding IsLoaded}"
                                      Spacing="12"
                                      HorizontalOptions="Fill">
+
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                            StrokeThickness="1"
+                            Padding="14"
+                            HorizontalOptions="Fill">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="14" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Пресеты"
+                                   FontAttributes="Bold"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                            <Label Text="Готовые наборы настроек фильтрации. Состав корзины не изменится."
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   LineBreakMode="WordWrap" />
+                            <Button Text="Выбрать пресет"
+                                    Command="{Binding OpenPresetsCommand}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                    TextColor="White"
+                                    HeightRequest="44"
+                                    CornerRadius="10"
+                                    FontAttributes="Bold"
+                                    FontSize="14" />
+                        </VerticalStackLayout>
+                    </Border>
 
                     <!-- Numeric fields: рамка у Border (teal при фокусе), Entry без платформенной обводки -->
                     <VerticalStackLayout Spacing="8"
@@ -162,6 +192,11 @@
                                        Unfocused="OnNumericEntryUnfocused"/>
                             </Grid>
                         </Border>
+
+                        <Label Text="Для товаров из вашей корзины учитывается только минимальная скидка — отзывы и рейтинг не проверяются."
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                               FontSize="12"
+                               LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
 
                     <!-- Scope + strategies -->
@@ -564,6 +599,18 @@
                                     CornerRadius="10"
                                     FontSize="14" />
 
+                            <Button Text="Очистить корзину"
+                                    Command="{Binding ClearBagCommand}"
+                                    IsVisible="{Binding HasBagProducts}"
+                                    BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                                    BorderColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorDark}}"
+                                    BorderWidth="1.5"
+                                    HeightRequest="44"
+                                    CornerRadius="10"
+                                    FontAttributes="Bold"
+                                    FontSize="14" />
+
                             <Label Text="Корзина пуста"
                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                    IsVisible="{Binding HasNoBagProducts}" />
@@ -717,6 +764,14 @@
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </FlexLayout>
+
+                                <ActivityIndicator IsRunning="{Binding IsLoadingMoreBag}"
+                                                   IsVisible="{Binding IsLoadingMoreBag}"
+                                                   Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                   HeightRequest="36"
+                                                   WidthRequest="36"
+                                                   HorizontalOptions="Center"
+                                                   Margin="0,4,0,8" />
                             </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>

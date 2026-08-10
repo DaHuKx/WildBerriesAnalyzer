@@ -28,16 +28,29 @@ namespace WildBerriesAnalyzer.Domain.Models.DataBase
         [System.Text.Json.Serialization.JsonIgnore]
         public List<WbFilterBag>? BagProducts { get; set; }
 
-        public bool FilterApprovedForDiscont(Discont discont)
+        /// <summary>
+        /// Для товаров из корзины пользователя учитывается только мин. скидка;
+        /// отзывы и рейтинг не проверяются.
+        /// </summary>
+        public bool FilterApprovedForDiscont(Discont discont, bool isInUserBag = false)
         {
-            if (!(DiscontMinPercent <= discont.DiscontPercent &&
-                  MinReviewsCount <= discont.Product.FeedBacksCount &&
-                  MinRating <= discont.Product.ReviewRating))
+            if (discont?.Product is null)
             {
                 return false;
             }
 
-            return true;
+            if (DiscontMinPercent > discont.DiscontPercent)
+            {
+                return false;
+            }
+
+            if (isInUserBag)
+            {
+                return true;
+            }
+
+            return MinReviewsCount <= discont.Product.FeedBacksCount
+                   && MinRating <= discont.Product.ReviewRating;
         }
     }
 }

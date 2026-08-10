@@ -40,13 +40,18 @@ namespace WildBerriesAnalyzer.Business.Helpers
                 : Enum.GetValues(typeof(ReferencePriceStrategy)).Cast<ReferencePriceStrategy>().ToHashSet();
 
             var scopedProductIds = GetScopedProductIds(filter, stored);
+            var bagProductIds = (filter.BagProducts ?? new List<WbFilterBag>())
+                .Select(b => b.ProductId)
+                .ToHashSet();
 
             var matched = stored
                 .Where(d => d.Product != null)
                 .Where(d => strategies.Contains(d.ReferencePriceStrategy))
                 .Where(d => scopedProductIds is null || scopedProductIds.Contains(d.ProductId))
                 .Select(ToDiscont)
-                .Where(filter.FilterApprovedForDiscont)
+                .Where(d => filter.FilterApprovedForDiscont(
+                    d,
+                    isInUserBag: bagProductIds.Contains(d.Product.Id)))
                 .GroupBy(d => d.Product.Id)
                 .Select(g => g.OrderByDescending(d => d.DiscontPercent).First())
                 .OrderByDescending(d => d.DiscontPercent);

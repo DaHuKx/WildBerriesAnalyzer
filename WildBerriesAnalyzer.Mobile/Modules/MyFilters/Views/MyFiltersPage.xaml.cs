@@ -5,6 +5,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Views
 {
     public partial class MyFiltersPage : ContentView
     {
+        private const double LoadMoreThresholdPx = 240;
+
         public static readonly BindableProperty TileWidthProperty =
             BindableProperty.Create(nameof(TileWidth), typeof(double), typeof(MyFiltersPage), 168d);
 
@@ -55,6 +57,42 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Views
             }
 
             await viewModel.LoadIfNeededAsync();
+        }
+
+        private void OnFiltersScroll(object? sender, ScrolledEventArgs e)
+        {
+            if (BindingContext is not MyFiltersPageViewModel viewModel)
+            {
+                return;
+            }
+
+            if (!viewModel.IsOwnBagFilter)
+            {
+                return;
+            }
+
+            if (sender is not ScrollView scrollView)
+            {
+                return;
+            }
+
+            var contentHeight = scrollView.ContentSize.Height;
+            var viewportHeight = scrollView.Height;
+            if (contentHeight <= viewportHeight)
+            {
+                return;
+            }
+
+            var distanceToBottom = contentHeight - (e.ScrollY + viewportHeight);
+            if (distanceToBottom > LoadMoreThresholdPx)
+            {
+                return;
+            }
+
+            if (viewModel.LoadMoreBagCommand.CanExecute())
+            {
+                viewModel.LoadMoreBagCommand.Execute();
+            }
         }
 
         private void OnNumericEntryFocused(object? sender, FocusEventArgs e)
