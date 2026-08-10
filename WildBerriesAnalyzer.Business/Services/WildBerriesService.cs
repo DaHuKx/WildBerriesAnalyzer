@@ -19,9 +19,10 @@ namespace WildBerriesAnalyzer.Business.Services
     public class WildBerriesService : IWildBerriesService
     {
         /// <summary>
-        /// Бит adult/18+ в WB <c>viewFlags</c> (также использовался как hide_vflags).
+        /// Бит adult/18+ в WB <c>viewFlags</c> (проверено по card/search: 18+ товары имеют bit 22).
+        /// Bit 32 (<c>4294967296</c>) — параметр <c>hide_vflags</c> запроса, не маркер карточки.
         /// </summary>
-        public const long AdultViewFlag = 1L << 32;
+        public const long AdultViewFlag = 1L << 22;
 
         private readonly IWbScrapingAuthStore _authStore;
 
@@ -416,7 +417,8 @@ namespace WildBerriesAnalyzer.Business.Services
             return products;
         }
 
-        public static bool IsAdultProduct(long viewFlags) => (viewFlags & AdultViewFlag) != 0;
+        public static bool IsAdultProduct(long viewFlags) =>
+            (viewFlags & AdultViewFlag) != 0;
 
         private static bool IsNetworkFailure(Exception ex)
         {
