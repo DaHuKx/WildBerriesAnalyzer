@@ -6,6 +6,7 @@ using Prism.Navigation;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.Modules.Products.Models;
@@ -354,6 +355,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 return;
             }
 
+            AppLog.Action("Products", "ClearFilters");
             _selectedSort = SortOptions[0];
             _selectedRating = RatingOptions[0];
             _selectedFeedBack = FeedBackOptions[0];
@@ -377,6 +379,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 RaisePropertyChanged(nameof(StatusMessage));
                 RaisePropertyChanged(nameof(HasStatus));
                 _isBrowseMode = true;
+                AppLog.Action("Products", "Refresh");
 
                 await RefreshBagIdsAsync();
 
@@ -392,6 +395,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Products", "Refresh");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -416,6 +420,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 RaisePropertyChanged(nameof(StatusMessage));
                 RaisePropertyChanged(nameof(HasStatus));
                 _isBrowseMode = false;
+                AppLog.Action("Products", "Search");
 
                 await RefreshBagIdsAsync();
 
@@ -429,6 +434,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Products", "Search");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -448,6 +454,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             {
                 IsLoadingMore = true;
                 ErrorMessage = string.Empty;
+                AppLog.Action("Products", "LoadMore");
 
                 if (_isBrowseMode)
                 {
@@ -463,6 +470,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Products", "LoadMore");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -721,6 +729,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
+                AppLog.Action("Products", "ToggleBag", $"id={item.Id} inBag={item.IsInBag}");
 
                 var user = _authSessionService.CurrentUser;
                 if (user is null || user.Id <= 0)
@@ -754,6 +763,7 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Products", "ToggleBag");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -780,8 +790,9 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
                     _bagProductIds.Add(product.Id);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "Products", "RefreshBagIds");
                 // Корзина недоступна — иконки останутся в режиме «добавить».
             }
         }
@@ -792,6 +803,8 @@ namespace WildBerriesAnalyzer.Modules.Products.ViewModels
             {
                 return;
             }
+
+            AppLog.Action("Products", "OpenProduct", $"id={item.Id}");
 
             if (AdultContentAccess.IsRestricted(item.IsAdult, _adultContentPreference.ShowAdultContent))
             {

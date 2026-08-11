@@ -7,6 +7,7 @@ using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Options;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Business.Services.WbScraping;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 
@@ -386,6 +387,7 @@ namespace WildBerriesAnalyzer.Business.Services
                 {
                     products.Add(new WbProduct()
                     {
+                        MarketType = MarketType.Wildberries,
                         IdInMarket = product.id,
                         Brand = product.brand,
                         FeedBacksCount = product.feedbacks,

@@ -1,4 +1,5 @@
-﻿using WildBerriesAnalyzer.Mobile.Services;
+﻿using WildBerriesAnalyzer.Mobile.Logging;
+using WildBerriesAnalyzer.Mobile.Services;
 
 namespace WildBerriesAnalyzer.Mobile
 {
@@ -7,6 +8,8 @@ namespace WildBerriesAnalyzer.Mobile
         public App()
         {
             InitializeComponent();
+
+            AppLog.App.Information("App starting");
 
             // Apply saved preference before first page renders (DI may not be ready yet).
             var preference = Preferences.Default.Get("app_theme_preference", AppThemePreference.System.ToString());
@@ -19,6 +22,13 @@ namespace WildBerriesAnalyzer.Mobile
                     _ => AppTheme.Unspecified
                 };
             }
+        }
+
+        protected override Window CreateWindow(IActivationState? activationState)
+        {
+            var window = base.CreateWindow(activationState);
+            window.Destroying += (_, _) => MobileSerilog.Close();
+            return window;
         }
     }
 }

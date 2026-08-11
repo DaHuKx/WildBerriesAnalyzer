@@ -11,6 +11,8 @@ using WildBerriesAnalyzer.Business.Helpers;
 using WildBerriesAnalyzer.Business.Options;
 using WildBerriesAnalyzer.Business.Services;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Business.Services.OzonScraping;
+using WildBerriesAnalyzer.Business.Services.OzonScraping.Auth;
 using WildBerriesAnalyzer.Business.Services.WbScraping;
 using WildBerriesAnalyzer.Business.Validators;
 using WildBerriesAnalyzer.Data;
@@ -67,6 +69,8 @@ try
     builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
     builder.Services.Configure<WbScrapingAuthOptions>(
         builder.Configuration.GetSection(WbScrapingAuthOptions.SectionName));
+    builder.Services.Configure<OzonScrapingAuthOptions>(
+        builder.Configuration.GetSection(OzonScrapingAuthOptions.SectionName));
     builder.Services.Configure<PriceUpdateOptions>(
         builder.Configuration.GetSection(PriceUpdateOptions.SectionName));
     builder.Services.Configure<VkIdOptions>(
@@ -157,6 +161,14 @@ try
     builder.Services.AddSingleton<IWbScrapingAuthUpdater, WbScrapingAuthUpdater>();
     builder.Services.AddSingleton<IPriceUpdateScheduler, PriceUpdateScheduler>();
     builder.Services.AddScoped<IWildBerriesService, WildBerriesService>();
+    builder.Services.AddSingleton<IOzonService>(provider =>
+    {
+        var configured = provider.GetRequiredService<IOptions<OzonScrapingAuthOptions>>().Value;
+        var fromFile = OzonScrapingAuthLoader.LoadOrDefault(
+            Path.Combine(builder.Environment.ContentRootPath, OzonScrapingAuthOptions.DefaultFileName));
+        var options = OzonScrapingAuthLoader.Merge(configured, fromFile);
+        return new OzonService(options);
+    });
     builder.Services.AddScoped<IDiscontsService, DiscontsService>();
     builder.Services.AddScoped<IActualDiscontsService, ActualDiscontsService>();
     builder.Services.AddScoped<IFiltersService, FiltersService>();

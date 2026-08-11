@@ -1,5 +1,6 @@
 using Prism.Commands;
 using Prism.Mvvm;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
 
@@ -15,6 +16,12 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
         private byte[]? _clearImageBytes;
 
         public int ProductId { get; init; }
+
+        public MarketType MarketType { get; init; } = MarketType.Wildberries;
+
+        public string MarketBadgeLabel => MarketBadge.LabelFor(MarketType);
+
+        public Color MarketBadgeColor => MarketBadge.ColorFor(MarketType);
 
         public string Name { get; init; } = string.Empty;
 

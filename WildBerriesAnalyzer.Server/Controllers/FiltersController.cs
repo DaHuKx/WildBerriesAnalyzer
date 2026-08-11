@@ -67,6 +67,9 @@ namespace WildBerriesAnalyzer.Server.Controllers
                 existing.ReferencePriceStrartegies = request.ReferencePriceStrartegies is { Count: > 0 }
                     ? request.ReferencePriceStrartegies
                     : null;
+                existing.MarketTypes = request.MarketTypes is { Count: > 0 }
+                    ? request.MarketTypes
+                    : null;
 
                 await _filtersService.UpdateFilterAsync(existing);
                 return NoContent();

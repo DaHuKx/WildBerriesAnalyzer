@@ -1,5 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
+using Serilog;
 using UraniumUI;
+using WildBerriesAnalyzer.Mobile.Logging;
 
 namespace WildBerriesAnalyzer.Mobile
 {
@@ -7,6 +9,9 @@ namespace WildBerriesAnalyzer.Mobile
     {
         public static MauiApp CreateMauiApp()
         {
+            MobileSerilog.Initialize();
+            MobileSerilog.AttachGlobalHandlers();
+
             var builder = MauiApp.CreateBuilder();
 
             builder
@@ -25,11 +30,12 @@ namespace WildBerriesAnalyzer.Mobile
             AndroidEntryHandlers.Configure();
 #endif
 
-#if DEBUG
-            builder.Logging.AddDebug();
-#endif
+            builder.Logging.ClearProviders();
+            builder.Logging.AddSerilog(dispose: false);
 
-            return builder.Build();
+            var app = builder.Build();
+            AppLog.App.Information("MauiApp built");
+            return app;
         }
     }
 }

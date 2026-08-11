@@ -16,6 +16,11 @@ namespace WildBerriesAnalyzer.Server.Models
         /// null или пустой список = все стратегии.
         /// </summary>
         public List<ReferencePriceStrategy>? ReferencePriceStrartegies { get; set; }
+
+        /// <summary>
+        /// null или пустой список = все магазины.
+        /// </summary>
+        public List<MarketType>? MarketTypes { get; set; }
     }
 
     public class AddBagProductsRequest

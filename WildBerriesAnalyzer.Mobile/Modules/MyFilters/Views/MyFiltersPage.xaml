@@ -451,6 +451,77 @@
                                 </Grid>
                             </VerticalStackLayout>
 
+                            <!-- Marketplaces -->
+                            <VerticalStackLayout Spacing="10"
+                                                 HorizontalOptions="Fill">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Магазины"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           LineBreakMode="WordWrap" />
+                                    <Label Text="Можно выбрать несколько. Если ничего не выбрано — учитываются все магазины."
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                           FontSize="12"
+                                           LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding MarketTypeOptions}"
+                                                     Spacing="6"
+                                                     HorizontalOptions="Fill">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="models:MarketTypeOption">
+                                            <Border Padding="8,6"
+                                                    BackgroundColor="{Binding CardBackground}"
+                                                    Stroke="{Binding CardStroke}"
+                                                    StrokeThickness="1"
+                                                    HorizontalOptions="Fill">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="10" />
+                                                </Border.StrokeShape>
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="32,Auto,*"
+                                                      ColumnSpacing="8"
+                                                      HorizontalOptions="Fill"
+                                                      InputTransparent="True">
+                                                    <CheckBox IsChecked="{Binding IsSelected}"
+                                                              Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                              VerticalOptions="Center"
+                                                              HorizontalOptions="Center"
+                                                              WidthRequest="32"
+                                                              HeightRequest="32" />
+                                                    <Border Grid.Column="1"
+                                                            StrokeThickness="0"
+                                                            BackgroundColor="{Binding BadgeColor}"
+                                                            WidthRequest="34"
+                                                            HeightRequest="20"
+                                                            VerticalOptions="Center">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="5" />
+                                                        </Border.StrokeShape>
+                                                        <Label Text="{Binding BadgeLabel}"
+                                                               TextColor="White"
+                                                               FontAttributes="Bold"
+                                                               FontSize="9"
+                                                               HorizontalTextAlignment="Center"
+                                                               VerticalTextAlignment="Center"
+                                                               LineBreakMode="TailTruncation" />
+                                                    </Border>
+                                                    <Label Grid.Column="2"
+                                                           Text="{Binding Title}"
+                                                           TextColor="{Binding TitleColor}"
+                                                           FontSize="13"
+                                                           VerticalOptions="Center"
+                                                           LineBreakMode="TailTruncation" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+
                             <!-- Strategies -->
                             <VerticalStackLayout Spacing="10"
                                                  HorizontalOptions="Fill">
@@ -760,6 +831,25 @@
                                                                 </VerticalStackLayout>
                                                             </Border>
                                                         </Grid>
+                                                    </Border>
+                                                    <Border StrokeThickness="0"
+                                                            BackgroundColor="{Binding MarketBadgeColor}"
+                                                            WidthRequest="34"
+                                                            HeightRequest="20"
+                                                            Margin="8"
+                                                            Padding="0"
+                                                            HorizontalOptions="End"
+                                                            VerticalOptions="End"
+                                                            InputTransparent="True">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="5" />
+                                                        </Border.StrokeShape>
+                                                        <Label Text="{Binding MarketBadgeLabel}"
+                                                               TextColor="White"
+                                                               FontAttributes="Bold"
+                                                               FontSize="10"
+                                                               HorizontalTextAlignment="Center"
+                                                               VerticalTextAlignment="Center" />
                                                     </Border>
                                                     <Button Text="✕"
                                                             Command="{Binding RemoveCommand}"

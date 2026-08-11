@@ -65,6 +65,11 @@ namespace WildBerriesAnalyzer.Business.Services
                 filter.ReferencePriceStrartegies = null;
             }
 
+            if (filter.MarketTypes is { Count: 0 })
+            {
+                filter.MarketTypes = null;
+            }
+
             var validationResult = _filterValidator.Validate(filter);
             if (!validationResult.IsValid)
             {

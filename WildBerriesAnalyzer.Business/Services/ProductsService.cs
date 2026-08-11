@@ -4,6 +4,7 @@ using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Business.Validators;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 
 namespace WildBerriesAnalyzer.Business.Services
@@ -16,6 +17,7 @@ namespace WildBerriesAnalyzer.Business.Services
         private readonly IProductsRepository _productsRepository;
         private readonly IPricesRepository _pricesRepository;
         private readonly IWildBerriesService _wildBerriesService;
+        private readonly IOzonService _ozonService;
         private readonly ProductIdValidator _productIdValidator;
         private readonly ProductNameValidator _productNameValidator;
 
@@ -23,12 +25,14 @@ namespace WildBerriesAnalyzer.Business.Services
             IProductsRepository productsRepository,
             IPricesRepository pricesRepository,
             IWildBerriesService wildBerriesService,
+            IOzonService ozonService,
             ProductIdValidator productIdValidator,
             ProductNameValidator productNameValidator)
         {
             _productsRepository = productsRepository;
             _pricesRepository = pricesRepository;
             _wildBerriesService = wildBerriesService;
+            _ozonService = ozonService;
             _productIdValidator = productIdValidator;
             _productNameValidator = productNameValidator;
         }
@@ -149,6 +153,7 @@ namespace WildBerriesAnalyzer.Business.Services
             {
                 ProductId = product.Id,
                 IdInMarket = product.IdInMarket,
+                MarketType = product.MarketType,
                 Name = product.Name ?? string.Empty,
                 Brand = product.Brand,
                 Link = product.Link,
@@ -242,10 +247,12 @@ namespace WildBerriesAnalyzer.Business.Services
             return result;
         }
 
-        public async Task<List<WbProduct>> SearchOnWildBerriesAsync(string name)
+        public async Task<List<WbProduct>> SearchOnWildBerriesAsync(
+            string name,
+            IReadOnlyCollection<MarketType>? marketTypes = null)
         {
             var query = ValidateProductName(name);
-            return await _wildBerriesService.ParseProductsAsync(query);
+            return await ParseByNameAsync(query, marketTypes);
         }
 
         public async Task<AddCatalogProductsResult> AddByArticlesAsync(IEnumerable<string> articleInputs)
@@ -300,13 +307,15 @@ namespace WildBerriesAnalyzer.Business.Services
             };
         }
 
-        public async Task<AddCatalogProductsResult> AddByNameAsync(string name)
+        public async Task<AddCatalogProductsResult> AddByNameAsync(
+            string name,
+            IReadOnlyCollection<MarketType>? marketTypes = null)
         {
             var query = ValidateProductName(name);
-            var products = await _wildBerriesService.ParseProductsAsync(query);
+            var products = await ParseByNameAsync(query, marketTypes);
             if (products.Count == 0)
             {
-                throw new InvalidOperationException("По запросу ничего не найдено на WildBerries.");
+                throw new InvalidOperationException("По запросу ничего не найдено на выбранных магазинах.");
             }
 
             var added = (await _productsRepository.AddRangeAsync(products)).ToList();
@@ -317,13 +326,81 @@ namespace WildBerriesAnalyzer.Business.Services
             };
         }
 
+        private async Task<List<WbProduct>> ParseByNameAsync(
+            string query,
+            IReadOnlyCollection<MarketType>? marketTypes)
+        {
+            var markets = NormalizeMarketTypes(marketTypes);
+            var tasks = new List<Task<(MarketType Market, List<WbProduct> Products, Exception? Error)>>();
+
+            if (markets.Contains(MarketType.Wildberries))
+            {
+                tasks.Add(ParseMarketAsync(MarketType.Wildberries, () => _wildBerriesService.ParseProductsAsync(query)));
+            }
+
+            if (markets.Contains(MarketType.Ozon))
+            {
+                tasks.Add(ParseMarketAsync(MarketType.Ozon, () => _ozonService.ParseProductsAsync(query)));
+            }
+
+            var results = await Task.WhenAll(tasks);
+            var products = results
+                .Where(r => r.Error is null)
+                .SelectMany(r => r.Products)
+                .ToList();
+
+            if (products.Count > 0)
+            {
+                return products;
+            }
+
+            var errors = results
+                .Where(r => r.Error is not null)
+                .Select(r => $"{r.Market}: {r.Error!.Message}")
+                .ToList();
+
+            if (errors.Count > 0)
+            {
+                throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
+            }
+
+            return products;
+        }
+
+        private static async Task<(MarketType Market, List<WbProduct> Products, Exception? Error)> ParseMarketAsync(
+            MarketType market,
+            Func<Task<List<WbProduct>>> parse)
+        {
+            try
+            {
+                var products = await parse().ConfigureAwait(false);
+                return (market, products ?? [], null);
+            }
+            catch (Exception ex)
+            {
+                return (market, [], ex);
+            }
+        }
+
+        private static HashSet<MarketType> NormalizeMarketTypes(IReadOnlyCollection<MarketType>? marketTypes)
+        {
+            if (marketTypes is { Count: > 0 })
+            {
+                return marketTypes
+                    .Where(m => Enum.IsDefined(m))
+                    .ToHashSet();
+            }
+
+            return Enum.GetValues<MarketType>().ToHashSet();
+        }
+
         private string ValidateProductName(string name)
         {
             var trimmed = (name ?? string.Empty).Trim();
             var validationResult = _productNameValidator.Validate(trimmed);
             if (!validationResult.IsValid)
             {
-                throw new ArgumentException(string.Join(" ", validationResult.Errors.Select(e => e.ErrorMessage)));
+                throw new ArgumentException(validationResult.Errors.First().ErrorMessage, nameof(name));
             }
 
             return trimmed;

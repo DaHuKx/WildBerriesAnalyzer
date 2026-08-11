@@ -32,14 +32,31 @@ namespace WildBerriesAnalyzer.Data.Repositories
 
         public override async Task<IEnumerable<WbProduct>> AddRangeAsync(IEnumerable<WbProduct> products)
         {
-            var ids = products.Select(product => product.IdInMarket);
+            var productsList = products as IList<WbProduct> ?? products.ToList();
+            if (productsList.Count == 0)
+            {
+                return productsList;
+            }
 
-            var existProducts = await Context.Products.Where(product => ids.Contains(product.IdInMarket))
-                                                      .Select(product => product.IdInMarket)
-                                                      .ToListAsync();
+            var ids = productsList.Select(p => p.IdInMarket).Distinct().ToList();
+            var marketTypes = productsList.Select(p => p.MarketType).Distinct().ToList();
 
-            var productsToAdd = products.Where(product => !existProducts.Contains(product.IdInMarket))
-                                        .ToList();
+            var existingRows = await Context.Products
+                    .Where(p => ids.Contains(p.IdInMarket) && marketTypes.Contains(p.MarketType))
+                    .Select(p => new { p.MarketType, p.IdInMarket })
+                    .ToListAsync();
+
+            var existingKeys = new HashSet<(Domain.Enums.MarketType MarketType, long IdInMarket)>();
+            foreach (var row in existingRows)
+            {
+                existingKeys.Add((row.MarketType, row.IdInMarket));
+            }
+
+            var productsToAdd = productsList
+                .Where(p => !existingKeys.Contains((p.MarketType, p.IdInMarket)))
+                .GroupBy(p => (p.MarketType, p.IdInMarket))
+                .Select(g => g.First())
+                .ToList();
 
             await Context.Products.AddRangeAsync(productsToAdd);
             await Context.SaveChangesAsync();

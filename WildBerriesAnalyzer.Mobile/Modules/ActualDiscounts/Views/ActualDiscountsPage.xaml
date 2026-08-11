@@ -270,66 +270,88 @@
                                                           CommandParameter="{Binding .}" />
                                 </VerticalStackLayout.GestureRecognizers>
 
-                                <Border StrokeThickness="0"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                        HeightRequest="{Binding Source={x:Reference ActualDiscountsRoot}, Path=TileImageHeight}"
-                                        HorizontalOptions="Fill">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12" />
-                                    </Border.StrokeShape>
-                                    <Grid>
-                                        <ActivityIndicator IsRunning="{Binding IsImageLoading}"
-                                                           IsVisible="{Binding IsImageLoading}"
-                                                           Color="{StaticResource Primary}"
-                                                           WidthRequest="28"
-                                                           HeightRequest="28"
-                                                           HorizontalOptions="Center"
-                                                           VerticalOptions="Center" />
-                                        <Image Source="{Binding DisplayImage}"
-                                               IsVisible="{Binding HasDisplayImage}"
-                                               Opacity="{Binding AdultImageOpacity}"
-                                               Aspect="AspectFill"
-                                               HorizontalOptions="Fill"
-                                               VerticalOptions="Fill" />
-                                        <Border IsVisible="{Binding IsAdultContentRestricted}"
-                                                StrokeThickness="0"
-                                                BackgroundColor="#B31A1A1A"
-                                                InputTransparent="True"
-                                                HorizontalOptions="Fill"
-                                                VerticalOptions="Fill">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="12" />
-                                            </Border.StrokeShape>
-                                            <VerticalStackLayout VerticalOptions="Center"
-                                                                 HorizontalOptions="Center"
-                                                                 Spacing="2">
-                                                <Label Text="18+"
-                                                       FontAttributes="Bold"
-                                                       FontSize="22"
+                                <Grid HeightRequest="{Binding Source={x:Reference ActualDiscountsRoot}, Path=TileImageHeight}"
+                                      HorizontalOptions="Fill">
+                                    <Border StrokeThickness="0"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                            HorizontalOptions="Fill"
+                                            VerticalOptions="Fill">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Grid>
+                                            <ActivityIndicator IsRunning="{Binding IsImageLoading}"
+                                                               IsVisible="{Binding IsImageLoading}"
+                                                               Color="{StaticResource Primary}"
+                                                               WidthRequest="28"
+                                                               HeightRequest="28"
+                                                               HorizontalOptions="Center"
+                                                               VerticalOptions="Center" />
+                                            <Image Source="{Binding DisplayImage}"
+                                                   IsVisible="{Binding HasDisplayImage}"
+                                                   Opacity="{Binding AdultImageOpacity}"
+                                                   Aspect="AspectFill"
+                                                   HorizontalOptions="Fill"
+                                                   VerticalOptions="Fill" />
+                                            <Border IsVisible="{Binding IsAdultContentRestricted}"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="#B31A1A1A"
+                                                    InputTransparent="True"
+                                                    HorizontalOptions="Fill"
+                                                    VerticalOptions="Fill">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="12" />
+                                                </Border.StrokeShape>
+                                                <VerticalStackLayout VerticalOptions="Center"
+                                                                     HorizontalOptions="Center"
+                                                                     Spacing="2">
+                                                    <Label Text="18+"
+                                                           FontAttributes="Bold"
+                                                           FontSize="22"
+                                                           TextColor="White"
+                                                           HorizontalTextAlignment="Center" />
+                                                    <Label Text="Скрыто"
+                                                           FontSize="11"
+                                                           TextColor="#E0FFFFFF"
+                                                           HorizontalTextAlignment="Center" />
+                                                </VerticalStackLayout>
+                                            </Border>
+                                            <Border StrokeThickness="0"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                                    Padding="7,3"
+                                                    Margin="6"
+                                                    HorizontalOptions="Start"
+                                                    VerticalOptions="End">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="8" />
+                                                </Border.StrokeShape>
+                                                <Label Text="{Binding PercentText}"
                                                        TextColor="White"
-                                                       HorizontalTextAlignment="Center" />
-                                                <Label Text="Скрыто"
-                                                       FontSize="11"
-                                                       TextColor="#E0FFFFFF"
-                                                       HorizontalTextAlignment="Center" />
-                                            </VerticalStackLayout>
-                                        </Border>
-                                        <Border StrokeThickness="0"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
-                                                Padding="7,3"
-                                                Margin="6"
-                                                HorizontalOptions="Start"
-                                                VerticalOptions="End">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="8" />
-                                            </Border.StrokeShape>
-                                            <Label Text="{Binding PercentText}"
-                                                   TextColor="White"
-                                                   FontAttributes="Bold"
-                                                   FontSize="11" />
-                                        </Border>
-                                    </Grid>
-                                </Border>
+                                                       FontAttributes="Bold"
+                                                       FontSize="11" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                    <Border StrokeThickness="0"
+                                            BackgroundColor="{Binding MarketBadgeColor}"
+                                            WidthRequest="34"
+                                            HeightRequest="20"
+                                            Margin="8"
+                                            Padding="0"
+                                            HorizontalOptions="End"
+                                            VerticalOptions="End"
+                                            InputTransparent="True">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="5" />
+                                        </Border.StrokeShape>
+                                        <Label Text="{Binding MarketBadgeLabel}"
+                                               TextColor="White"
+                                               FontAttributes="Bold"
+                                               FontSize="10"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
+                                    </Border>
+                                </Grid>
 
                                 <VerticalStackLayout Spacing="1"
                                                      Margin="0,2,0,0"

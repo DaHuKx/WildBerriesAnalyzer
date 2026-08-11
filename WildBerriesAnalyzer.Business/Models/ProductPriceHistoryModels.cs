@@ -1,3 +1,5 @@
+using WildBerriesAnalyzer.Domain.Enums;
+
 namespace WildBerriesAnalyzer.Business.Models
 {
     /// <summary>
@@ -23,6 +25,8 @@ namespace WildBerriesAnalyzer.Business.Models
         public int ProductId { get; init; }
 
         public long IdInMarket { get; init; }
+
+        public MarketType MarketType { get; init; } = MarketType.Wildberries;
 
         public string Name { get; init; } = string.Empty;
 

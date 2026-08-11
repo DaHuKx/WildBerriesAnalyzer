@@ -3,6 +3,7 @@ using Prism.Ioc;
 using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Settings.ViewModels;
 using WildBerriesAnalyzer.Modules.Settings.Views;
@@ -98,6 +99,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
             {
                 if (_shareToBagService.HasPending)
                 {
+                    AppLog.Action("MainWindow", "Arrive", "pending share");
                     await HandleIncomingShareAsync();
                     return;
                 }
@@ -108,8 +110,9 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                     Navigate(NavigationNames.Home);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "MainWindow", "Arrive");
                 if (CurrentContent is null)
                 {
                     Navigate(NavigationNames.Home);
@@ -136,6 +139,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                     return;
                 }
 
+                AppLog.Action("MainWindow", "ProcessShare");
                 var result = await _shareToBagService.TryProcessPendingAsync();
                 if (!_isActive)
                 {
@@ -145,6 +149,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                 if (result is null)
                 {
                     // Ещё нет сессии — ждём логин; pending остаётся в store.
+                    AppLog.Action("MainWindow", "ProcessShare", "deferred: no session");
                     if (CurrentContent is null)
                     {
                         Navigate(NavigationNames.Home);
@@ -153,6 +158,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                     return;
                 }
 
+                AppLog.Action("MainWindow", "ProcessShare", result.IsError ? "error" : "ok");
                 await NavigateAsync(NavigationNames.MyFilters);
 
                 if (CurrentContent?.BindingContext is not MyFiltersPageViewModel filtersVm)
@@ -174,7 +180,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Share-to-bag failed: {ex}");
+                AppLog.Error(ex, "MainWindow", "ProcessShare");
                 try
                 {
                     if (_isActive && CurrentContent is null)
@@ -209,6 +215,8 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
 
         private async Task NavigateAsync(string navigationName)
         {
+            AppLog.Action("MainWindow", "Navigate", navigationName);
+
             // Даём меню доехать, затем меняем контент.
             if (IsMenuOpen)
             {

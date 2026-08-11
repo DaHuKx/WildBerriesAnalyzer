@@ -1,3 +1,5 @@
+using WildBerriesAnalyzer.Mobile.Logging;
+
 namespace WildBerriesAnalyzer.Mobile.Services
 {
     public sealed class AdultContentPreferenceService : IAdultContentPreferenceService
@@ -22,6 +24,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
 
             ShowAdultContent = showAdultContent;
             Preferences.Default.Set(PreferenceKey, showAdultContent);
+            AppLog.Action("Service", "AdultPreference", $"show={showAdultContent}");
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }

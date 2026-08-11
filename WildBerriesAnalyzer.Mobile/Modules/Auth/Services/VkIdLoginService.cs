@@ -1,5 +1,6 @@
 using System.Text;
 using WildBerriesAnalyzer.Business.Models;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
 namespace WildBerriesAnalyzer.Modules.Auth.Services
@@ -15,15 +16,19 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
 
         public async Task<AuthTokensResult> LoginAsync(CancellationToken cancellationToken = default)
         {
+            AppLog.Action("Auth", "VkLogin", "start");
+
             var config = await _authClient.GetVkAuthConfigAsync(cancellationToken);
             if (!config.Enabled || string.IsNullOrWhiteSpace(config.ClientId))
             {
+                AppLog.Warning("Auth", "VkLogin", "disabled or missing ClientId");
                 throw new InvalidOperationException(
                     "VK ID отключён на сервере. В .env укажите VK_ID_ENABLED=true и VK_ID_CLIENT_ID, затем перезапустите server.");
             }
 
             if (string.IsNullOrWhiteSpace(config.RedirectUri))
             {
+                AppLog.Warning("Auth", "VkLogin", "missing RedirectUri");
                 throw new InvalidOperationException("Сервер не вернул RedirectUri для VK ID.");
             }
 
@@ -63,19 +68,24 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
                             PrefersEphemeralWebBrowserSession = false
                         }));
             }
-            catch (TaskCanceledException)
+            catch (TaskCanceledException ex)
             {
+                AppLog.Warning("Auth", "VkLogin", "cancel/return failed");
+                AppLog.Error(ex, "Auth", "VkLogin", "TaskCanceled");
                 throw new InvalidOperationException(
                     "Не удалось вернуться из VK в приложение. " +
                     "В кабинете VK добавьте redirect URI сервера и убедитесь, что после входа открывается PriceLab " +
                     "(или нажмите ссылку «Открыть PriceLab» на странице возврата).");
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                AppLog.Warning("Auth", "VkLogin", "cancelled");
+                AppLog.Error(ex, "Auth", "VkLogin", "cancelled");
                 throw new InvalidOperationException("Авторизация VK прервана.");
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Auth", "VkLogin", "open authenticator");
                 throw new InvalidOperationException($"Не удалось открыть авторизацию VK: {ex.Message}", ex);
             }
 
@@ -84,6 +94,7 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
             if (properties.TryGetValue("error", out var error) && !string.IsNullOrWhiteSpace(error))
             {
                 properties.TryGetValue("error_description", out var desc);
+                AppLog.Warning("Auth", "VkLogin", $"oauth error={error}");
                 throw new UnauthorizedAccessException(
                     string.IsNullOrWhiteSpace(desc) ? error : $"{error}: {desc}");
             }
@@ -96,16 +107,18 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
                 string.IsNullOrWhiteSpace(returnedState) ||
                 string.IsNullOrWhiteSpace(deviceId))
             {
+                AppLog.Warning("Auth", "VkLogin", "missing code/state/device_id");
                 throw new InvalidOperationException(
                     "VK ID не вернул code/state/device_id. Проверьте Redirect URI в кабинете VK и callback сервера.");
             }
 
             if (!string.Equals(returnedState, state, StringComparison.Ordinal))
             {
+                AppLog.Warning("Auth", "VkLogin", "state mismatch");
                 throw new UnauthorizedAccessException("Несовпадение state — авторизация отклонена.");
             }
 
-            return await _authClient.LoginWithVkAsync(new VkLoginRequest
+            var tokens = await _authClient.LoginWithVkAsync(new VkLoginRequest
             {
                 Code = code,
                 CodeVerifier = codeVerifier,
@@ -113,6 +126,9 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
                 State = returnedState,
                 RedirectUri = redirectUri
             });
+
+            AppLog.Action("Auth", "VkLogin", $"success userId={tokens.UserId}");
+            return tokens;
         }
 
         private static string ResolveMobileRedirectUri(VkAuthPublicConfig config)

@@ -1,4 +1,5 @@
 using WildBerriesAnalyzer.Business.Helpers;
+using WildBerriesAnalyzer.Mobile.Logging;
 
 namespace WildBerriesAnalyzer.Mobile.Services
 {
@@ -41,12 +42,14 @@ namespace WildBerriesAnalyzer.Mobile.Services
                     _articleOrUrl = sharedText.Trim();
                     _isBasketShare = true;
                     _errorMessage = null;
+                    AppLog.Action("Service", "EnqueueShare", "basket");
                 }
                 else if (ProductHelper.TryExtractArticleInput(sharedText, out var articleOrUrl))
                 {
                     _articleOrUrl = articleOrUrl;
                     _isBasketShare = false;
                     _errorMessage = null;
+                    AppLog.Action("Service", "EnqueueShare", "article");
                 }
                 else
                 {
@@ -54,6 +57,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
                     _isBasketShare = false;
                     _errorMessage =
                         "Не удалось распознать товар или корзину Wildberries. Поделитесь ссылкой на карточку или basket?shareId=…";
+                    AppLog.Warning("Service", "EnqueueShare", "unrecognized");
                 }
             }
 

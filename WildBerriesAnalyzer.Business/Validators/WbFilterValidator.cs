@@ -30,6 +30,13 @@ namespace WildBerriesAnalyzer.Business.Validators
                                     || strategies.All(s => Enum.IsDefined(typeof(ReferencePriceStrategy), s)))
                 .WithMessage("Указана неизвестная стратегия определения цены.");
 
+            // null / пусто = все магазины.
+            RuleFor(x => x.MarketTypes)
+                .Must(markets => markets is null
+                                 || markets.Count == 0
+                                 || markets.All(m => Enum.IsDefined(typeof(MarketType), m)))
+                .WithMessage("Указан неизвестный маркетплейс.");
+
             RuleFor(x => x.ProductsFilterType)
                 .IsInEnum()
                 .WithMessage("Указан некорректный тип фильтрации товаров.");

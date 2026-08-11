@@ -1,3 +1,5 @@
+using WildBerriesAnalyzer.Mobile.Logging;
+
 namespace WildBerriesAnalyzer.Mobile.Helpers
 {
     public static class AdultContentAccess
@@ -13,6 +15,8 @@ namespace WildBerriesAnalyzer.Mobile.Helpers
 
         public static async Task ShowRestrictedAsync()
         {
+            AppLog.Warning("Service", "AdultRestricted", "dialog shown");
+
             var page = Application.Current?.Windows.FirstOrDefault()?.Page;
             if (page is null)
             {

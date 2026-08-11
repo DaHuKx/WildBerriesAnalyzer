@@ -22,7 +22,7 @@ Console.OutputEncoding = Encoding.UTF8;
 //   WB_SCAN_START_ID, WB_SCAN_END_ID, WB_SCAN_MIN_REVIEWS, WB_SCAN_BATCH_SIZE, WB_SCAN_DELAY_MS
 
 const long DefaultStartId = 400_000;
-const int DefaultBatchSize = 200;
+const int DefaultBatchSize = 100;
 const int DefaultMinReviews = 3000;
 const int DefaultDelayMs = 400;
 const string DefaultRemoteHost = "62.233.35.144";
@@ -126,8 +126,7 @@ while (!cts.IsCancellationRequested && current <= endId)
     }
     catch (Exception ex)
     {
-        Console.WriteLine(
-            $"[{DateTime.Now:HH:mm:ss}] ids {batchStart}-{batchEnd}: ошибка WB — {ex.GetType().Name}: {ex.Message}. Повтор через 5 с...");
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ids {batchStart}-{batchEnd}: ошибка WB — {ex.GetType().Name}: {ex.Message}. Повтор через 5 с...");
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);

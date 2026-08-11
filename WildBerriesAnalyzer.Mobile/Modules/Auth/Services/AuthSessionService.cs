@@ -1,5 +1,6 @@
 using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
 namespace WildBerriesAnalyzer.Modules.Auth.Services
@@ -68,11 +69,13 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
 
             if (CurrentUser is null)
             {
+                AppLog.Action("Auth", "TryRestoreSession", "fail: no user");
                 return false;
             }
 
             if (_tokenStore.HasAccessToken)
             {
+                AppLog.Action("Auth", "TryRestoreSession", "success: access token");
                 return true;
             }
 
@@ -80,6 +83,7 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
                                ?? Preferences.Default.Get<string?>(RefreshTokenKey, null);
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
+                AppLog.Action("Auth", "TryRestoreSession", "fail: no refresh token");
                 SignOut();
                 return false;
             }
@@ -88,10 +92,12 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
             {
                 var tokens = await _authClient.RefreshAsync(refreshToken);
                 SignIn(tokens);
+                AppLog.Action("Auth", "TryRestoreSession", "success: refreshed");
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "Auth", "TryRestoreSession");
                 SignOut();
                 return false;
             }
@@ -109,10 +115,12 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
 
             // Persist через событие TokensChanged.
             _tokenStore.SetTokens(tokens);
+            AppLog.Action("Auth", "SignIn", $"userId={tokens.UserId}");
         }
 
         public void SignOut()
         {
+            AppLog.Action("Auth", "SignOut");
             _currentUser = null;
             _tokenStore.Clear();
         }

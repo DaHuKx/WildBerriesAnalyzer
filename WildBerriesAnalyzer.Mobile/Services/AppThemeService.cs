@@ -1,3 +1,5 @@
+using WildBerriesAnalyzer.Mobile.Logging;
+
 namespace WildBerriesAnalyzer.Mobile.Services
 {
     public sealed class AppThemeService : IAppThemeService
@@ -26,6 +28,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
         {
             Preference = preference;
             Preferences.Default.Set(PreferenceKey, preference.ToString());
+            AppLog.Action("Service", "ThemeChanged", preference.ToString());
             Apply();
             ThemeChanged?.Invoke(this, EventArgs.Empty);
         }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 using WildBerriesAnalyzer.Server.Models;
 
@@ -20,16 +21,18 @@ namespace WildBerriesAnalyzer.Server.Controllers
         }
 
         /// <summary>
-        /// Поиск на WildBerries по названию (без сохранения).
+        /// Поиск на выбранных маркетплейсах по названию (без сохранения).
         /// </summary>
         [HttpGet("wb-search")]
         [ProducesResponseType(typeof(List<WbProduct>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<List<WbProduct>>> SearchOnWildBerries([FromQuery] string name)
+        public async Task<ActionResult<List<WbProduct>>> SearchOnWildBerries(
+            [FromQuery] string name,
+            [FromQuery] List<MarketType>? markets = null)
         {
             try
             {
-                var products = await _productsService.SearchOnWildBerriesAsync(name);
+                var products = await _productsService.SearchOnWildBerriesAsync(name, markets);
                 return Ok(products);
             }
             catch (ArgumentException ex)
@@ -78,7 +81,9 @@ namespace WildBerriesAnalyzer.Server.Controllers
         {
             try
             {
-                var result = await _productsService.AddByNameAsync(request?.Name ?? string.Empty);
+                var result = await _productsService.AddByNameAsync(
+                    request?.Name ?? string.Empty,
+                    request?.MarketTypes);
                 return Ok(result);
             }
             catch (ArgumentException ex)

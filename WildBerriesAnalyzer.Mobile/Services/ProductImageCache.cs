@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.Http;
+using WildBerriesAnalyzer.Mobile.Logging;
 
 namespace WildBerriesAnalyzer.Mobile.Services
 {
@@ -66,20 +67,23 @@ namespace WildBerriesAnalyzer.Mobile.Services
                     .ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
+                    AppLog.Service.Debug("Image fetch miss status={StatusCode}", (int)response.StatusCode);
                     return null;
                 }
 
                 var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
                 if (bytes.Length == 0)
                 {
+                    AppLog.Service.Debug("Image fetch empty body");
                     return null;
                 }
 
                 _memory[url] = bytes;
                 return bytes;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Warning("Service", "ImageFetch", ex.Message);
                 return null;
             }
         }

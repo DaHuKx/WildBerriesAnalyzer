@@ -2,6 +2,7 @@ using System.Globalization;
 using Prism.Commands;
 using Prism.Mvvm;
 using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
 namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
@@ -131,6 +132,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
             {
                 IsBusy = true;
                 ErrorMessage = string.Empty;
+                AppLog.Action("Home", "Load");
 
                 var summary = await _dashboardClient.GetHomeAsync().ConfigureAwait(false);
 
@@ -149,6 +151,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Home", "Load");
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     ErrorMessage = ex.Message;

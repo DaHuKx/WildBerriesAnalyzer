@@ -2,8 +2,10 @@ using System.Collections.ObjectModel;
 using Prism.Commands;
 using Prism.Mvvm;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Helpers;
 using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Products.Models;
 
@@ -19,6 +21,8 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         private bool _isBusy;
         private string _articlesText = string.Empty;
         private string _productNameText = string.Empty;
+        private bool _searchWildberries = true;
+        private bool _searchOzon = true;
         private string _errorMessage = string.Empty;
         private string _statusMessage = string.Empty;
         private string _snackbarMessage = string.Empty;
@@ -153,6 +157,18 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             set => SetProperty(ref _productNameText, value);
         }
 
+        public bool SearchWildberries
+        {
+            get => _searchWildberries;
+            set => SetProperty(ref _searchWildberries, value);
+        }
+
+        public bool SearchOzon
+        {
+            get => _searchOzon;
+            set => SetProperty(ref _searchOzon, value);
+        }
+
         public string ErrorMessage
         {
             get => _errorMessage;
@@ -248,6 +264,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 RaisePropertyChanged(nameof(ErrorMessage));
                 RaisePropertyChanged(nameof(StatusMessage));
                 Results.Clear();
+                AppLog.Action("AddProducts", "AddByArticles");
 
                 var rawIds = ArticlesText.Split([' ', '\n', '\t', ',', ';'], StringSplitOptions.RemoveEmptyEntries);
                 if (rawIds.Length == 0)
@@ -276,6 +293,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "AddProducts", "AddByArticles");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -295,6 +313,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 RaisePropertyChanged(nameof(ErrorMessage));
                 RaisePropertyChanged(nameof(StatusMessage));
                 Results.Clear();
+                AppLog.Action("AddProducts", "SearchByName");
 
                 if (string.IsNullOrWhiteSpace(ProductNameText))
                 {
@@ -302,15 +321,23 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     return;
                 }
 
-                var products = await _productsService.SearchOnWildBerriesAsync(ProductNameText.Trim());
+                var markets = GetSelectedSearchMarkets();
+                if (markets.Count == 0)
+                {
+                    ErrorMessage = "Выберите хотя бы один магазин.";
+                    return;
+                }
+
+                var products = await _productsService.SearchOnWildBerriesAsync(ProductNameText.Trim(), markets);
                 ReplaceResults(products.Select(ProductListItem.FromProduct));
 
                 StatusMessage = products.Count > 0
-                    ? $"Найдено на WB: {products.Count}. Нажмите «Добавить в каталог», чтобы сохранить новые."
+                    ? $"Найдено: {products.Count}. Нажмите «Добавить в каталог», чтобы сохранить новые."
                     : "По запросу ничего не найдено.";
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "AddProducts", "SearchByName");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -330,6 +357,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 RaisePropertyChanged(nameof(ErrorMessage));
                 RaisePropertyChanged(nameof(StatusMessage));
                 Results.Clear();
+                AppLog.Action("AddProducts", "AddByName");
 
                 if (string.IsNullOrWhiteSpace(ProductNameText))
                 {
@@ -337,15 +365,23 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     return;
                 }
 
-                var result = await _productsService.AddByNameAsync(ProductNameText.Trim());
+                var markets = GetSelectedSearchMarkets();
+                if (markets.Count == 0)
+                {
+                    ErrorMessage = "Выберите хотя бы один магазин.";
+                    return;
+                }
+
+                var result = await _productsService.AddByNameAsync(ProductNameText.Trim(), markets);
                 ReplaceResults(result.AddedProducts.Select(ProductListItem.FromProduct));
 
                 StatusMessage = result.AddedProducts.Count > 0
                     ? $"Добавлено в каталог: {result.AddedProducts.Count} из {result.FoundCount}."
-                    : $"Найдено на WB: {result.FoundCount}. Новых нет — уже в каталоге.";
+                    : $"Найдено: {result.FoundCount}. Новых нет — уже в каталоге.";
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "AddProducts", "AddByName");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -353,6 +389,22 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 IsBusy = false;
                 RaisePropertyChanged(nameof(ShowEmptyMessage));
             }
+        }
+
+        private List<MarketType> GetSelectedSearchMarkets()
+        {
+            var markets = new List<MarketType>();
+            if (SearchWildberries)
+            {
+                markets.Add(MarketType.Wildberries);
+            }
+
+            if (SearchOzon)
+            {
+                markets.Add(MarketType.Ozon);
+            }
+
+            return markets;
         }
 
         private void ReplaceResults(IEnumerable<ProductListItem> items)
@@ -471,11 +523,13 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         {
             try
             {
+                AppLog.Action("AddProducts", "CopyBookmarklet");
                 await Clipboard.Default.SetTextAsync(WbBasketBookmarklet.BookmarkletUri);
                 StatusMessage = "Закладка скопирована. Вставьте её в адрес новой закладки браузера на компьютере.";
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "AddProducts", "CopyBookmarklet");
                 ErrorMessage = $"Не удалось скопировать закладку: {ex.Message}";
             }
         }
@@ -489,16 +543,19 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
             if (AdultContentAccess.IsRestricted(item.IsAdult, _adultContentPreference.ShowAdultContent))
             {
+                AppLog.Warning("AddProducts", "OpenLink", "restricted");
                 await AdultContentAccess.ShowRestrictedAsync();
                 return;
             }
 
+            AppLog.Action("AddProducts", "OpenLink", $"id={item.Id}");
             try
             {
                 await Launcher.Default.OpenAsync(item.Link);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "AddProducts", "OpenLink");
                 // ignore launcher errors
             }
         }

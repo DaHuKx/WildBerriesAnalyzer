@@ -159,9 +159,33 @@
                                FontAttributes="Bold"
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
-                        <Label Text="Название товара на WildBerries"
+                        <Label Text="Выберите магазины и введите название товара"
                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                FontSize="13" />
+
+                        <HorizontalStackLayout Spacing="16"
+                                               HorizontalOptions="Fill">
+                            <HorizontalStackLayout Spacing="6"
+                                                   VerticalOptions="Center">
+                                <CheckBox IsChecked="{Binding SearchWildberries}"
+                                          Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                          VerticalOptions="Center" />
+                                <Label Text="Wildberries"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                       FontSize="13"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="6"
+                                                   VerticalOptions="Center">
+                                <CheckBox IsChecked="{Binding SearchOzon}"
+                                          Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                          VerticalOptions="Center" />
+                                <Label Text="Ozon"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                       FontSize="13"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </HorizontalStackLayout>
 
                         <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
                                 StrokeThickness="1"
@@ -250,52 +274,74 @@
                                                           CommandParameter="{Binding .}" />
                                 </VerticalStackLayout.GestureRecognizers>
 
-                                <Border StrokeThickness="0"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                        HeightRequest="{Binding Source={x:Reference AddProductsRoot}, Path=TileImageHeight}"
-                                        HorizontalOptions="Fill">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12" />
-                                    </Border.StrokeShape>
-                                    <Grid>
-                                        <ActivityIndicator IsRunning="{Binding IsImageLoading}"
-                                                           IsVisible="{Binding IsImageLoading}"
-                                                           Color="{StaticResource Primary}"
-                                                           WidthRequest="28"
-                                                           HeightRequest="28"
-                                                           HorizontalOptions="Center"
-                                                           VerticalOptions="Center" />
-                                        <Image Source="{Binding DisplayImage}"
-                                               IsVisible="{Binding HasDisplayImage}"
-                                               Opacity="{Binding AdultImageOpacity}"
-                                               Aspect="AspectFill"
-                                               HorizontalOptions="Fill"
-                                               VerticalOptions="Fill" />
-                                        <Border IsVisible="{Binding IsAdultContentRestricted}"
-                                                StrokeThickness="0"
-                                                BackgroundColor="#B31A1A1A"
-                                                InputTransparent="True"
-                                                HorizontalOptions="Fill"
-                                                VerticalOptions="Fill">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="12" />
-                                            </Border.StrokeShape>
-                                            <VerticalStackLayout VerticalOptions="Center"
-                                                                 HorizontalOptions="Center"
-                                                                 Spacing="2">
-                                                <Label Text="18+"
-                                                       FontAttributes="Bold"
-                                                       FontSize="22"
-                                                       TextColor="White"
-                                                       HorizontalTextAlignment="Center" />
-                                                <Label Text="Скрыто"
-                                                       FontSize="11"
-                                                       TextColor="#E0FFFFFF"
-                                                       HorizontalTextAlignment="Center" />
-                                            </VerticalStackLayout>
-                                        </Border>
-                                    </Grid>
-                                </Border>
+                                <Grid HeightRequest="{Binding Source={x:Reference AddProductsRoot}, Path=TileImageHeight}"
+                                      HorizontalOptions="Fill">
+                                    <Border StrokeThickness="0"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                            HorizontalOptions="Fill"
+                                            VerticalOptions="Fill">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Grid>
+                                            <ActivityIndicator IsRunning="{Binding IsImageLoading}"
+                                                               IsVisible="{Binding IsImageLoading}"
+                                                               Color="{StaticResource Primary}"
+                                                               WidthRequest="28"
+                                                               HeightRequest="28"
+                                                               HorizontalOptions="Center"
+                                                               VerticalOptions="Center" />
+                                            <Image Source="{Binding DisplayImage}"
+                                                   IsVisible="{Binding HasDisplayImage}"
+                                                   Opacity="{Binding AdultImageOpacity}"
+                                                   Aspect="AspectFill"
+                                                   HorizontalOptions="Fill"
+                                                   VerticalOptions="Fill" />
+                                            <Border IsVisible="{Binding IsAdultContentRestricted}"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="#B31A1A1A"
+                                                    InputTransparent="True"
+                                                    HorizontalOptions="Fill"
+                                                    VerticalOptions="Fill">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="12" />
+                                                </Border.StrokeShape>
+                                                <VerticalStackLayout VerticalOptions="Center"
+                                                                     HorizontalOptions="Center"
+                                                                     Spacing="2">
+                                                    <Label Text="18+"
+                                                           FontAttributes="Bold"
+                                                           FontSize="22"
+                                                           TextColor="White"
+                                                           HorizontalTextAlignment="Center" />
+                                                    <Label Text="Скрыто"
+                                                           FontSize="11"
+                                                           TextColor="#E0FFFFFF"
+                                                           HorizontalTextAlignment="Center" />
+                                                </VerticalStackLayout>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                    <Border StrokeThickness="0"
+                                            BackgroundColor="{Binding MarketBadgeColor}"
+                                            WidthRequest="34"
+                                            HeightRequest="20"
+                                            Margin="8"
+                                            Padding="0"
+                                            HorizontalOptions="End"
+                                            VerticalOptions="End"
+                                            InputTransparent="True">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="5" />
+                                        </Border.StrokeShape>
+                                        <Label Text="{Binding MarketBadgeLabel}"
+                                               TextColor="White"
+                                               FontAttributes="Bold"
+                                               FontSize="10"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
+                                    </Border>
+                                </Grid>
 
                                 <Label Text="{Binding Brand}"
                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"

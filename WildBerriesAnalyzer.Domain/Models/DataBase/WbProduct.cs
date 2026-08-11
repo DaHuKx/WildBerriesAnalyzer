@@ -3,16 +3,22 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text.Json.Serialization;
+using WildBerriesAnalyzer.Domain.Enums;
 
 namespace WildBerriesAnalyzer.Domain.Models.DataBase
 {
     /// <summary>
-    /// Продукт WildBerries
+    /// Продукт маркетплейса (WB / Ozon).
     /// </summary>
     public class WbProduct : BaseDbEntity
     {
         /// <summary>
-        /// Id в магазине WildBerries
+        /// Маркетплейс (Wildberries / Ozon).
+        /// </summary>
+        public MarketType MarketType { get; set; } = MarketType.Wildberries;
+
+        /// <summary>
+        /// Id в магазине (nmId WB / SKU Ozon).
         /// </summary>
         public long IdInMarket { get; set; }
 

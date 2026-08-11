@@ -1,11 +1,14 @@
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Serilog;
 
 namespace WildBerriesAnalyzer.ServerClient
 {
     internal static class WbServerJson
     {
+        private static readonly ILogger Log = Serilog.Log.ForContext("Area", "Http");
+
         public static readonly JsonSerializerOptions Options = new()
         {
             PropertyNameCaseInsensitive = true,
@@ -22,6 +25,13 @@ namespace WildBerriesAnalyzer.ServerClient
 
             var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var message = ExtractMessage(body) ?? $"Сервер вернул {(int)response.StatusCode} ({response.ReasonPhrase}).";
+            var path = response.RequestMessage?.RequestUri?.PathAndQuery ?? "<unknown>";
+
+            Log.Warning(
+                "API error {StatusCode} for {Path}: {Message}",
+                (int)response.StatusCode,
+                path,
+                message);
 
             if (response.StatusCode == HttpStatusCode.BadRequest)
             {

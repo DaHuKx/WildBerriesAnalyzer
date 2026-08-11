@@ -87,19 +87,41 @@
                     <Grid ColumnDefinitions="96,*"
                           ColumnSpacing="14"
                           HorizontalOptions="Fill">
-                        <Border StrokeThickness="0"
-                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                HeightRequest="96"
-                                WidthRequest="96">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="14" />
-                            </Border.StrokeShape>
-                            <Image Source="{Binding DisplayImage}"
-                                   IsVisible="{Binding HasDisplayImage}"
-                                   Aspect="AspectFill"
-                                   HorizontalOptions="Fill"
-                                   VerticalOptions="Fill" />
-                        </Border>
+                        <Grid HeightRequest="96"
+                              WidthRequest="96">
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                    HorizontalOptions="Fill"
+                                    VerticalOptions="Fill">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="14" />
+                                </Border.StrokeShape>
+                                <Image Source="{Binding DisplayImage}"
+                                       IsVisible="{Binding HasDisplayImage}"
+                                       Aspect="AspectFill"
+                                       HorizontalOptions="Fill"
+                                       VerticalOptions="Fill" />
+                            </Border>
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="{Binding MarketBadgeColor}"
+                                    WidthRequest="34"
+                                    HeightRequest="20"
+                                    Margin="6"
+                                    Padding="0"
+                                    HorizontalOptions="End"
+                                    VerticalOptions="End"
+                                    InputTransparent="True">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="5" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding MarketBadgeLabel}"
+                                       TextColor="White"
+                                       FontAttributes="Bold"
+                                       FontSize="10"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center" />
+                            </Border>
+                        </Grid>
 
                         <VerticalStackLayout Grid.Column="1"
                                              Spacing="4"

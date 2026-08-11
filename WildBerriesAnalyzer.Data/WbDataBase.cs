@@ -104,12 +104,16 @@ namespace WildBerriesAnalyzer.Data
             #region Products
 
             modelBuilder.Entity<WbProduct>()
-                        .HasIndex(prod => prod.IdInMarket)
+                        .HasIndex(prod => new { prod.MarketType, prod.IdInMarket })
                         .IsUnique();
 
             modelBuilder.Entity<WbProduct>()
                         .HasIndex(prod => prod.IsAdult)
                         .HasName("IX_Products_IsAdult");
+
+            modelBuilder.Entity<WbProduct>()
+                        .HasIndex(prod => prod.MarketType)
+                        .HasName("IX_Products_MarketType");
 
             modelBuilder.Entity<WbProduct>()
                         .HasOne(p => p.Category)
@@ -135,6 +139,16 @@ namespace WildBerriesAnalyzer.Data
                                                                  : null,
 
                                        v => v != null && v.Length > 0 ? v.Select(x => (ReferencePriceStrategy)Enum.Parse(typeof(ReferencePriceStrategy), x))
+                                                                         .ToList()
+                                                                      : null)
+                        .HasColumnType("text[]");
+
+            modelBuilder.Entity<WbFilter>()
+                        .Property(f => f.MarketTypes)
+                        .HasConversion(v => v != null && v.Any() ? v.Select(x => x.ToString()).ToArray()
+                                                                 : null,
+
+                                       v => v != null && v.Length > 0 ? v.Select(x => (MarketType)Enum.Parse(typeof(MarketType), x))
                                                                          .ToList()
                                                                       : null)
                         .HasColumnType("text[]");

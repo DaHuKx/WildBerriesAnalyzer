@@ -44,6 +44,9 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
                 ProductsFilterType = filter.ProductsFilterType,
                 ReferencePriceStrartegies = filter.ReferencePriceStrartegies is { Count: > 0 }
                     ? filter.ReferencePriceStrartegies
+                    : null,
+                MarketTypes = filter.MarketTypes is { Count: > 0 }
+                    ? filter.MarketTypes
                     : null
             };
 

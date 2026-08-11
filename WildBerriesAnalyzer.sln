@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WildBerriesAnalyzer.Server"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WildBerriesAnalyzer.ServerClient", "WildBerriesAnalyzer.ServerClient\WildBerriesAnalyzer.ServerClient.csproj", "{81A34B88-25DA-4356-8043-A211EDFC7F3C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OzonConsole", "OzonConsole\OzonConsole.csproj", "{587C309F-D58D-C5EE-BAEC-E9D843C04D89}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -130,6 +132,10 @@ Global
 		{81A34B88-25DA-4356-8043-A211EDFC7F3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{81A34B88-25DA-4356-8043-A211EDFC7F3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{81A34B88-25DA-4356-8043-A211EDFC7F3C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{587C309F-D58D-C5EE-BAEC-E9D843C04D89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{587C309F-D58D-C5EE-BAEC-E9D843C04D89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{587C309F-D58D-C5EE-BAEC-E9D843C04D89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{587C309F-D58D-C5EE-BAEC-E9D843C04D89}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

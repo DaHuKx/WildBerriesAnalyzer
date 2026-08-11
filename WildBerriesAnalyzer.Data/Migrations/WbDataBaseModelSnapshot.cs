@@ -253,6 +253,9 @@ namespace WildBerriesAnalyzer.Data.Migrations
                     b.Property<int>("MinReviewsCount")
                         .HasColumnType("integer");
 
+                    b.Property<string[]>("MarketTypes")
+                        .HasColumnType("text[]");
+
                     b.Property<int>("ProductsFilterType")
                         .HasColumnType("integer");
 
@@ -395,6 +398,9 @@ namespace WildBerriesAnalyzer.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("MarketType")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -412,11 +418,14 @@ namespace WildBerriesAnalyzer.Data.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.HasIndex("IdInMarket")
-                        .IsUnique();
-
                     b.HasIndex("IsAdult")
                         .HasName("IX_Products_IsAdult");
+
+                    b.HasIndex("MarketType")
+                        .HasName("IX_Products_MarketType");
+
+                    b.HasIndex("MarketType", "IdInMarket")
+                        .IsUnique();
 
                     b.ToTable("Products");
                 });

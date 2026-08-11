@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Serilog;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
 namespace WildBerriesAnalyzer.ServerClient.Handlers
@@ -10,6 +11,8 @@ namespace WildBerriesAnalyzer.ServerClient.Handlers
     /// </summary>
     public sealed class BearerTokenHandler : DelegatingHandler
     {
+        private static readonly ILogger Log = Serilog.Log.ForContext("Area", "Http");
+
         private readonly IWbAuthTokenStore _tokenStore;
         private readonly IAuthTokenRefresher _tokenRefresher;
 
@@ -39,12 +42,16 @@ namespace WildBerriesAnalyzer.ServerClient.Handlers
                 return response;
             }
 
+            var path = request.RequestUri?.PathAndQuery ?? "<null>";
+            Log.Warning("401 for {Path} — trying token refresh", path);
+
             response.Dispose();
 
             var refreshed = await _tokenRefresher.TryRefreshAsync(accessToken, cancellationToken)
                 .ConfigureAwait(false);
             if (!refreshed)
             {
+                Log.Warning("Token refresh failed for {Path} — clearing session", path);
                 // Сессия мертва: очищаем токены → клиент (AuthSessionGuard) уходит на логин.
                 _tokenStore.Clear();
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized)
@@ -56,6 +63,7 @@ namespace WildBerriesAnalyzer.ServerClient.Handlers
                 };
             }
 
+            Log.Information("Token refreshed — retrying {Path}", path);
             using var retryRequest = await CloneHttpRequestAsync(request, cancellationToken)
                 .ConfigureAwait(false);
             ApplyBearer(retryRequest, _tokenStore.AccessToken);

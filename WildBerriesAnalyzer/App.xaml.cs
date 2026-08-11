@@ -4,6 +4,7 @@ using System.Windows;
 using WildBerriesAnalyzer.Business;
 using WildBerriesAnalyzer.Business.Services;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Business.Services.OzonScraping;
 using WildBerriesAnalyzer.Business.Validators;
 using WildBerriesAnalyzer.Data.Repositories;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
@@ -33,6 +34,7 @@ namespace WildBerriesAnalyzer
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
             containerRegistry.Register<IWildBerriesService, WildBerriesService>();
+            containerRegistry.RegisterSingleton<IOzonService, OzonService>();
             containerRegistry.Register<IDiscontsService, DiscontsService>();
             containerRegistry.RegisterSingleton<ProductIdValidator>();
             containerRegistry.RegisterSingleton<ProductNameValidator>();

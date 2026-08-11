@@ -5,7 +5,9 @@ using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.ProductDetail.Models;
 
@@ -26,6 +28,7 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
         private string _brand = string.Empty;
         private string? _link;
         private string? _imageUrl;
+        private MarketType _marketType = MarketType.Wildberries;
         private bool _isAdult;
         private bool _isAdultContentRestricted;
         private string _currentPriceText = "—";
@@ -130,6 +133,23 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
             set => SetProperty(ref _imageUrl, value);
         }
 
+        public MarketType MarketType
+        {
+            get => _marketType;
+            set
+            {
+                if (SetProperty(ref _marketType, value))
+                {
+                    RaisePropertyChanged(nameof(MarketBadgeLabel));
+                    RaisePropertyChanged(nameof(MarketBadgeColor));
+                }
+            }
+        }
+
+        public string MarketBadgeLabel => MarketBadge.LabelFor(MarketType);
+
+        public Color MarketBadgeColor => MarketBadge.ColorFor(MarketType);
+
         public ImageSource? DisplayImage
         {
             get => _displayImage;
@@ -211,6 +231,7 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
                 return;
             }
 
+            AppLog.Action("ProductDetail", "SelectPeriod", option.Period.ToString());
             foreach (var p in Periods)
             {
                 p.IsSelected = ReferenceEquals(p, option);
@@ -230,6 +251,7 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
 
             IsBusy = true;
             ErrorMessage = string.Empty;
+            AppLog.Action("ProductDetail", "Load", $"id={_productId} period={period}");
 
             try
             {
@@ -243,8 +265,9 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
 
                 ApplyHistory(history);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "ProductDetail", "Load", $"id={_productId}");
                 ErrorMessage = "Не удалось загрузить историю цен. Попробуйте позже.";
             }
             finally
@@ -259,6 +282,7 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
             Brand = history.Brand ?? string.Empty;
             Link = history.Link;
             ImageUrl = history.ImageUrl;
+            MarketType = history.MarketType;
             _isAdult = history.IsAdult;
             IsAdultContentRestricted = AdultContentAccess.IsRestricted(
                 _isAdult,
@@ -310,12 +334,14 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
                 return;
             }
 
+            AppLog.Action("ProductDetail", "OpenWb");
             try
             {
                 await Launcher.Default.OpenAsync(Link);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "ProductDetail", "OpenWb");
                 // ignore launcher errors
             }
         }

@@ -10,6 +10,7 @@ using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.Modules.MyFilters.Helpers;
@@ -136,6 +137,14 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     ToStrategyText(strategy),
                     false,
                     ShowStrategyHelp));
+            }
+
+            foreach (MarketType marketType in Enum.GetValues(typeof(MarketType)))
+            {
+                MarketTypeOptions.Add(new MarketTypeOption(
+                    marketType,
+                    ToMarketTypeText(marketType),
+                    false));
             }
 
             RefreshCommand = new DelegateCommand(async () => await LoadAsync(), () => !IsBusy)
@@ -472,6 +481,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         public ObservableCollection<StrategyOption> StrategyOptions { get; } = new();
 
+        public ObservableCollection<MarketTypeOption> MarketTypeOptions { get; } = new();
+
         public ObservableCollection<BagProductItem> BagProducts { get; } = new();
 
         public ObservableCollection<FilterCategoryItem> FilterCategories { get; } = new();
@@ -532,6 +543,11 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
 
             foreach (var option in StrategyOptions)
+            {
+                option.RefreshThemeColors();
+            }
+
+            foreach (var option in MarketTypeOptions)
             {
                 option.RefreshThemeColors();
             }
@@ -617,6 +633,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     IsLoaded = false;
                 }).ConfigureAwait(false);
 
+                AppLog.Action("MyFilters", "Load");
+
                 // Пауза: дать кадр на отрисовку loader до сетевого ожидания.
                 await Task.Delay(16).ConfigureAwait(false);
 
@@ -656,6 +674,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "MyFilters", "Load");
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     ErrorMessage = ex.Message;
@@ -676,6 +695,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
+                AppLog.Action("MyFilters", "Save");
 
                 var user = _authSessionService.CurrentUser;
                 if (user is null || user.Id <= 0 || _currentFilter is null)
@@ -715,6 +735,11 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     .Select(s => s.Strategy)
                     .ToList();
 
+                var selectedMarkets = MarketTypeOptions
+                    .Where(m => m.IsSelected)
+                    .Select(m => m.MarketType)
+                    .ToList();
+
                 _currentFilter.DiscontMinPercent = minPercent;
                 _currentFilter.MinReviewsCount = minReviews;
                 _currentFilter.MinRating = minRating;
@@ -722,12 +747,16 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 _currentFilter.ReferencePriceStrartegies = selectedStrategies.Count > 0
                     ? selectedStrategies
                     : null;
+                _currentFilter.MarketTypes = selectedMarkets.Count > 0
+                    ? selectedMarkets
+                    : null;
 
                 await _filtersService.UpdateFilterAsync(_currentFilter);
                 StatusMessage = "Фильтры сохранены.";
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "MyFilters", "Save");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -743,6 +772,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
+                AppLog.Action("MyFilters", "AddArticles");
 
                 var user = _authSessionService.CurrentUser;
                 if (user is null || user.Id <= 0)
@@ -778,10 +808,12 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
             catch (ArgumentException ex)
             {
+                AppLog.Error(ex, "MyFilters", "AddArticles", "validation");
                 ErrorMessage = ex.Message;
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "MyFilters", "AddArticles");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -797,6 +829,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
+                AppLog.Action("MyFilters", "RemoveBagProduct", $"id={item.ProductId}");
 
                 var user = _authSessionService.CurrentUser;
                 if (user is null || user.Id <= 0)
@@ -813,6 +846,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "MyFilters", "RemoveBagProduct");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -844,6 +878,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
+                AppLog.Action("MyFilters", "ClearBag", $"count={_allBagProducts.Count}");
 
                 var user = _authSessionService.CurrentUser;
                 if (user is null || user.Id <= 0)
@@ -862,6 +897,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "MyFilters", "ClearBag");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -888,6 +924,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         private void ClearBagFilters()
         {
+            AppLog.Action("MyFilters", "ClearBagFilters");
             _bagSearchText = string.Empty;
             RaisePropertyChanged(nameof(BagSearchText));
             _selectedBagBrand = AllBrandsLabel;
@@ -905,6 +942,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
+                AppLog.Action("MyFilters", "AddCategory");
 
                 var user = _authSessionService.CurrentUser;
                 if (user is null || user.Id <= 0 || SelectedFilterType is null)
@@ -932,6 +970,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "MyFilters", "AddCategory");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -947,6 +986,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = string.Empty;
+                AppLog.Action("MyFilters", "RemoveCategory", $"id={item.Id}");
 
                 var user = _authSessionService.CurrentUser;
                 if (user is null || user.Id <= 0)
@@ -964,6 +1004,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "MyFilters", "RemoveCategory");
                 ErrorMessage = ex.Message;
             }
             finally
@@ -983,6 +1024,12 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             foreach (var option in StrategyOptions)
             {
                 option.IsSelected = selected.Contains(option.Strategy);
+            }
+
+            var selectedMarkets = filter.MarketTypes?.ToHashSet() ?? [];
+            foreach (var option in MarketTypeOptions)
+            {
+                option.IsSelected = selectedMarkets.Contains(option.MarketType);
             }
         }
 
@@ -1017,6 +1064,11 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 option.IsSelected = selected is null || selected.Contains(option.Strategy);
             }
 
+            foreach (var option in MarketTypeOptions)
+            {
+                option.IsSelected = true;
+            }
+
             ErrorMessage = string.Empty;
             StatusMessage = $"Пресет «{preset.Title}» применён. Нажмите «Сохранить», чтобы зафиксировать.";
         }
@@ -1040,6 +1092,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 var item = new BagProductItem
                 {
                     ProductId = product.Id,
+                    MarketType = product.MarketType,
                     Name = string.IsNullOrWhiteSpace(product.Name) ? "Без названия" : product.Name,
                     Brand = product.Brand ?? string.Empty,
                     Article = product.IdInMarket.ToString(),
@@ -1298,6 +1351,12 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             ReferencePriceStrategy.AveragePriceForLast30Days => "Средняя за 30 дней",
             ReferencePriceStrategy.MedianPriceForLast30Days => "Медианная за 30 дней",
             _ => strategy.ToString()
+        };
+
+        private static string ToMarketTypeText(MarketType marketType) => marketType switch
+        {
+            MarketType.Ozon => "Ozon",
+            _ => "Wildberries"
         };
     }
 }

@@ -3,6 +3,7 @@ using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 
@@ -53,6 +54,7 @@ namespace WildBerriesAnalyzer.Modules.Settings.ViewModels
                     return;
                 }
 
+                AppLog.Action("Settings", "AdultToggle", $"show={value}");
                 _adultContentPreference.SetShowAdultContent(value);
                 RaisePropertyChanged();
                 StatusMessage = value
@@ -108,6 +110,7 @@ namespace WildBerriesAnalyzer.Modules.Settings.ViewModels
 
         private async Task SignOutAsync()
         {
+            AppLog.Action("Settings", "SignOut");
             _authSessionService.SignOut();
             await _navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
         }
@@ -119,6 +122,7 @@ namespace WildBerriesAnalyzer.Modules.Settings.ViewModels
                 return;
             }
 
+            AppLog.Action("Settings", "SetTheme", parsed.ToString());
             _appThemeService.SetPreference(parsed);
             RaiseThemeProperties();
             StatusMessage = $"Тема: {ThemeStatusText}.";

@@ -4,6 +4,7 @@ using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
+using MauiColor = Microsoft.Maui.Graphics.Color;
 
 namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
 {
@@ -21,6 +22,12 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
         public int ProductId { get; init; }
 
         public long IdInMarket { get; init; }
+
+        public MarketType MarketType { get; init; } = MarketType.Wildberries;
+
+        public string MarketBadgeLabel => MarketBadge.LabelFor(MarketType);
+
+        public MauiColor MarketBadgeColor => MarketBadge.ColorFor(MarketType);
 
         public string Name { get; init; } = string.Empty;
 
@@ -216,6 +223,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.Models
             {
                 ProductId = product?.Id ?? 0,
                 IdInMarket = product?.IdInMarket ?? 0,
+                MarketType = product?.MarketType ?? MarketType.Wildberries,
                 Name = product?.Name ?? "Товар",
                 Brand = product?.Brand ?? string.Empty,
                 ImageUrl = imageUrl,

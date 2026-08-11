@@ -2,6 +2,7 @@ using Prism.Commands;
 using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
@@ -112,6 +113,7 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
         private async Task BootstrapAsync()
         {
             var version = Interlocked.Increment(ref _bootstrapVersion);
+            AppLog.Action("Auth", "Bootstrap");
 
             // 1) Быстрый auto-login по сохранённой сессии (в фоне, с таймаутом).
             if (_authSessionService.IsAuthenticated)
@@ -127,11 +129,13 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
 
                 if (restored)
                 {
+                    AppLog.Action("Auth", "Bootstrap", "restored → MainWindow");
                     StatusMessage = string.Empty;
                     await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
                     return;
                 }
 
+                AppLog.Action("Auth", "Bootstrap", "restore failed");
                 StatusMessage = _pendingShareStore.HasPending
                     ? "После входа товар из Wildberries добавится в корзину."
                     : string.Empty;
@@ -145,17 +149,20 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
         {
             try
             {
+                AppLog.Action("Auth", "RestoreSession");
                 var restoreTask = Task.Run(() => _authSessionService.TryRestoreSessionAsync());
                 var completed = await Task.WhenAny(restoreTask, Task.Delay(SessionRestoreTimeout));
                 if (completed != restoreTask)
                 {
+                    AppLog.Warning("Auth", "RestoreSession", "timeout");
                     return false;
                 }
 
                 return await restoreTask;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "Auth", "RestoreSession");
                 return false;
             }
         }
@@ -182,9 +189,11 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
                 }
 
                 IsVkLoginAvailable = config.Enabled && !string.IsNullOrWhiteSpace(config.ClientId);
+                AppLog.Action("Auth", "LoadVkConfig", $"available={IsVkLoginAvailable}");
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Error(ex, "Auth", "LoadVkConfig");
                 if (loadVersion != _bootstrapVersion || _navigatedAway)
                 {
                     return;
@@ -209,20 +218,24 @@ namespace WildBerriesAnalyzer.Modules.Auth.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
                 StatusMessage = "Открывается авторизация VK...";
+                AppLog.Action("Auth", "LoginWithVk");
 
                 var tokens = await _vkIdLoginService.LoginAsync();
                 _authSessionService.SignIn(tokens);
 
                 StatusMessage = "Вход выполнен.";
+                AppLog.Action("Auth", "LoginWithVk", "success");
                 await _navigationService.NavigateAsync($"/{NavigationNames.MainWindow}");
             }
             catch (UnauthorizedAccessException ex)
             {
+                AppLog.Error(ex, "Auth", "LoginWithVk", "unauthorized");
                 ErrorMessage = ex.Message;
                 StatusMessage = string.Empty;
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Auth", "LoginWithVk");
                 ErrorMessage = ex.Message;
                 StatusMessage = string.Empty;
             }

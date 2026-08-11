@@ -5,6 +5,7 @@ using Prism.Navigation;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Mobile.Clients;
 using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.Settings;
 using WildBerriesAnalyzer.Modules.ActualDiscounts;
@@ -37,12 +38,14 @@ namespace WildBerriesAnalyzer.Mobile
             var tokenStore = new WbAuthTokenStore();
             containerRegistry.RegisterInstance<IWbAuthTokenStore>(tokenStore);
 
-            var authHttpClient = CreateHttpClient(CreateClientVersionHandler());
+            var authHttpClient = CreateHttpClient(CreateLoggedHandler(CreateClientVersionHandler()));
             var authClient = new AuthClient(authHttpClient, tokenStore);
             containerRegistry.RegisterInstance<IAuthClient>(authClient);
             containerRegistry.RegisterInstance<IAuthService>(authClient);
 
-            var tokenRefresher = new AuthTokenRefresher(CreateHttpClient(CreateClientVersionHandler()), tokenStore);
+            var tokenRefresher = new AuthTokenRefresher(
+                CreateHttpClient(CreateLoggedHandler(CreateClientVersionHandler())),
+                tokenStore);
             containerRegistry.RegisterInstance<IAuthTokenRefresher>(tokenRefresher);
 
             var filtersHttpClient = CreateHttpClient(CreateAuthenticatedHandler(tokenStore, tokenRefresher));
@@ -91,6 +94,11 @@ namespace WildBerriesAnalyzer.Mobile
         /// </summary>
         private static Task CreateWindow(IContainerProvider container, INavigationService navigationService)
         {
+            AppLog.Nav.Information(
+                "CreateWindow → {Route}, ApiBase={ApiBase}",
+                NavigationNames.LoginPage,
+                ServerSettings.BaseAddress);
+
             _ = container.Resolve<IAppThemeService>();
             container.Resolve<IAuthSessionGuard>().Attach(navigationService);
             return navigationService.NavigateAsync($"/{NavigationNames.LoginPage}");
@@ -110,9 +118,16 @@ namespace WildBerriesAnalyzer.Mobile
         private static HttpMessageHandler CreateAuthenticatedHandler(
             IWbAuthTokenStore tokenStore,
             IAuthTokenRefresher tokenRefresher) =>
-            new BearerTokenHandler(tokenStore, tokenRefresher)
+            CreateLoggedHandler(
+                new BearerTokenHandler(tokenStore, tokenRefresher)
+                {
+                    InnerHandler = CreateClientVersionHandler()
+                });
+
+        private static HttpMessageHandler CreateLoggedHandler(HttpMessageHandler inner) =>
+            new LoggingDelegatingHandler
             {
-                InnerHandler = CreateClientVersionHandler()
+                InnerHandler = inner
             };
 
         private static HttpMessageHandler CreateClientVersionHandler() =>

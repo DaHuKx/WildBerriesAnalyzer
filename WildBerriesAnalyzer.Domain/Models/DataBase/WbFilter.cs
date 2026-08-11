@@ -16,6 +16,12 @@ namespace WildBerriesAnalyzer.Domain.Models.DataBase
         /// </summary>
         public List<ReferencePriceStrategy>? ReferencePriceStrartegies { get; set; }
 
+        /// <summary>
+        /// Маркетплейсы, по которым учитывать скидки.
+        /// null или пустой список = все магазины.
+        /// </summary>
+        public List<MarketType>? MarketTypes { get; set; }
+
         [Newtonsoft.Json.JsonIgnore]
         [System.Text.Json.Serialization.JsonIgnore]
         public WbUser? User { get; set; }
@@ -35,6 +41,12 @@ namespace WildBerriesAnalyzer.Domain.Models.DataBase
         public bool FilterApprovedForDiscont(Discont discont, bool isInUserBag = false)
         {
             if (discont?.Product is null)
+            {
+                return false;
+            }
+
+            if (MarketTypes is { Count: > 0 }
+                && !MarketTypes.Contains(discont.Product.MarketType))
             {
                 return false;
             }

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using WildBerriesAnalyzer.Business.Models;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 using WildBerriesAnalyzer.ServerClient.Models;
@@ -84,10 +85,21 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
                 .ToList();
         }
 
-        public async Task<List<WbProduct>> SearchOnWildBerriesAsync(string name)
+        public async Task<List<WbProduct>> SearchOnWildBerriesAsync(
+            string name,
+            IReadOnlyCollection<MarketType>? marketTypes = null)
         {
             var encoded = Uri.EscapeDataString(name ?? string.Empty);
-            using var response = await _httpClient.GetAsync($"api/products/wb-search?name={encoded}");
+            var url = $"api/products/wb-search?name={encoded}";
+            if (marketTypes is { Count: > 0 })
+            {
+                foreach (var market in marketTypes.Distinct())
+                {
+                    url += $"&markets={(int)market}";
+                }
+            }
+
+            using var response = await _httpClient.GetAsync(url);
             await WbServerJson.EnsureSuccessOrThrowAsync(response);
             return (await response.Content.ReadFromJsonAsync<List<WbProduct>>(WbServerJson.Options)) ?? [];
         }
@@ -109,9 +121,17 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
             return (await response.Content.ReadFromJsonAsync<AddCatalogProductsResult>(WbServerJson.Options))!;
         }
 
-        public async Task<AddCatalogProductsResult> AddByNameAsync(string name)
+        public async Task<AddCatalogProductsResult> AddByNameAsync(
+            string name,
+            IReadOnlyCollection<MarketType>? marketTypes = null)
         {
-            var request = new AddProductsByNameRequest { Name = name ?? string.Empty };
+            var request = new AddProductsByNameRequest
+            {
+                Name = name ?? string.Empty,
+                MarketTypes = marketTypes is { Count: > 0 }
+                    ? marketTypes.Distinct().ToList()
+                    : null
+            };
             using var response = await _httpClient.PostAsJsonAsync(
                 "api/products/by-name",
                 request,

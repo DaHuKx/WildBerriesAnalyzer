@@ -1,5 +1,6 @@
 using System.Globalization;
 using Prism.Mvvm;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Services;
@@ -19,6 +20,12 @@ namespace WildBerriesAnalyzer.Modules.Products.Models
         public int Id { get; init; }
 
         public long IdInMarket { get; init; }
+
+        public MarketType MarketType { get; init; } = MarketType.Wildberries;
+
+        public string MarketBadgeLabel => MarketBadge.LabelFor(MarketType);
+
+        public Color MarketBadgeColor => MarketBadge.ColorFor(MarketType);
 
         public string Name { get; init; } = string.Empty;
 
@@ -182,6 +189,7 @@ namespace WildBerriesAnalyzer.Modules.Products.Models
             {
                 Id = product.Id,
                 IdInMarket = product.IdInMarket,
+                MarketType = product.MarketType,
                 Name = product.Name ?? string.Empty,
                 Brand = product.Brand ?? string.Empty,
                 ReviewRating = product.ReviewRating,

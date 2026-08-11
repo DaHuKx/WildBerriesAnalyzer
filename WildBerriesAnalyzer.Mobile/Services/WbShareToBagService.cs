@@ -1,5 +1,6 @@
 using WildBerriesAnalyzer.Business.Helpers;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 
 namespace WildBerriesAnalyzer.Mobile.Services
@@ -33,9 +34,12 @@ namespace WildBerriesAnalyzer.Mobile.Services
                 return null;
             }
 
+            AppLog.Action("Service", "ProcessShare");
+
             if (!string.IsNullOrWhiteSpace(parseError))
             {
                 _pendingShareStore.TryDequeue(out _, out _);
+                AppLog.Warning("Service", "ProcessShare", "parse error");
                 return new WbShareProcessResult
                 {
                     Message = parseError,
@@ -46,6 +50,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
             var user = _authSessionService.CurrentUser;
             if (user is null || user.Id <= 0 || string.IsNullOrWhiteSpace(articleOrUrl))
             {
+                AppLog.Action("Service", "ProcessShare", "deferred: no session");
                 return null;
             }
 
@@ -64,6 +69,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
                         user.Id,
                         articleOrUrl);
 
+                    AppLog.Action("Service", "ProcessShare", $"basket added={bagResult.AddedProducts.Count}");
                     return new WbShareProcessResult
                     {
                         Message = bagResult.AddedProducts.Count > 0
@@ -81,6 +87,8 @@ namespace WildBerriesAnalyzer.Mobile.Services
                                    p.IdInMarket.ToString(),
                                    article,
                                    StringComparison.Ordinal))?.Name;
+
+                AppLog.Action("Service", "ProcessShare", $"article added={result.AddedProducts.Count}");
 
                 if (result.AddedProducts.Count > 0)
                 {
@@ -103,6 +111,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
             }
             catch (ArgumentException ex)
             {
+                AppLog.Error(ex, "Service", "ProcessShare", "validation");
                 return new WbShareProcessResult
                 {
                     Message = ex.Message,
@@ -111,6 +120,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "Service", "ProcessShare");
                 return new WbShareProcessResult
                 {
                     Message = $"Не удалось добавить: {ex.Message}",

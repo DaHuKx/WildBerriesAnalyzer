@@ -1,5 +1,6 @@
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Modules.Auth.Views;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
 
@@ -49,12 +50,13 @@ namespace WildBerriesAnalyzer.Modules.Auth.Services
                         return;
                     }
 
+                    AppLog.Action("Auth", "RedirectToLogin");
                     await navigation.NavigateAsync($"/{NavigationNames.LoginPage}");
                 });
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"AuthSessionGuard redirect failed: {ex}");
+                AppLog.Auth.Error(ex, "RedirectToLogin failed");
             }
             finally
             {

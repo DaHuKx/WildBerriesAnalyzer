@@ -1,0 +1,11 @@
+{
+  "cookie": "__Secure-user-id=87222793;__Secure-ab-group=81;__Secure-access-token=12.87222793.ksyhMaFXRzuKKyWZ1Xk4yQ.81.AV0RfrkwX3gPbocgRuLgpmMDnQFjx4Ci7iPqmv4PIvyrPdF492ZsIMMzU51UG6f3vC9iP_DMnqY84GMhFyJ8yKLzsmiG1F2dyiqCN7tQvsYMjklCFhQeFeMfWSbeNBhHV9H48kzv1aNaGTqHj8N6b7c.20211230145626.20260811200608.1.rBtUM0daAQ5fH2uHmhmoqxiJJ3XYh20pyl6NprCjMUg.148e63a4047e92c19;abt_data=7.ZFWBnsqe1-VGEWaNOqs-AxSZ-kDUrnsm6f3E3_tB5jiSyJla66Lplv1suGjqiQ0d3Yk6-ocHXONMtpWKkasVh-GvPsNlk24EgGSIzqt8QaEJwz5brQeKsIO0QFA3CiBleF527WKZB0dSu8ZA3-3d_5S3UEP5TfahUZbPkSdDp8KkINuVGyHOqhEUF5Ih6qaym6s55L3zLBC6itkPWYQvcYH0ZypmZJ0nILHjb08GUVD_0N2Y4BIWMljGlqZs3BQ7dODnLm9iOB8Onpjt2rqt7pHHh9qeDApja2-IkoDEUsUzYN1eOCkEA7snqP_pSBIvHifoJrWg4aOxnDt43PSsiMTTzsZsDDZ6cL0kulGd5qnqYV_aV7HcOPS-s_d0hIHb9TzSsiqWk8TVmyK86FmZH-wLBH8JVLvu6DyQiQRlO3b-wHUppyQVxHwsf4TkJQjcbspA9Y3EXd-xYzjoI7MkBl7oSwtNTNxNAmeSab-rktuFgpLNUREGP9Yls46ah55gkQnDmLA3kqQyGHcXqOtMlhnuT3zj8_ENtwe9gJqXeuRUVGQ02DwYC8xhSZHHiRWJEyKT18abYI15OJ22H_k0t50svo3-mbqJiq0jo1vS8Mjxl4d5KmxeLb-OMdoZOejkC9xqAkeN_EkS8k7Co-IjyfLTu2Gz80hZoN8y-MIPJxU;__Secure-ext_xcid=d70aacf063b89af3d08818f6216c7927;__Secure-ETC=3eb4dbc6e60c4b224c0bddd5a1093fe0;__Secure-refresh-token=12.87222793.ksyhMaFXRzuKKyWZ1Xk4yQ.81.AV0RfrkwX3gPbocgRuLgpmMDnQFjx4Ci7iPqmv4PIvyrPdF492ZsIMMzU51UG6f3vC9iP_DMnqY84GMhFyJ8yKLzsmiG1F2dyiqCN7tQvsYMjklCFhQeFeMfWSbeNBhHV9H48kzv1aNaGTqHj8N6b7c.20211230145626.20260811200608.1.xUB3PgKRnLin1S1865RvE8PAZZEtbBZ9wykMDzEGO3w.1342c7ca53e0872ad",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "baseUrl": "https://www.ozon.ru",
+  "composerPath": "/api/composer-api.bx/page/json/v2",
+  "proxyUrl": null,
+  "requestDelayMs": 400,
+  "useBrowser": true,
+  "headless": true,
+  "challengeWaitMs": 12000
+}

@@ -1,4 +1,5 @@
 using WildBerriesAnalyzer.Business.Models;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 
 namespace WildBerriesAnalyzer.Business.Services.Interfaces
@@ -23,9 +24,12 @@ namespace WildBerriesAnalyzer.Business.Services.Interfaces
         List<WbProduct> FilterProductsByName(IEnumerable<WbProduct> products, string productName);
 
         /// <summary>
-        /// Поиск на WildBerries по названию (без сохранения в БД).
+        /// Поиск на выбранных маркетплейсах по названию (без сохранения в БД).
+        /// null / пусто = все магазины.
         /// </summary>
-        Task<List<WbProduct>> SearchOnWildBerriesAsync(string name);
+        Task<List<WbProduct>> SearchOnWildBerriesAsync(
+            string name,
+            IReadOnlyCollection<MarketType>? marketTypes = null);
 
         /// <summary>
         /// Добавить в каталог по артикулам / ссылкам WB.
@@ -33,8 +37,11 @@ namespace WildBerriesAnalyzer.Business.Services.Interfaces
         Task<AddCatalogProductsResult> AddByArticlesAsync(IEnumerable<string> articleInputs);
 
         /// <summary>
-        /// Найти на WB по названию и добавить новые товары в каталог.
+        /// Найти по названию на выбранных маркетплейсах и добавить новые товары в каталог.
+        /// null / пусто = все магазины.
         /// </summary>
-        Task<AddCatalogProductsResult> AddByNameAsync(string name);
+        Task<AddCatalogProductsResult> AddByNameAsync(
+            string name,
+            IReadOnlyCollection<MarketType>? marketTypes = null);
     }
 }

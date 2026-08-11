@@ -4,6 +4,7 @@ using Prism.Mvvm;
 using Prism.Navigation;
 using WildBerriesAnalyzer.Mobile.Core;
 using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.ActualDiscounts.Models;
 using WildBerriesAnalyzer.ServerClient.Interfaces;
@@ -382,6 +383,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
                 return;
             }
 
+            AppLog.Action("ActualDiscounts", "SelectTab", filtered ? "filtered" : "all");
             IsFilteredTab = filtered;
             _ = LoadAsync();
         }
@@ -398,6 +400,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
             _statusMessage = string.Empty;
             RaisePropertyChanged(nameof(ErrorMessage));
             RaisePropertyChanged(nameof(StatusMessage));
+            AppLog.Action("ActualDiscounts", "Load", IsFilteredTab ? "filtered" : "all");
 
             try
             {
@@ -416,6 +419,7 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
             }
             catch (Exception ex)
             {
+                AppLog.Error(ex, "ActualDiscounts", "Load");
                 _sourceItems.Clear();
                 _pipelineItems = [];
                 _visibleCount = 0;
@@ -638,6 +642,8 @@ namespace WildBerriesAnalyzer.Modules.ActualDiscounts.ViewModels
             {
                 return;
             }
+
+            AppLog.Action("ActualDiscounts", "OpenProduct", $"id={item.ProductId}");
 
             if (AdultContentAccess.IsRestricted(item.IsAdult, _adultContentPreference.ShowAdultContent))
             {
