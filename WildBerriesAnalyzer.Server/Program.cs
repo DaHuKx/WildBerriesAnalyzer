@@ -164,15 +164,16 @@ try
     builder.Services.AddSingleton<IWbScrapingAuthUpdater, WbScrapingAuthUpdater>();
     builder.Services.AddSingleton<IPriceUpdateScheduler, PriceUpdateScheduler>();
     builder.Services.AddScoped<IWildBerriesService, WildBerriesService>();
-    builder.Services.AddSingleton<IOzonService>(provider =>
+    builder.Services.AddSingleton(provider =>
     {
         var configured = provider.GetRequiredService<IOptions<OzonScrapingAuthOptions>>().Value;
-        var logger = provider.GetRequiredService<ILogger<OzonService>>();
+        var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger("OzonScrapingAuth");
         var persistPath = OzonScrapingAuthLoader.ResolvePersistPath(
             configured.PersistFilePath,
             builder.Environment.ContentRootPath);
         var fromFile = OzonScrapingAuthLoader.LoadOrDefault(persistPath);
         var options = OzonScrapingAuthLoader.Merge(configured, fromFile);
+        options.PersistFilePath = persistPath;
 
         logger.LogInformation(
             "Ozon scraping auth: file={AuthPath}, cookie={HasCookie}, useBrowser={UseBrowser}, concurrency={Concurrency}",
@@ -181,8 +182,15 @@ try
             options.UseBrowser,
             options.ProductConcurrency);
 
-        return new OzonService(options);
+        return options;
     });
+    builder.Services.AddSingleton<IOzonScrapingAuthUpdater>(provider =>
+    {
+        var options = provider.GetRequiredService<OzonScrapingAuthOptions>();
+        return new OzonScrapingAuthUpdater(options, options.PersistFilePath);
+    });
+    builder.Services.AddSingleton<IOzonService>(provider =>
+        new OzonService(provider.GetRequiredService<OzonScrapingAuthOptions>()));
     builder.Services.AddScoped<IDiscontsService, DiscontsService>();
     builder.Services.AddScoped<IActualDiscontsService, ActualDiscontsService>();
     builder.Services.AddScoped<IFiltersService, FiltersService>();

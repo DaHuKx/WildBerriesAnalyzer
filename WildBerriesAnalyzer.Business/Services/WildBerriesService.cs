@@ -145,6 +145,13 @@ namespace WildBerriesAnalyzer.Business.Services
                     ProductsWithRefreshedMeta = refreshed
                 };
             }
+            catch (WbHttpAuthException ex)
+            {
+                return ParseProductsPricesResult.Failed(
+                    ex.Message,
+                    isAuthFailure: true,
+                    httpStatusCode: ex.StatusCode);
+            }
             catch (UnauthorizedAccessException ex)
             {
                 return ParseProductsPricesResult.Failed(ex.Message, isAuthFailure: true);
@@ -330,15 +337,37 @@ namespace WildBerriesAnalyzer.Business.Services
             ApplyRequestHeaders(request, auth, referer);
 
             using var response = await client.SendAsync(request);
+            var statusCode = (int)response.StatusCode;
+
+            // WB: 498 = Invalid Token (протухший access/cookie).
+            if (statusCode == 498)
+            {
+                throw new WbHttpAuthException(
+                    498,
+                    "WB вернул 498 (Invalid Token). Обновите /token и /cookie wb.");
+            }
+
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
-                throw new UnauthorizedAccessException(
+                throw new WbHttpAuthException(
+                    statusCode,
                     "WB вернул 401/403. AccessToken протух — обновите вручную: " +
                     "скопируйте JSON ответа www.wildberries.ru/oauth-bff/api/v1/token " +
                     "в oauth-bff-token.json и запустите ConsoleTest, либо правьте wb-scraping-auth.json.");
             }
 
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var bodyPreview = await response.Content.ReadAsStringAsync();
+                if (bodyPreview.Length > 200)
+                {
+                    bodyPreview = bodyPreview[..200];
+                }
+
+                throw new HttpRequestException(
+                    $"WB HTTP {statusCode}. Body: {bodyPreview}");
+            }
+
             return await response.Content.ReadAsStringAsync();
         }
 

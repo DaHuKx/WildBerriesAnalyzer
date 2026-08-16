@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using WildBerriesAnalyzer.Business.Consts;
 using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Business.Services.OzonScraping.Auth;
 using WildBerriesAnalyzer.Business.Services.WbScraping;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
 using WildBerriesAnalyzer.Domain.Enums;
@@ -19,11 +20,21 @@ namespace WildBerriesAnalyzer.Server.Services
     /// </summary>
     public sealed class PriceUpdateBackgroundService : BackgroundService
     {
-        private const string AdminAuthUpdateMessage =
-            "Не удалось подтянуть данные из WB при обновлении цен.\n" +
-            "Необходимо обновить token и cookie:\n" +
+        private const string AdminWbAuthUpdateMessage =
+            "Не удалось подтянуть данные из WB при обновлении цен (HTTP 498 × 5).\n" +
+            "Обновите token и cookie:\n" +
             "/token <accessToken>\n" +
-            "/cookie <cookie>";
+            "/cookie wb <cookie>";
+
+        private const string AdminOzonAuthUpdateMessage =
+            "Не удалось подтянуть данные из Ozon при обновлении цен (ошибка × 5).\n" +
+            "Обновите cookie:\n" +
+            "/cookie ozon <cookie>";
+
+        /// <summary>
+        /// Сколько подряд auth-ошибок (WB: только 498; Ozon: IsAuthFailure) до уведомления админа.
+        /// </summary>
+        private const int AuthFailureNotifyThreshold = 5;
 
         /// <summary>
         /// Размер батча Ozon: внутри батча карточки грузятся параллельно.
@@ -34,20 +45,24 @@ namespace WildBerriesAnalyzer.Server.Services
         private readonly IOptionsMonitor<PriceUpdateOptions> _options;
         private readonly IPriceUpdateScheduler _scheduler;
         private readonly IWbScrapingAuthStore _authStore;
+        private readonly IOzonScrapingAuthUpdater _ozonAuthUpdater;
         private readonly ILogger<PriceUpdateBackgroundService> _logger;
         private FileSystemWatcher? _authFileWatcher;
+        private FileSystemWatcher? _ozonAuthFileWatcher;
 
         public PriceUpdateBackgroundService(
             IServiceScopeFactory scopeFactory,
             IOptionsMonitor<PriceUpdateOptions> options,
             IPriceUpdateScheduler scheduler,
             IWbScrapingAuthStore authStore,
+            IOzonScrapingAuthUpdater ozonAuthUpdater,
             ILogger<PriceUpdateBackgroundService> logger)
         {
             _scopeFactory = scopeFactory;
             _options = options;
             _scheduler = scheduler;
             _authStore = authStore;
+            _ozonAuthUpdater = ozonAuthUpdater;
             _logger = logger;
         }
 
@@ -57,6 +72,7 @@ namespace WildBerriesAnalyzer.Server.Services
 
             _authStore.CredentialsChanged += OnCredentialsChanged;
             StartAuthFileWatcher();
+            StartOzonAuthFileWatcher();
 
             try
             {
@@ -104,6 +120,7 @@ namespace WildBerriesAnalyzer.Server.Services
             {
                 _authStore.CredentialsChanged -= OnCredentialsChanged;
                 StopAuthFileWatcher();
+                StopOzonAuthFileWatcher();
             }
 
             _logger.LogInformation("PriceUpdateBackgroundService остановлен.");
@@ -175,6 +192,75 @@ namespace WildBerriesAnalyzer.Server.Services
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "Reload WB auth после изменения файла не удался.");
+            }
+        }
+
+        private void StartOzonAuthFileWatcher()
+        {
+            try
+            {
+                var path = _ozonAuthUpdater.PersistFilePath;
+                var directory = Path.GetDirectoryName(path);
+                var fileName = Path.GetFileName(path);
+                if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
+                {
+                    return;
+                }
+
+                Directory.CreateDirectory(directory);
+
+                _ozonAuthFileWatcher = new FileSystemWatcher(directory, fileName)
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+                    EnableRaisingEvents = true
+                };
+
+                _ozonAuthFileWatcher.Changed += OnOzonAuthFileChanged;
+                _ozonAuthFileWatcher.Created += OnOzonAuthFileChanged;
+                _ozonAuthFileWatcher.Renamed += OnOzonAuthFileRenamed;
+
+                _logger.LogInformation("Слежение за Ozon auth файлом: {Path}", path);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось подписаться на изменение файла Ozon auth.");
+            }
+        }
+
+        private void StopOzonAuthFileWatcher()
+        {
+            if (_ozonAuthFileWatcher is null)
+            {
+                return;
+            }
+
+            _ozonAuthFileWatcher.EnableRaisingEvents = false;
+            _ozonAuthFileWatcher.Changed -= OnOzonAuthFileChanged;
+            _ozonAuthFileWatcher.Created -= OnOzonAuthFileChanged;
+            _ozonAuthFileWatcher.Renamed -= OnOzonAuthFileRenamed;
+            _ozonAuthFileWatcher.Dispose();
+            _ozonAuthFileWatcher = null;
+        }
+
+        private void OnOzonAuthFileChanged(object sender, FileSystemEventArgs e) =>
+            OnOzonAuthFileTouched();
+
+        private void OnOzonAuthFileRenamed(object sender, RenamedEventArgs e) =>
+            OnOzonAuthFileTouched();
+
+        private void OnOzonAuthFileTouched()
+        {
+            try
+            {
+                if (_ozonAuthUpdater.TryReloadCookieFromDisk())
+                {
+                    _logger.LogInformation("Ozon Cookie перечитана с диска.");
+                    _scheduler.RequestImmediateRun("Ozon CookieChanged");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Reload Ozon auth после изменения файла не удался.");
             }
         }
 
@@ -252,7 +338,7 @@ namespace WildBerriesAnalyzer.Server.Services
                         parseAsync: ozonService.ParseProductsPricesAsync,
                         productsRepository: productsRepository,
                         pricesRepository: pricesRepository,
-                        notifyAdminOnAuthFailure: false,
+                        notifyAdminOnAuthFailure: true,
                         vkMessenger: vkMessenger,
                         stoppingToken: stoppingToken);
 
@@ -318,6 +404,7 @@ namespace WildBerriesAnalyzer.Server.Services
             var batches = products.Chunk(batchSize).ToArray();
             var savedTotal = 0;
             var batchIndex = 0;
+            var authStreak = 0;
 
             _logger.LogInformation(
                 "{Market}: обновление цен, товаров={ProductCount}, батчей={BatchCount}",
@@ -330,26 +417,60 @@ namespace WildBerriesAnalyzer.Server.Services
                 stoppingToken.ThrowIfCancellationRequested();
                 batchIndex++;
 
-                var parsed = await ParseBatchWithRetriesAsync(
-                    marketLabel,
-                    parseAsync,
-                    batch,
-                    batchIndex,
-                    stoppingToken);
-
-                if (!parsed.Success)
+                ParseProductsPricesResult parsed;
+                while (true)
                 {
+                    parsed = await ParseBatchWithRetriesAsync(
+                        marketLabel,
+                        parseAsync,
+                        batch,
+                        batchIndex,
+                        stoppingToken);
+
+                    if (parsed.Success)
+                    {
+                        authStreak = 0;
+                        break;
+                    }
+
+                    if (CountsTowardAuthNotifyStreak(marketLabel, parsed))
+                    {
+                        authStreak++;
+                        _logger.LogWarning(
+                            "{Market}: auth-сбой на батче #{BatchIndex} ({Streak}/{Threshold}): {Error}",
+                            marketLabel,
+                            batchIndex,
+                            authStreak,
+                            AuthFailureNotifyThreshold,
+                            parsed.ErrorMessage);
+
+                        if (authStreak >= AuthFailureNotifyThreshold)
+                        {
+                            _logger.LogWarning(
+                                "{Market}: цикл прерван после {Streak} auth-ошибок подряд. Сохранено цен: {SavedCount}.",
+                                marketLabel,
+                                authStreak,
+                                savedTotal);
+
+                            if (notifyAdminOnAuthFailure)
+                            {
+                                await NotifyAdminAsync(marketLabel, vkMessenger, stoppingToken);
+                            }
+
+                            return new MarketUpdateResult(Completed: false, SavedCount: savedTotal);
+                        }
+
+                        await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                        continue;
+                    }
+
+                    authStreak = 0;
                     _logger.LogWarning(
                         "{Market}: цикл прерван на батче #{BatchIndex}: {Error}. Сохранено цен: {SavedCount}. Pending не создаётся.",
                         marketLabel,
                         batchIndex,
                         parsed.ErrorMessage,
                         savedTotal);
-
-                    if (notifyAdminOnAuthFailure && parsed.IsAuthFailure)
-                    {
-                        await NotifyAdminAsync(vkMessenger, stoppingToken);
-                    }
 
                     return new MarketUpdateResult(Completed: false, SavedCount: savedTotal);
                 }
@@ -397,6 +518,24 @@ namespace WildBerriesAnalyzer.Server.Services
             return new MarketUpdateResult(Completed: true, SavedCount: savedTotal);
         }
 
+        /// <summary>
+        /// WB: только HTTP 498. Ozon: любая IsAuthFailure.
+        /// </summary>
+        private static bool CountsTowardAuthNotifyStreak(string marketLabel, ParseProductsPricesResult parsed)
+        {
+            if (!parsed.IsAuthFailure)
+            {
+                return false;
+            }
+
+            if (string.Equals(marketLabel, "WB", StringComparison.OrdinalIgnoreCase))
+            {
+                return parsed.HttpStatusCode == 498;
+            }
+
+            return true;
+        }
+
         private async Task<ParseProductsPricesResult> ParseBatchWithRetriesAsync(
             string marketLabel,
             Func<IEnumerable<WbProduct>, Task<ParseProductsPricesResult>> parseAsync,
@@ -404,10 +543,10 @@ namespace WildBerriesAnalyzer.Server.Services
             int batchIndex,
             CancellationToken stoppingToken)
         {
-            const int maxAttempts = 3;
+            const int maxNetworkAttempts = 3;
             ParseProductsPricesResult? last = null;
 
-            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            for (var attempt = 1; attempt <= maxNetworkAttempts; attempt++)
             {
                 stoppingToken.ThrowIfCancellationRequested();
                 last = await parseAsync(batch);
@@ -416,7 +555,7 @@ namespace WildBerriesAnalyzer.Server.Services
                     return last;
                 }
 
-                if (attempt >= maxAttempts)
+                if (attempt >= maxNetworkAttempts)
                 {
                     break;
                 }
@@ -427,7 +566,7 @@ namespace WildBerriesAnalyzer.Server.Services
                     marketLabel,
                     batchIndex,
                     attempt,
-                    maxAttempts,
+                    maxNetworkAttempts,
                     last.ErrorMessage,
                     delay);
                 await Task.Delay(delay, stoppingToken);
@@ -436,7 +575,10 @@ namespace WildBerriesAnalyzer.Server.Services
             return last ?? ParseProductsPricesResult.Failed("Неизвестная ошибка батча.", isNetworkFailure: true);
         }
 
-        private async Task NotifyAdminAsync(IVkCommunityMessenger vkMessenger, CancellationToken stoppingToken)
+        private async Task NotifyAdminAsync(
+            string marketLabel,
+            IVkCommunityMessenger vkMessenger,
+            CancellationToken stoppingToken)
         {
             if (!vkMessenger.IsConfigured)
             {
@@ -446,20 +588,28 @@ namespace WildBerriesAnalyzer.Server.Services
                 return;
             }
 
+            var message = string.Equals(marketLabel, "Ozon", StringComparison.OrdinalIgnoreCase)
+                ? AdminOzonAuthUpdateMessage
+                : AdminWbAuthUpdateMessage;
+
             var sent = await vkMessenger.TrySendMessageAsync(
                 AdminAccounts.VkId,
-                AdminAuthUpdateMessage,
+                message,
                 stoppingToken);
 
             if (sent)
             {
-                _logger.LogInformation("Админу {AdminVkId} отправлено уведомление о сбое WB.", AdminAccounts.VkId);
+                _logger.LogInformation(
+                    "Админу {AdminVkId} отправлено уведомление о сбое {Market}.",
+                    AdminAccounts.VkId,
+                    marketLabel);
             }
             else
             {
                 _logger.LogWarning(
-                    "Не удалось отправить админу {AdminVkId} уведомление о сбое WB.",
-                    AdminAccounts.VkId);
+                    "Не удалось отправить админу {AdminVkId} уведомление о сбое {Market}.",
+                    AdminAccounts.VkId,
+                    marketLabel);
             }
         }
 

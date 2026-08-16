@@ -53,12 +53,10 @@ var host = Host.CreateDefaultBuilder(args)
                        return new FileWbScrapingAuthStore(options);
                    });
                    services.AddSingleton<IWbScrapingAuthUpdater, WbScrapingAuthUpdater>();
-                   services.AddSingleton<AdminWbAuthCommandService>();
 
-                   services.AddSingleton<IWildBerriesService, WildBerriesService>();
                    services.Configure<OzonScrapingAuthOptions>(
                        hostContext.Configuration.GetSection(OzonScrapingAuthOptions.SectionName));
-                   services.AddSingleton<IOzonService>(provider =>
+                   services.AddSingleton(provider =>
                    {
                        var configured = provider.GetRequiredService<IOptions<OzonScrapingAuthOptions>>().Value;
                        var persistPath = OzonScrapingAuthLoader.ResolvePersistPath(
@@ -66,8 +64,19 @@ var host = Host.CreateDefaultBuilder(args)
                            hostContext.HostingEnvironment.ContentRootPath);
                        var fromFile = OzonScrapingAuthLoader.LoadOrDefault(persistPath);
                        var options = OzonScrapingAuthLoader.Merge(configured, fromFile);
-                       return new OzonService(options);
+                       options.PersistFilePath = persistPath;
+                       return options;
                    });
+                   services.AddSingleton<IOzonScrapingAuthUpdater>(provider =>
+                   {
+                       var options = provider.GetRequiredService<OzonScrapingAuthOptions>();
+                       return new OzonScrapingAuthUpdater(options, options.PersistFilePath);
+                   });
+                   services.AddSingleton<AdminWbAuthCommandService>();
+
+                   services.AddSingleton<IWildBerriesService, WildBerriesService>();
+                   services.AddSingleton<IOzonService>(provider =>
+                       new OzonService(provider.GetRequiredService<OzonScrapingAuthOptions>()));
                    services.AddSingleton<IDiscontsService, DiscontsService>();
                    services.AddSingleton<IActualDiscontsService, ActualDiscontsService>();
                    services.AddSingleton<ProductIdValidator>();

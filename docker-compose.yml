@@ -100,6 +100,7 @@ services:
       VK_BOT_ACCESS_TOKEN: ${VK_BOT_ACCESS_TOKEN:?Set VK_BOT_ACCESS_TOKEN in .env}
       VK_BOT_GROUP_ID: ${VK_BOT_GROUP_ID:-219811363}
       WbScrapingAuth__PersistFilePath: /app/data/wb-scraping-auth.json
+      OzonScraping__PersistFilePath: /app/data/ozon-scraping-auth.json
     volumes:
       - server-data:/app/data
 

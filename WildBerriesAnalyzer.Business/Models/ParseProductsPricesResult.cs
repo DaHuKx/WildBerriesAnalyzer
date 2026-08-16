@@ -16,6 +16,11 @@ namespace WildBerriesAnalyzer.Business.Models
         /// </summary>
         public bool IsNetworkFailure { get; init; }
 
+        /// <summary>
+        /// HTTP-код ответа маркетплейса (например 498 у WB), если известен.
+        /// </summary>
+        public int? HttpStatusCode { get; init; }
+
         public string? ErrorMessage { get; init; }
 
         public IReadOnlyList<WbPrice> Prices { get; init; } = Array.Empty<WbPrice>();
@@ -28,12 +33,14 @@ namespace WildBerriesAnalyzer.Business.Models
         public static ParseProductsPricesResult Failed(
             string errorMessage,
             bool isAuthFailure = false,
-            bool isNetworkFailure = false) =>
+            bool isNetworkFailure = false,
+            int? httpStatusCode = null) =>
             new()
             {
                 Success = false,
                 IsAuthFailure = isAuthFailure,
                 IsNetworkFailure = isNetworkFailure,
+                HttpStatusCode = httpStatusCode,
                 ErrorMessage = errorMessage
             };
     }
