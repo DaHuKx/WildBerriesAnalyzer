@@ -21,7 +21,10 @@ namespace WildBerriesAnalyzer.Data.Repositories
 
         public async Task<List<WbCategory>?> GetAllCategoriesAsync()
         {
-            return await Context.Categories.ToListAsync();
+            return await Context.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
         }
 
         public async Task<WbFilter> GetOrCreateByUserIdAsync(int userId)

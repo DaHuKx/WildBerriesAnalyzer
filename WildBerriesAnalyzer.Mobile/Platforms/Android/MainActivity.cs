@@ -1,4 +1,4 @@
-﻿using Android.App;
+using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
@@ -12,6 +12,9 @@ namespace WildBerriesAnalyzer.Mobile
         // SingleTask: share из другого приложения не создаёт второй Activity (иначе MAUI падает).
         LaunchMode = LaunchMode.SingleTask,
         Exported = true,
+        // Не восстанавливать Activity из «протухшего» saved state после Fast Deploy —
+        // иначе FragmentManager ищет view по старому id (jumpToStart / labeled / italic).
+        StateNotNeeded = true,
         ConfigurationChanges =
             ConfigChanges.ScreenSize |
             ConfigChanges.Orientation |
@@ -33,9 +36,18 @@ namespace WildBerriesAnalyzer.Mobile
             // Обход бага MAUI/.NET Android: при редеплое на устройство FragmentManager
             // пытается восстановить NavigationRootManager_ElementBasedFragment по «левому»
             // resource id (jumpToStart, labeled, italic и т.п.) → IllegalArgumentException.
+            // https://github.com/dotnet/maui/issues/24774
+            // https://github.com/dotnet/android/issues/10556
+            ClearStaleFragmentState(savedInstanceState);
             base.OnCreate(null);
             // Не уведомляем UI здесь — Activity/Prism ещё не готовы (часто при возврате из фона).
             CaptureShareIntent(Intent, notifyListeners: false);
+        }
+
+        protected override void OnSaveInstanceState(Bundle outState)
+        {
+            // Не сохраняем иерархию фрагментов: после следующего Fast Deploy id контейнеров
+            // в APK меняются, а Bundle остаётся со старыми → краш при старте.
         }
 
         protected override void OnNewIntent(Intent? intent)
@@ -75,6 +87,20 @@ namespace WildBerriesAnalyzer.Mobile
                     // Не даём необработанному исключению убить процесс.
                 }
             });
+        }
+
+        private static void ClearStaleFragmentState(Bundle? state)
+        {
+            if (state is null)
+            {
+                return;
+            }
+
+            state.Remove("android:fragments");
+            state.Remove("android:support:fragments");
+            state.Remove("androidx.lifecycle.BundlableSavedStateRegistry.key");
+            state.Remove("android:viewHierarchyState");
+            state.Remove("android:views");
         }
 
         private void CaptureShareIntent(Intent? intent, bool notifyListeners)

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="ModerMobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pages="clr-namespace:ModerMobile.Pages"
+    Title="Модерация"
+    Shell.FlyoutBehavior="Disabled">
+
+    <ShellContent
+        Title="Вход"
+        ContentTemplate="{DataTemplate pages:LoginPage}"
+        Route="LoginPage" />
+
+    <ShellContent
+        Title="Меню"
+        ContentTemplate="{DataTemplate pages:MainMenuPage}"
+        Route="MainMenuPage" />
+
+</Shell>

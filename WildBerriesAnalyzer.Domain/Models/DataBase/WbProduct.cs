@@ -81,9 +81,14 @@ namespace WildBerriesAnalyzer.Domain.Models.DataBase
         public List<WbPrice>? PricesHistory { get; set; }
 
         /// <summary>
-        /// Категория
+        /// Основная категория (для совместимости с фильтрами; обычно первая из ProductCategories).
         /// </summary>
         public WbCategory? Category { get; set; }
+
+        /// <summary>
+        /// Все категории товара (модерация может назначить несколько).
+        /// </summary>
+        public List<WbProductCategory>? ProductCategories { get; set; }
 
         /// <summary>
         /// Корзины, в которых используется продукт

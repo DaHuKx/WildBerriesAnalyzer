@@ -66,7 +66,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Views
                 return;
             }
 
-            if (!viewModel.IsOwnBagFilter)
+            if (!viewModel.IsBagSection)
             {
                 return;
             }

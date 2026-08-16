@@ -12,6 +12,8 @@ using WildBerriesAnalyzer.Bots.Services;
 using WildBerriesAnalyzer.Business.Options;
 using WildBerriesAnalyzer.Business.Services;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Business.Services.OzonScraping;
+using WildBerriesAnalyzer.Business.Services.OzonScraping.Auth;
 using WildBerriesAnalyzer.Business.Services.WbScraping;
 using WildBerriesAnalyzer.Business.Validators;
 using WildBerriesAnalyzer.Data;
@@ -54,10 +56,23 @@ var host = Host.CreateDefaultBuilder(args)
                    services.AddSingleton<AdminWbAuthCommandService>();
 
                    services.AddSingleton<IWildBerriesService, WildBerriesService>();
+                   services.Configure<OzonScrapingAuthOptions>(
+                       hostContext.Configuration.GetSection(OzonScrapingAuthOptions.SectionName));
+                   services.AddSingleton<IOzonService>(provider =>
+                   {
+                       var configured = provider.GetRequiredService<IOptions<OzonScrapingAuthOptions>>().Value;
+                       var persistPath = OzonScrapingAuthLoader.ResolvePersistPath(
+                           configured.PersistFilePath,
+                           hostContext.HostingEnvironment.ContentRootPath);
+                       var fromFile = OzonScrapingAuthLoader.LoadOrDefault(persistPath);
+                       var options = OzonScrapingAuthLoader.Merge(configured, fromFile);
+                       return new OzonService(options);
+                   });
                    services.AddSingleton<IDiscontsService, DiscontsService>();
                    services.AddSingleton<IActualDiscontsService, ActualDiscontsService>();
                    services.AddSingleton<ProductIdValidator>();
                    services.AddSingleton<BasketShareUrlValidator>();
+                   services.AddSingleton<OzonCartShareUrlValidator>();
                    services.AddSingleton<WbFilterValidator>();
                    services.AddSingleton<IFiltersService, FiltersService>();
 

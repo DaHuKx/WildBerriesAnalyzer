@@ -24,9 +24,10 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             SelectPresetCommand = new DelegateCommand<FilterPreset>(async p => await SelectPresetAsync(p));
         }
 
-        public string Title => "Пресеты фильтров";
+        public string Title => "Шаблоны фильтров";
 
-        public string Subtitle => "Выберите готовый набор настроек. Состав корзины не изменится.";
+        public string Subtitle =>
+            "Готовый набор условий. Состав корзины не меняется — только пороги, тип отслеживания и стратегии.";
 
         public ObservableCollection<FilterPreset> Presets { get; }
 

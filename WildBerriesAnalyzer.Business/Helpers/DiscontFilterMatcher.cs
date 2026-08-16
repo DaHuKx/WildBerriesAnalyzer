@@ -80,7 +80,7 @@ namespace WildBerriesAnalyzer.Business.Helpers
                         .ToHashSet();
 
                     return stored
-                        .Where(d => d.Product?.CategoryId != null && white.Contains(d.Product.CategoryId.Value))
+                        .Where(d => d.Product != null && ProductHasAnyCategory(d.Product, white))
                         .Select(d => d.ProductId)
                         .ToHashSet();
                 }
@@ -92,14 +92,33 @@ namespace WildBerriesAnalyzer.Business.Helpers
                         .ToHashSet();
 
                     return stored
-                        .Where(d => d.Product != null
-                                    && (!d.Product.CategoryId.HasValue || !black.Contains(d.Product.CategoryId.Value)))
+                        .Where(d => d.Product != null && !ProductHasAnyCategory(d.Product, black))
                         .Select(d => d.ProductId)
                         .ToHashSet();
                 }
                 default:
                     return null;
             }
+        }
+
+        private static bool ProductHasAnyCategory(WbProduct product, HashSet<int> categoryIds)
+        {
+            if (categoryIds.Count == 0)
+            {
+                return false;
+            }
+
+            if (product.CategoryId is int primaryId && categoryIds.Contains(primaryId))
+            {
+                return true;
+            }
+
+            if (product.ProductCategories == null || product.ProductCategories.Count == 0)
+            {
+                return false;
+            }
+
+            return product.ProductCategories.Any(pc => categoryIds.Contains(pc.CategoryId));
         }
 
         private static Discont ToDiscont(WbActualDiscont entity)

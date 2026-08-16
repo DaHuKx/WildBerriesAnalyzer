@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ModerMobile.ViewModels"
+             x:Class="ModerMobile.Pages.MainMenuPage"
+             x:DataType="vm:MainMenuPageViewModel"
+             Title="Модерация"
+             BackgroundColor="{StaticResource Background}">
+
+    <Grid Padding="24">
+        <VerticalStackLayout VerticalOptions="Center"
+                             Spacing="16"
+                             HorizontalOptions="Fill">
+            <Label Text="Модерация категорий"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   TextColor="{StaticResource TextPrimary}"
+                   HorizontalTextAlignment="Center" />
+
+            <Label Text="{Binding QueueHint}"
+                   FontSize="15"
+                   TextColor="{StaticResource TextSecondary}"
+                   HorizontalTextAlignment="Center"
+                   Margin="0,0,0,12" />
+
+            <Button Text="Начать"
+                    Command="{Binding StartCommand}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White"
+                    FontSize="18"
+                    FontAttributes="Bold"
+                    HeightRequest="52"
+                    CornerRadius="12"
+                    HorizontalOptions="Fill" />
+
+            <Button Text="Массовое присвоение"
+                    Command="{Binding BulkCommand}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    HeightRequest="48"
+                    CornerRadius="12"
+                    HorizontalOptions="Fill" />
+
+            <Button Text="Выйти"
+                    Command="{Binding LogoutCommand}"
+                    BackgroundColor="{StaticResource Gray100}"
+                    TextColor="{StaticResource TextPrimary}"
+                    HeightRequest="44"
+                    CornerRadius="12"
+                    HorizontalOptions="Fill" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

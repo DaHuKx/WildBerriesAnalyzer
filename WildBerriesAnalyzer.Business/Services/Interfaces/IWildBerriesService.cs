@@ -8,7 +8,7 @@
         /// <summary>
         /// Артикулы (nmId) из общей корзины WB по shareId
         /// (wbx-api-gateway / share-basket). 
-        /// </summary>
+        /// </summary>  
         Task<List<string>> GetArticlesFromBasketShareAsync(string shareId);
     }
 }

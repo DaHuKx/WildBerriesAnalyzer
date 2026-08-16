@@ -46,7 +46,7 @@ namespace WildBerriesAnalyzer.Server.Controllers
         }
 
         /// <summary>
-        /// Добавить товары в каталог по артикулам / ссылкам.
+        /// Добавить товары в каталог по артикулам / ссылкам выбранного маркетплейса.
         /// </summary>
         [HttpPost("by-articles")]
         [ProducesResponseType(typeof(AddCatalogProductsResult), StatusCodes.Status200OK)]
@@ -57,7 +57,8 @@ namespace WildBerriesAnalyzer.Server.Controllers
             try
             {
                 var result = await _productsService.AddByArticlesAsync(
-                    request?.Articles ?? Enumerable.Empty<string>());
+                    request?.Articles ?? Enumerable.Empty<string>(),
+                    request?.MarketType ?? MarketType.Wildberries);
                 return Ok(result);
             }
             catch (ArgumentException ex)

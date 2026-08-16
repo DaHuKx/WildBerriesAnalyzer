@@ -365,6 +365,9 @@ FodyWeavers.xsd
 # WB marketplace scraping tokens (refreshed at runtime)
 wb-scraping-auth.json
 **/wb-scraping-auth.json
+ozon-scraping-auth.json
+**/ozon-scraping-auth.json
+!**/ozon-scraping-auth.example.json
 
 # Docker local secrets
 .env

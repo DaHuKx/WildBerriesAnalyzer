@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ModerMobile.ViewModels"
+             xmlns:models="clr-namespace:ModerMobile.Models"
+             x:Class="ModerMobile.Pages.AssignCategoryPage"
+             x:DataType="vm:AssignCategoryPageViewModel"
+             Title="Категория товара"
+             BackgroundColor="{StaticResource Background}">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto"
+          Padding="16"
+          RowSpacing="10">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="4">
+            <Label Text="{Binding StatusMessage}"
+                   FontSize="13"
+                   TextColor="{StaticResource TextSecondary}"
+                   IsVisible="{Binding HasStatus}" />
+            <Label Text="{Binding ProductName}"
+                   FontSize="20"
+                   FontAttributes="Bold"
+                   TextColor="{StaticResource TextPrimary}"
+                   LineBreakMode="WordWrap" />
+            <Label Text="{Binding ProductMeta}"
+                   FontSize="13"
+                   TextColor="{StaticResource TextMuted}"
+                   IsVisible="{Binding HasProduct}" />
+        </VerticalStackLayout>
+
+        <Label Grid.Row="1"
+               Text="{Binding ErrorMessage}"
+               TextColor="#DC2626"
+               FontSize="13"
+               IsVisible="{Binding HasError}"
+               LineBreakMode="WordWrap" />
+
+        <ActivityIndicator Grid.Row="1"
+                           IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           Color="{StaticResource Primary}"
+                           HeightRequest="36"
+                           HorizontalOptions="Center" />
+
+        <Grid Grid.Row="2"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="8"
+              IsVisible="{Binding HasProduct}">
+            <Border Stroke="{StaticResource Outline}"
+                    StrokeThickness="1"
+                    BackgroundColor="{StaticResource Surface}"
+                    Padding="4,0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="10" />
+                </Border.StrokeShape>
+                <Entry Placeholder="Поиск или новая категория…"
+                       Text="{Binding SearchText}"
+                       FontSize="15"
+                       TextColor="{StaticResource TextPrimary}"
+                       PlaceholderColor="{StaticResource TextMuted}"
+                       BackgroundColor="Transparent"
+                       ClearButtonVisibility="WhileEditing" />
+            </Border>
+            <Button Grid.Column="1"
+                    Text="Добавить"
+                    Command="{Binding AddCategoryCommand}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White"
+                    FontSize="14"
+                    Padding="12,0"
+                    HeightRequest="44"
+                    CornerRadius="10" />
+        </Grid>
+
+        <Label Grid.Row="3"
+               Text="Выберите одну или несколько категорий"
+               FontSize="13"
+               TextColor="{StaticResource TextSecondary}"
+               IsVisible="{Binding HasProduct}" />
+
+        <CollectionView Grid.Row="4"
+                        ItemsSource="{Binding FilteredCategories}"
+                        SelectionMode="None"
+                        IsVisible="{Binding HasProduct}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:CategoryOption">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="12"
+                          Padding="4,10">
+                        <CheckBox IsChecked="{Binding IsSelected}"
+                                  Color="{StaticResource Primary}"
+                                  VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="{Binding Name}"
+                               FontSize="16"
+                               TextColor="{StaticResource TextPrimary}"
+                               VerticalOptions="Center"
+                               LineBreakMode="WordWrap" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.EmptyView>
+                <Label Text="Категории не найдены — введите имя и нажмите «Добавить»"
+                       TextColor="{StaticResource TextMuted}"
+                       HorizontalTextAlignment="Center"
+                       Margin="0,24" />
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+        <VerticalStackLayout Grid.Row="5" Spacing="8">
+            <Button Text="Подтвердить и далее"
+                    Command="{Binding ConfirmCommand}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    HeightRequest="48"
+                    CornerRadius="12"
+                    IsVisible="{Binding HasProduct}" />
+            <Button Text="Обновить"
+                    Command="{Binding RefreshCommand}"
+                    BackgroundColor="{StaticResource Gray100}"
+                    TextColor="{StaticResource TextPrimary}"
+                    HeightRequest="44"
+                    CornerRadius="12"
+                    IsVisible="{Binding QueueEmpty}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

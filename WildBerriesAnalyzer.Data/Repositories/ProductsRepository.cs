@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 
 namespace WildBerriesAnalyzer.Data.Repositories
@@ -38,6 +39,13 @@ namespace WildBerriesAnalyzer.Data.Repositories
                 return productsList;
             }
 
+            // Категории товарам не присваиваем автоматически — только через модерацию.
+            foreach (var product in productsList)
+            {
+                product.Category = null;
+                product.CategoryId = null;
+            }
+
             var ids = productsList.Select(p => p.IdInMarket).Distinct().ToList();
             var marketTypes = productsList.Select(p => p.MarketType).Distinct().ToList();
 
@@ -46,7 +54,7 @@ namespace WildBerriesAnalyzer.Data.Repositories
                     .Select(p => new { p.MarketType, p.IdInMarket })
                     .ToListAsync();
 
-            var existingKeys = new HashSet<(Domain.Enums.MarketType MarketType, long IdInMarket)>();
+            var existingKeys = new HashSet<(MarketType MarketType, long IdInMarket)>();
             foreach (var row in existingRows)
             {
                 existingKeys.Add((row.MarketType, row.IdInMarket));
@@ -55,7 +63,13 @@ namespace WildBerriesAnalyzer.Data.Repositories
             var productsToAdd = productsList
                 .Where(p => !existingKeys.Contains((p.MarketType, p.IdInMarket)))
                 .GroupBy(p => (p.MarketType, p.IdInMarket))
-                .Select(g => g.First())
+                .Select(g =>
+                {
+                    var product = g.First();
+                    product.Category = null;
+                    product.CategoryId = null;
+                    return product;
+                })
                 .ToList();
 
             await Context.Products.AddRangeAsync(productsToAdd);
@@ -74,7 +88,9 @@ namespace WildBerriesAnalyzer.Data.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<WbProduct>> GetByMarketIdsAsync(IEnumerable<long> marketIds)
+        public async Task<List<WbProduct>> GetByMarketIdsAsync(
+            IEnumerable<long> marketIds,
+            Domain.Enums.MarketType marketType)
         {
             var ids = marketIds.Distinct().ToList();
             if (ids.Count == 0)
@@ -83,37 +99,57 @@ namespace WildBerriesAnalyzer.Data.Repositories
             }
 
             return await Context.Products
-                .Where(product => ids.Contains(product.IdInMarket))
+                .Where(product => product.MarketType == marketType && ids.Contains(product.IdInMarket))
                 .ToListAsync();
         }
 
         public async Task<List<WbProduct>> GetOrAddProducts(List<WbProduct> products)
         {
-            var ids = products.Select(p => p.IdInMarket);
+            if (products is null || products.Count == 0)
+            {
+                return [];
+            }
 
-            var existProducts = await Context.Products.Where(product => ids.Contains(product.IdInMarket))
-                                                      .ToListAsync();
+            // Категории товарам не присваиваем автоматически — только через модерацию.
+            foreach (var product in products)
+            {
+                product.Category = null;
+            }
 
-            var existIds = existProducts.Select(p => p.IdInMarket).ToList();
-            var incomingByMarketId = products
-                .GroupBy(p => p.IdInMarket)
+            var ids = products.Select(p => p.IdInMarket).Distinct().ToList();
+            var candidates = await Context.Products
+                .Where(product => ids.Contains(product.IdInMarket))
+                .ToListAsync();
+
+            var existProducts = candidates
+                .Where(existing => products.Any(p =>
+                    p.MarketType == existing.MarketType &&
+                    p.IdInMarket == existing.IdInMarket))
+                .ToList();
+
+            var existingKeys = new HashSet<(MarketType MarketType, long IdInMarket)>();
+            foreach (var existing in existProducts)
+            {
+                existingKeys.Add((existing.MarketType, existing.IdInMarket));
+            }
+
+            var incomingByKey = products
+                .GroupBy(p => (p.MarketType, p.IdInMarket))
                 .ToDictionary(g => g.Key, g => g.First());
 
             var metaChanged = false;
             foreach (var existing in existProducts)
             {
-                if (!incomingByMarketId.TryGetValue(existing.IdInMarket, out var incoming))
+                if (!incomingByKey.TryGetValue((existing.MarketType, existing.IdInMarket), out var incoming))
                 {
                     continue;
                 }
 
-                if (existing.IsAdult == incoming.IsAdult)
+                if (existing.IsAdult != incoming.IsAdult)
                 {
-                    continue;
+                    existing.IsAdult = incoming.IsAdult;
+                    metaChanged = true;
                 }
-
-                existing.IsAdult = incoming.IsAdult;
-                metaChanged = true;
             }
 
             if (metaChanged)
@@ -121,10 +157,17 @@ namespace WildBerriesAnalyzer.Data.Repositories
                 await Context.SaveChangesAsync();
             }
 
-            var productsToAdd = products.Where(p => !existIds.Contains(p.IdInMarket))
-                                        .GroupBy(p => p.IdInMarket)
-                                        .Select(p => p.First())
-                                        .ToList();
+            var productsToAdd = products
+                .Where(p => !existingKeys.Contains((p.MarketType, p.IdInMarket)))
+                .GroupBy(p => (p.MarketType, p.IdInMarket))
+                .Select(g =>
+                {
+                    var product = g.First();
+                    product.Category = null;
+                    product.CategoryId = null;
+                    return product;
+                })
+                .ToList();
 
             if (productsToAdd.Count != 0)
             {
@@ -134,9 +177,137 @@ namespace WildBerriesAnalyzer.Data.Repositories
             }
 
             existProducts.AddRange(productsToAdd);
-
             return existProducts;
         }
+
+        /// <summary>
+        /// Схлопывает дубликаты Categories с одинаковым именем (без учёта регистра).
+        /// Переносит Product.CategoryId / FilterCategories и удаляет лишние строки.
+        /// </summary>
+        public async Task DeduplicateCategoriesByNameAsync()
+        {
+            var all = await Context.Categories.ToListAsync();
+            if (all.Count == 0)
+            {
+                return;
+            }
+
+            var dirty = false;
+
+            var placeholders = all.Where(c => IsPlaceholderCategoryName(c.Name)).ToList();
+            if (placeholders.Count > 0)
+            {
+                var placeholderIds = placeholders.Select(c => c.Id).ToList();
+                var productsWithPlaceholder = await Context.Products
+                    .Where(p => p.CategoryId != null && placeholderIds.Contains(p.CategoryId.Value))
+                    .ToListAsync();
+                foreach (var product in productsWithPlaceholder)
+                {
+                    product.CategoryId = null;
+                }
+
+                var filtersWithPlaceholder = await Context.CategoryFilters
+                    .Where(fc => placeholderIds.Contains(fc.CategoryId))
+                    .ToListAsync();
+                Context.CategoryFilters.RemoveRange(filtersWithPlaceholder);
+                Context.Categories.RemoveRange(placeholders);
+                dirty = true;
+                all = all.Except(placeholders).ToList();
+            }
+
+            var groups = all
+                .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                .GroupBy(c => NormalizeCategoryName(c.Name), StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            foreach (var group in groups)
+            {
+                var ordered = group.OrderBy(c => c.Id).ToList();
+                var keeper = ordered[0];
+                var losers = ordered.Skip(1).ToList();
+                var loserIds = losers.Select(c => c.Id).ToList();
+
+                keeper.MarketType = null;
+                keeper.MarketCategoryId = null;
+                keeper.Name = NormalizeCategoryName(keeper.Name);
+                keeper.UpdatedAt = DateTime.UtcNow;
+
+                var productsToFix = await Context.Products
+                    .Where(p => p.CategoryId != null && loserIds.Contains(p.CategoryId.Value))
+                    .ToListAsync();
+                foreach (var product in productsToFix)
+                {
+                    product.CategoryId = keeper.Id;
+                }
+
+                var filtersToFix = await Context.CategoryFilters
+                    .Where(fc => loserIds.Contains(fc.CategoryId))
+                    .ToListAsync();
+
+                foreach (var filterCategory in filtersToFix)
+                {
+                    var alreadyOnKeeper = await Context.CategoryFilters.AnyAsync(fc =>
+                        fc.FilterId == filterCategory.FilterId &&
+                        fc.CategoryId == keeper.Id &&
+                        fc.Type == filterCategory.Type);
+
+                    if (alreadyOnKeeper)
+                    {
+                        Context.CategoryFilters.Remove(filterCategory);
+                    }
+                    else
+                    {
+                        filterCategory.CategoryId = keeper.Id;
+                    }
+                }
+
+                Context.Categories.RemoveRange(losers);
+                dirty = true;
+            }
+
+            foreach (var category in all)
+            {
+                if (Context.Entry(category).State == EntityState.Deleted)
+                {
+                    continue;
+                }
+
+                if (category.MarketType is not null || category.MarketCategoryId is not null)
+                {
+                    category.MarketType = null;
+                    category.MarketCategoryId = null;
+                    category.UpdatedAt = DateTime.UtcNow;
+                    dirty = true;
+                }
+            }
+
+            if (dirty)
+            {
+                await Context.SaveChangesAsync();
+            }
+        }
+
+        private static bool IsPlaceholderCategoryName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            var trimmed = name.Trim();
+            const string prefix = "Категория ";
+            if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var suffix = trimmed.Substring(prefix.Length).Trim();
+            return suffix.Length > 0 && suffix.All(char.IsDigit);
+        }
+
+        private static string NormalizeCategoryName(string name) =>
+            (name ?? string.Empty).Trim();
 
         /// <summary>
         /// Сохраняет цену из WB (PriceFromInit) сразу при добавлении товара.

@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace WildBerriesAnalyzer.Business.Services.OzonScraping.Auth;
 
@@ -10,6 +10,12 @@ public sealed class OzonScrapingAuthOptions
 {
     public const string SectionName = "OzonScraping";
     public const string DefaultFileName = "ozon-scraping-auth.json";
+
+    /// <summary>
+    /// Путь к JSON с cookie и параметрами браузера (задаётся в appsettings, не в auth-файле).
+    /// </summary>
+    [JsonIgnore]
+    public string PersistFilePath { get; set; } = DefaultFileName;
 
     /// <summary>
     /// Полная строка Cookie из браузера (ozon.ru).
@@ -46,10 +52,16 @@ public sealed class OzonScrapingAuthOptions
     public string? ProxyUrl { get; set; }
 
     /// <summary>
-    /// Пауза между запросами карточек по id (мс).
+    /// Пауза между запросами карточек по id (мс). Используется только при ProductConcurrency=1.
     /// </summary>
     [JsonPropertyName("requestDelayMs")]
-    public int RequestDelayMs { get; set; } = 400;
+    public int RequestDelayMs { get; set; } = 1200;
+
+    /// <summary>
+    /// Параллельных загрузок карточек /product/{sku}/ (1–100). По умолчанию 100.
+    /// </summary>
+    [JsonPropertyName("productConcurrency")]
+    public int ProductConcurrency { get; set; } = 100;
 
     /// <summary>
     /// true (по умолчанию) — Chromium через Playwright (обходит Variti 307/__rr).
@@ -63,6 +75,20 @@ public sealed class OzonScrapingAuthOptions
     /// </summary>
     [JsonPropertyName("headless")]
     public bool Headless { get; set; } = true;
+
+    /// <summary>
+    /// Канал браузера Playwright: пусто = встроенный Chromium;
+    /// "chrome" / "msedge" — системный браузер (лучше проходит Variti).
+    /// </summary>
+    [JsonPropertyName("chromeChannel")]
+    public string? ChromeChannel { get; set; }
+
+    /// <summary>
+    /// Каталог профиля браузера (persistent context). Сохраняет cookies/challenge между запусками.
+    /// Пример: ./ozon-browser-profile
+    /// </summary>
+    [JsonPropertyName("userDataDir")]
+    public string? UserDataDir { get; set; }
 
     /// <summary>
     /// Сколько ждать JS-challenge на главной (мс).

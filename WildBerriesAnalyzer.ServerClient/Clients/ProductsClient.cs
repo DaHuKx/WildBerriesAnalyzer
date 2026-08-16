@@ -104,13 +104,16 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
             return (await response.Content.ReadFromJsonAsync<List<WbProduct>>(WbServerJson.Options)) ?? [];
         }
 
-        public async Task<AddCatalogProductsResult> AddByArticlesAsync(IEnumerable<string> articleInputs)
+        public async Task<AddCatalogProductsResult> AddByArticlesAsync(
+            IEnumerable<string> articleInputs,
+            MarketType marketType = MarketType.Wildberries)
         {
             ArgumentNullException.ThrowIfNull(articleInputs);
 
             var request = new AddProductsByArticlesRequest
             {
-                Articles = articleInputs.Where(a => !string.IsNullOrWhiteSpace(a)).ToList()
+                Articles = articleInputs.Where(a => !string.IsNullOrWhiteSpace(a)).ToList(),
+                MarketType = marketType
             };
 
             using var response = await _httpClient.PostAsJsonAsync(

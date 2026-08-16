@@ -4,6 +4,7 @@ using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Business.Services.WbScraping;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
 using WildBerriesAnalyzer.Server.Options;
 using WildBerriesAnalyzer.Server.Services.PriceUpdate;
@@ -12,8 +13,9 @@ using WildBerriesAnalyzer.Server.Services.VkBot;
 namespace WildBerriesAnalyzer.Server.Services
 {
     /// <summary>
-    /// Периодически загружает цены через WildBerriesService и сохраняет их в PricesHistory.
-    /// При смене Cookie/Token цикл прерывается и запускается заново.
+    /// Периодически загружает цены через WB и Ozon и сохраняет их в PricesHistory.
+    /// При смене Cookie/Token цикл WB прерывается и запускается заново.
+    /// Перед Ozon вызывается WarmUp Chromium (если ещё не прогрет).
     /// </summary>
     public sealed class PriceUpdateBackgroundService : BackgroundService
     {
@@ -22,6 +24,11 @@ namespace WildBerriesAnalyzer.Server.Services
             "Необходимо обновить token и cookie:\n" +
             "/token <accessToken>\n" +
             "/cookie <cookie>";
+
+        /// <summary>
+        /// Размер батча Ozon: внутри батча карточки грузятся параллельно.
+        /// </summary>
+        private const int MaxBatchSize = 500;
 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IOptionsMonitor<PriceUpdateOptions> _options;
@@ -179,6 +186,7 @@ namespace WildBerriesAnalyzer.Server.Services
             var jobsRepository = scope.ServiceProvider.GetRequiredService<IPriceUpdateJobsRepository>();
             var actualDiscontsService = scope.ServiceProvider.GetRequiredService<IActualDiscontsService>();
             var wbService = scope.ServiceProvider.GetRequiredService<IWildBerriesService>();
+            var ozonService = scope.ServiceProvider.GetRequiredService<IOzonService>();
             var vkMessenger = scope.ServiceProvider.GetRequiredService<IVkCommunityMessenger>();
 
             var products = (await productsRepository.GetAllAsync()).ToList();
@@ -188,66 +196,73 @@ namespace WildBerriesAnalyzer.Server.Services
                 return;
             }
 
-            var batchSize = Math.Clamp(options.BatchSize, 1, 500);
+            var wbProducts = products.Where(p => p.MarketType == MarketType.Wildberries).ToList();
+            var ozonProducts = products.Where(p => p.MarketType == MarketType.Ozon).ToList();
+
+            var wbBatchSize = Math.Clamp(options.WbBatchSize, 1, MaxBatchSize);
+            var ozonBatchSize = Math.Clamp(options.OzonBatchSize, 1, MaxBatchSize);
             var batchDelay = options.BatchDelay < TimeSpan.Zero ? TimeSpan.Zero : options.BatchDelay;
-            var batches = products.Chunk(batchSize).ToArray();
             var savedTotal = 0;
-            var batchIndex = 0;
 
             _logger.LogInformation(
-                "Обновление цен: товаров={ProductCount}, batch={BatchSize}, batchDelay={BatchDelay}",
+                "Обновление цен: всего={ProductCount} (WB={WbCount}, Ozon={OzonCount}), wbBatch={WbBatchSize}, ozonBatch={OzonBatchSize}, batchDelay={BatchDelay}",
                 products.Count,
-                batchSize,
+                wbProducts.Count,
+                ozonProducts.Count,
+                wbBatchSize,
+                ozonBatchSize,
                 batchDelay);
 
-            foreach (var batch in batches)
+            if (wbProducts.Count > 0)
             {
-                stoppingToken.ThrowIfCancellationRequested();
-                batchIndex++;
+                var wbResult = await ProcessMarketBatchesAsync(
+                    marketLabel: "WB",
+                    products: wbProducts,
+                    batchSize: wbBatchSize,
+                    batchDelay: batchDelay,
+                    parseAsync: wbService.ParseProductsPricesAsync,
+                    productsRepository: productsRepository,
+                    pricesRepository: pricesRepository,
+                    notifyAdminOnAuthFailure: true,
+                    vkMessenger: vkMessenger,
+                    stoppingToken: stoppingToken);
 
-                var parsed = await ParseBatchWithRetriesAsync(wbService, batch, batchIndex, stoppingToken);
-                if (!parsed.Success)
+                savedTotal += wbResult.SavedCount;
+                if (!wbResult.Completed)
                 {
-                    _logger.LogWarning(
-                        "Цикл обновления цен прерван на батче #{BatchIndex}: {Error}. Сохранено цен до сбоя: {SavedCount}. Pending не создаётся.",
-                        batchIndex,
-                        parsed.ErrorMessage,
-                        savedTotal);
-
-                    // Уведомление про token/cookie — только при реальной auth-ошибке, не при DNS/сети.
-                    if (parsed.IsAuthFailure)
-                    {
-                        await NotifyAdminAsync(vkMessenger, stoppingToken);
-                    }
-
                     return;
                 }
+            }
 
-                var toSave = parsed.Prices
-                    .Where(p => p is not null && p.ProductId > 0)
-                    .ToList();
-
-                if (parsed.ProductsWithRefreshedMeta.Count > 0)
-                {
-                    await productsRepository.UpdateRangeAsync(parsed.ProductsWithRefreshedMeta);
-                }
-
-                if (toSave.Count == 0)
+            if (ozonProducts.Count > 0)
+            {
+                if (!await EnsureOzonBrowserReadyAsync(ozonService, stoppingToken))
                 {
                     _logger.LogWarning(
-                        "Батч #{BatchIndex} из {BatchCount} товаров не вернул цен (нет наличия), продолжаем.",
-                        batchIndex,
-                        batch.Length);
+                        "Ozon пропущен: Chromium/антибот недоступны. Цены WB сохранены: {SavedCount}. Цикл завершится без Ozon.",
+                        savedTotal);
                 }
                 else
                 {
-                    await pricesRepository.AddRangeAsync(toSave);
-                    savedTotal += toSave.Count;
-                }
+                    var ozonResult = await ProcessMarketBatchesAsync(
+                        marketLabel: "Ozon",
+                        products: ozonProducts,
+                        batchSize: ozonBatchSize,
+                        batchDelay: batchDelay,
+                        parseAsync: ozonService.ParseProductsPricesAsync,
+                        productsRepository: productsRepository,
+                        pricesRepository: pricesRepository,
+                        notifyAdminOnAuthFailure: false,
+                        vkMessenger: vkMessenger,
+                        stoppingToken: stoppingToken);
 
-                if (batchIndex < batches.Length && batchDelay > TimeSpan.Zero)
-                {
-                    await Task.Delay(batchDelay, stoppingToken);
+                    savedTotal += ozonResult.SavedCount;
+                    if (!ozonResult.Completed)
+                    {
+                        _logger.LogWarning(
+                            "Ozon: обновление цен прервано с ошибкой. Цены сохранены (WB+Ozon частичные): {SavedCount}. Цикл завершится.",
+                            savedTotal);
+                    }
                 }
             }
 
@@ -266,8 +281,125 @@ namespace WildBerriesAnalyzer.Server.Services
                 job.Id);
         }
 
+        private async Task<bool> EnsureOzonBrowserReadyAsync(
+            IOzonService ozonService,
+            CancellationToken stoppingToken)
+        {
+            _logger.LogInformation("Прогрев Chromium перед обновлением цен Ozon…");
+            try
+            {
+                await ozonService.WarmUpAsync(stoppingToken);
+                _logger.LogInformation("Chromium для Ozon готов.");
+                return true;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось прогреть Chromium для Ozon.");
+                return false;
+            }
+        }
+
+        private async Task<MarketUpdateResult> ProcessMarketBatchesAsync(
+            string marketLabel,
+            IReadOnlyList<WbProduct> products,
+            int batchSize,
+            TimeSpan batchDelay,
+            Func<IEnumerable<WbProduct>, Task<ParseProductsPricesResult>> parseAsync,
+            IProductsRepository productsRepository,
+            IPricesRepository pricesRepository,
+            bool notifyAdminOnAuthFailure,
+            IVkCommunityMessenger vkMessenger,
+            CancellationToken stoppingToken)
+        {
+            var batches = products.Chunk(batchSize).ToArray();
+            var savedTotal = 0;
+            var batchIndex = 0;
+
+            _logger.LogInformation(
+                "{Market}: обновление цен, товаров={ProductCount}, батчей={BatchCount}",
+                marketLabel,
+                products.Count,
+                batches.Length);
+
+            foreach (var batch in batches)
+            {
+                stoppingToken.ThrowIfCancellationRequested();
+                batchIndex++;
+
+                var parsed = await ParseBatchWithRetriesAsync(
+                    marketLabel,
+                    parseAsync,
+                    batch,
+                    batchIndex,
+                    stoppingToken);
+
+                if (!parsed.Success)
+                {
+                    _logger.LogWarning(
+                        "{Market}: цикл прерван на батче #{BatchIndex}: {Error}. Сохранено цен: {SavedCount}. Pending не создаётся.",
+                        marketLabel,
+                        batchIndex,
+                        parsed.ErrorMessage,
+                        savedTotal);
+
+                    if (notifyAdminOnAuthFailure && parsed.IsAuthFailure)
+                    {
+                        await NotifyAdminAsync(vkMessenger, stoppingToken);
+                    }
+
+                    return new MarketUpdateResult(Completed: false, SavedCount: savedTotal);
+                }
+
+                var toSave = parsed.Prices
+                    .Where(p => p is not null && p.ProductId > 0)
+                    .ToList();
+
+                if (parsed.ProductsWithRefreshedMeta.Count > 0)
+                {
+                    foreach (var product in parsed.ProductsWithRefreshedMeta)
+                    {
+                        product.Category = null;
+                    }
+
+                    await productsRepository.UpdateRangeAsync(parsed.ProductsWithRefreshedMeta);
+                }
+
+                if (toSave.Count == 0)
+                {
+                    _logger.LogWarning(
+                        "{Market}: батч #{BatchIndex} из {BatchCount} товаров не вернул цен (нет наличия), продолжаем.",
+                        marketLabel,
+                        batchIndex,
+                        batch.Length);
+                }
+                else
+                {
+                    await pricesRepository.AddRangeAsync(toSave);
+                    savedTotal += toSave.Count;
+                }
+
+                if (batchIndex < batches.Length && batchDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(batchDelay, stoppingToken);
+                }
+            }
+
+            _logger.LogInformation(
+                "{Market}: цены сохранены {SavedCount}/{ProductCount}.",
+                marketLabel,
+                savedTotal,
+                products.Count);
+
+            return new MarketUpdateResult(Completed: true, SavedCount: savedTotal);
+        }
+
         private async Task<ParseProductsPricesResult> ParseBatchWithRetriesAsync(
-            IWildBerriesService wbService,
+            string marketLabel,
+            Func<IEnumerable<WbProduct>, Task<ParseProductsPricesResult>> parseAsync,
             WbProduct[] batch,
             int batchIndex,
             CancellationToken stoppingToken)
@@ -278,7 +410,7 @@ namespace WildBerriesAnalyzer.Server.Services
             for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
                 stoppingToken.ThrowIfCancellationRequested();
-                last = await wbService.ParseProductsPricesAsync(batch);
+                last = await parseAsync(batch);
                 if (last.Success || last.IsAuthFailure || !last.IsNetworkFailure)
                 {
                     return last;
@@ -291,7 +423,8 @@ namespace WildBerriesAnalyzer.Server.Services
 
                 var delay = TimeSpan.FromSeconds(5 * attempt);
                 _logger.LogWarning(
-                    "Батч #{BatchIndex}: сетевая ошибка (попытка {Attempt}/{Max}): {Error}. Повтор через {Delay}.",
+                    "{Market}: батч #{BatchIndex}: сетевая ошибка (попытка {Attempt}/{Max}): {Error}. Повтор через {Delay}.",
+                    marketLabel,
                     batchIndex,
                     attempt,
                     maxAttempts,
@@ -329,5 +462,7 @@ namespace WildBerriesAnalyzer.Server.Services
                     AdminAccounts.VkId);
             }
         }
+
+        private readonly record struct MarketUpdateResult(bool Completed, int SavedCount);
     }
 }

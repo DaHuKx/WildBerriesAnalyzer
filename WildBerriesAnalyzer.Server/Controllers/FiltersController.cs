@@ -124,7 +124,7 @@ namespace WildBerriesAnalyzer.Server.Controllers
         }
 
         /// <summary>
-        /// Добавить товары из общей корзины WB (ссылка ?shareId=…).
+        /// Добавить товары из общей корзины WB (ссылка ?shareId=…) или Ozon (/cart?share=…).
         /// </summary>
         [HttpPost("{userId:int}/bag/from-share")]
         [ProducesResponseType(typeof(AddBagProductsResult), StatusCodes.Status200OK)]
@@ -195,6 +195,17 @@ namespace WildBerriesAnalyzer.Server.Controllers
         public async Task<ActionResult<List<WbFilterCategory>>> GetFilterCategories(int userId)
         {
             var categories = await _filtersService.GetFilterCategoriesAsync(userId);
+            return Ok(categories);
+        }
+
+        /// <summary>
+        /// Известные категории из товаров (для выбора в UI).
+        /// </summary>
+        [HttpGet("categories/known")]
+        [ProducesResponseType(typeof(List<WbCategory>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<WbCategory>>> GetKnownCategories()
+        {
+            var categories = await _filtersService.GetKnownCategoriesAsync();
             return Ok(categories);
         }
 

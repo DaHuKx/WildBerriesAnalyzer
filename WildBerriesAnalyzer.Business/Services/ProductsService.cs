@@ -255,9 +255,16 @@ namespace WildBerriesAnalyzer.Business.Services
             return await ParseByNameAsync(query, marketTypes);
         }
 
-        public async Task<AddCatalogProductsResult> AddByArticlesAsync(IEnumerable<string> articleInputs)
+        public async Task<AddCatalogProductsResult> AddByArticlesAsync(
+            IEnumerable<string> articleInputs,
+            MarketType marketType = MarketType.Wildberries)
         {
             ArgumentNullException.ThrowIfNull(articleInputs);
+
+            if (marketType is not MarketType.Wildberries and not MarketType.Ozon)
+            {
+                throw new ArgumentException("Неизвестный маркетплейс.", nameof(marketType));
+            }
 
             var validIds = new List<string>();
             var errors = new StringBuilder();
@@ -270,14 +277,14 @@ namespace WildBerriesAnalyzer.Business.Services
                     continue;
                 }
 
-                var validationResult = _productIdValidator.Validate(trimmed);
+                var validationResult = _productIdValidator.Validate(trimmed, marketType);
                 if (!validationResult.IsValid)
                 {
                     errors.AppendLine($"{raw}: {validationResult.Errors.First().ErrorMessage}");
                     continue;
                 }
 
-                var clean = ProductHelper.ExtractCleanArticle(trimmed);
+                var clean = ProductHelper.ExtractCleanArticle(trimmed, marketType);
                 if (!validIds.Contains(clean))
                 {
                     validIds.Add(clean);
@@ -292,10 +299,14 @@ namespace WildBerriesAnalyzer.Business.Services
                 throw new ArgumentException(details);
             }
 
-            var products = await _wildBerriesService.GetProductsForIdsAsync(validIds);
+            var products = marketType == MarketType.Ozon
+                ? await GetOzonProductsByArticlesAsync(validIds)
+                : await _wildBerriesService.GetProductsForIdsAsync(validIds);
+
+            var marketLabel = marketType == MarketType.Ozon ? "Ozon" : "WildBerries";
             if (products.Count == 0)
             {
-                throw new InvalidOperationException("Не удалось получить товары с WildBerries.");
+                throw new InvalidOperationException($"Не удалось получить товары с {marketLabel}.");
             }
 
             var added = (await _productsRepository.AddRangeAsync(products)).ToList();
@@ -305,6 +316,22 @@ namespace WildBerriesAnalyzer.Business.Services
                 FoundCount = products.Count,
                 ValidationErrors = errors.Length > 0 ? errors.ToString().Trim() : null
             };
+        }
+
+        private async Task<List<WbProduct>> GetOzonProductsByArticlesAsync(IReadOnlyList<string> validIds)
+        {
+            try
+            {
+                await _ozonService.WarmUpAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "Не удалось подготовить браузер Ozon (антибот). Обновите cookie в ozon-scraping-auth.json.",
+                    ex);
+            }
+
+            return await _ozonService.GetProductsForIdsAsync(validIds).ConfigureAwait(false);
         }
 
         public async Task<AddCatalogProductsResult> AddByNameAsync(

@@ -306,5 +306,23 @@
                 </Grid>
             </Grid>
         </Border>
+
+        <Grid IsVisible="{Binding IsShareProcessing}"
+              Grid.RowSpan="2"
+              BackgroundColor="#99000000">
+            <VerticalStackLayout Spacing="12"
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center">
+                <ActivityIndicator IsRunning="{Binding IsShareProcessing}"
+                                   Color="White"
+                                   HeightRequest="48"
+                                   WidthRequest="48"
+                                   HorizontalOptions="Center" />
+                <Label Text="Добавление в корзину…"
+                       TextColor="White"
+                       FontSize="14"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </Grid>
     </Grid>
 </ContentPage>

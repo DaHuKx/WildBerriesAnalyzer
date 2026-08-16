@@ -15,12 +15,17 @@ namespace WildBerriesAnalyzer.Server.Options
         public TimeSpan Interval { get; set; } = TimeSpan.FromHours(1);
 
         /// <summary>
-        /// Размер батча артикулов для запроса к WB.
+        /// Размер батча артикулов для запроса к Wildberries.
         /// </summary>
-        public int BatchSize { get; set; } = 100;
+        public int WbBatchSize { get; set; } = 100;
 
         /// <summary>
-        /// Пауза между батчами запросов к WB (снижает риск блокировок).
+        /// Размер батча артикулов для запроса к Ozon (параллельная загрузка карточек внутри батча).
+        /// </summary>
+        public int OzonBatchSize { get; set; } = 100;
+
+        /// <summary>
+        /// Пауза между батчами запросов к маркетплейсам (снижает риск блокировок).
         /// </summary>
         public TimeSpan BatchDelay { get; set; } = TimeSpan.FromSeconds(3);
     }

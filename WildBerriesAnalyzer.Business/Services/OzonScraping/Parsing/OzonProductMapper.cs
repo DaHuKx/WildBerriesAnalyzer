@@ -30,24 +30,12 @@ public static class OzonProductMapper
 
     public static WbProduct ToWbProduct(ParsedProductDetails details)
     {
-        WbCategory? category = null;
-        if (!string.IsNullOrWhiteSpace(details.CategoryName) || details.CategoryId is not null)
-        {
-            category = new WbCategory
-            {
-                Id = details.CategoryId ?? 0,
-                Name = details.CategoryName ?? string.Empty
-            };
-        }
-
         return new WbProduct
         {
             MarketType = MarketType.Ozon,
             IdInMarket = details.Sku,
             Name = details.Name ?? string.Empty,
             Brand = details.Brand ?? string.Empty,
-            CategoryId = details.CategoryId,
-            Category = category,
             Rating = details.Rating ?? 0,
             ReviewRating = details.Rating ?? 0,
             FeedBacksCount = details.Reviews ?? 0,

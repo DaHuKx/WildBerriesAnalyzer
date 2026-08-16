@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using WildBerriesAnalyzer.Business.Services.OzonScraping.Models.Composer;
@@ -462,6 +462,636 @@ public static class OzonWidgetParser
             IsAvailable = price?.IsAvailable
         };
     }
+
+    private static readonly Regex CartSkuJsonRegex = new(
+        @"""(?:sku|skuId|offerId)""\s*:\s*""?(\d{8,16})""?",
+        RegexOptions.Compiled);
+
+    private static readonly Regex CartProductIdJsonRegex = new(
+        @"""product_?[Ii]d""\s*:\s*""?(\d{8,16})""?",
+        RegexOptions.Compiled);
+
+    private static readonly Regex CartItemIdJsonRegex = new(
+        @"""itemId""\s*:\s*""?(\d{8,16})""?",
+        RegexOptions.Compiled);
+
+    private static readonly Regex CartProductUrlRegex = new(
+        @"/product/(?:[^""\\/?#]*-)?(\d{8,16})/?",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly string[] CartShareWidgetNameHints =
+    [
+        "cartSplit",
+        "webCart",
+        "cartTile",
+        "splitCart",
+        "sharedCart",
+        "cartShare",
+        "cartLine",
+        "cartItem",
+        "cartProduct",
+        "shareCart",
+        "shared",
+        "basket",
+        "rfbsSplit"
+    ];
+
+    private static readonly string[] CartShareExcludedWidgetNameHints =
+    [
+        "tileGrid",
+        "searchResult",
+        "searchResults",
+        "infiniteVirtual",
+        "skuShelf",
+        "skuLine",
+        "skuGrid",
+        "skuCarousel",
+        "recommend",
+        "analog",
+        "viewed",
+        "favorite",
+        "history",
+        "paginator",
+        "webSale",
+        "webReview",
+        "webGallery",
+        "webPrice",
+        "webProductHeading",
+        "webSingleProductScore",
+        "banner",
+        "marketing",
+        "stories",
+        "catalogMenu",
+        "horizontalMenu",
+        "verticalMenu",
+        "megaMenu",
+        "iconMenu",
+        "sidebarMenu",
+        "tabBar",
+        "navBar"
+    ];
+
+    /// <summary>Исключаем только точное имя виджета (не substring — иначе режется cartHeader).</summary>
+    private static readonly string[] CartShareExcludedExactWidgetNames =
+    [
+        "header",
+        "footer",
+        "cookie"
+    ];
+
+    private const int CartShareMaxReasonableItems = 50;
+
+    /// <summary>
+    /// SKU товаров из страницы общей корзины Ozon.
+    /// Blacklist рекомендаций + выбор «коротких» cart-виджетов (shared cart обычно меньше полок).
+    /// </summary>
+    public static List<long> ParseCartShareSkus(OzonComposerPage? page) =>
+        SelectCartShareSkus(CollectCartShareCandidates(page));
+
+    /// <summary>Для отладки: все виджеты с числом SKU (включая blacklist).</summary>
+    public static IReadOnlyList<(string WidgetKey, int Count)> DebugAllCartShareWidgets(OzonComposerPage? page)
+    {
+        if (page?.WidgetStates is null || page.WidgetStates.Count == 0)
+        {
+            return [];
+        }
+
+        var result = new List<(string, int)>();
+        foreach (var (key, raw) in page.WidgetStates)
+        {
+            var skus = new HashSet<long>();
+            CollectCartShareSkusStructured(raw, skus);
+            CollectCartShareSkusRegexFallback(raw, skus);
+            if (skus.Count > 0)
+            {
+                result.Add((key, skus.Count));
+            }
+        }
+
+        return result.OrderByDescending(x => x.Item2).ToList();
+    }
+
+    /// <summary>Для отладки: SKU по каждому не-рекламному виджету.</summary>
+    public static IReadOnlyList<(string WidgetKey, int Count)> DebugCartShareWidgets(OzonComposerPage? page) =>
+        CollectCartShareCandidates(page)
+            .Select(c => (c.WidgetKey, c.Skus.Count))
+            .OrderByDescending(x => x.Count)
+            .ToList();
+
+    /// <summary>Тот же отбор SKU, что и для composer, но для DOM-buckets.</summary>
+    public static List<long> SelectCartShareSkusFromBuckets(
+        IReadOnlyList<(string WidgetKey, IReadOnlyCollection<long> Skus)> buckets)
+    {
+        if (buckets.Count == 0)
+        {
+            return [];
+        }
+
+        var candidates = buckets
+            .Select(b => new CartShareWidgetCandidate(
+                b.WidgetKey,
+                b.Skus.Where(IsPlausibleOzonSku).ToHashSet()))
+            .Where(c => c.Skus.Count > 0)
+            .ToList();
+
+        return SelectCartShareSkus(candidates);
+    }
+
+    private sealed record CartShareWidgetCandidate(string WidgetKey, HashSet<long> Skus);
+
+    private static List<CartShareWidgetCandidate> CollectCartShareCandidates(OzonComposerPage? page)
+    {
+        if (page?.WidgetStates is null || page.WidgetStates.Count == 0)
+        {
+            return [];
+        }
+
+        var candidates = new List<CartShareWidgetCandidate>();
+
+        foreach (var (key, raw) in page.WidgetStates)
+        {
+            if (IsCartShareExcludedWidget(WidgetName(key)))
+            {
+                continue;
+            }
+
+            var widgetSkus = new HashSet<long>();
+            CollectCartShareSkusStructured(raw, widgetSkus);
+            CollectCartShareSkusRegexFallback(raw, widgetSkus);
+
+            if (widgetSkus.Count > 0)
+            {
+                candidates.Add(new CartShareWidgetCandidate(key, widgetSkus));
+            }
+        }
+
+        return candidates;
+    }
+
+    private static List<long> SelectCartShareSkus(IReadOnlyList<CartShareWidgetCandidate> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return [];
+        }
+
+        // Только cart/share-виджеты. Иначе chrome вроде horizontalMenu даёт ложные SKU,
+        // и навигационный fallback (DOM / action API) не запускается.
+        var preferred = candidates
+            .Where(c =>
+                c.Skus.Count is >= 1 and <= CartShareMaxReasonableItems &&
+                (IsCartShareHintWidget(c.WidgetKey) ||
+                 IsStrongCartShareWidget(c.WidgetKey) ||
+                 c.WidgetKey.Contains("share", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        if (preferred.Count == 0)
+        {
+            return [];
+        }
+
+        var hint = preferred.Where(c => IsCartShareHintWidget(c.WidgetKey)).ToList();
+        if (hint.Count > 0)
+        {
+            var mergedHint = MergeCandidateSkus(hint);
+            if (mergedHint.Count is > 0 and <= CartShareMaxReasonableItems)
+            {
+                return mergedHint;
+            }
+        }
+
+        var share = preferred
+            .Where(c => c.WidgetKey.Contains("share", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (share.Count > 0)
+        {
+            var mergedShare = MergeCandidateSkus(share);
+            if (mergedShare.Count is > 0 and <= CartShareMaxReasonableItems)
+            {
+                return mergedShare;
+            }
+        }
+
+        var strong = preferred.Where(c => IsStrongCartShareWidget(c.WidgetKey)).ToList();
+        if (strong.Count > 0)
+        {
+            var mergedStrong = MergeCandidateSkus(strong);
+            if (mergedStrong.Count is > 0 and <= CartShareMaxReasonableItems)
+            {
+                return mergedStrong;
+            }
+        }
+
+        return [];
+    }
+
+    private static bool IsStrongCartShareWidget(string widgetKey)
+    {
+        if (string.IsNullOrWhiteSpace(widgetKey))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<string> strong =
+        [
+            "cartSplit",
+            "webCart",
+            "sharedCart",
+            "cartShare",
+            "shareCart",
+            "splitCart",
+            "rfbsSplit"
+        ];
+
+        var name = WidgetName(widgetKey);
+        foreach (var hint in strong)
+        {
+            if (name.StartsWith(hint, StringComparison.OrdinalIgnoreCase) ||
+                widgetKey.StartsWith(hint, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static List<long> MergeCandidateSkus(IEnumerable<CartShareWidgetCandidate> candidates)
+    {
+        var merged = new HashSet<long>();
+        foreach (var candidate in candidates)
+        {
+            merged.UnionWith(candidate.Skus);
+        }
+
+        return merged.OrderBy(x => x).ToList();
+    }
+
+    private static bool IsCartShareHintWidget(string widgetKey)
+    {
+        if (string.IsNullOrWhiteSpace(widgetKey))
+        {
+            return false;
+        }
+
+        var name = WidgetName(widgetKey);
+        if (IsCartShareExcludedWidget(name))
+        {
+            return false;
+        }
+
+        if (CartShareWidgetNameHints.Any(h =>
+                name.Contains(h, StringComparison.OrdinalIgnoreCase) ||
+                widgetKey.Contains(h, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        if (name.Contains("cart", StringComparison.OrdinalIgnoreCase) &&
+            !name.Contains("cartButton", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // split-123-default-1 без префикса cart
+        return name.Equals("split", StringComparison.OrdinalIgnoreCase) ||
+               name.StartsWith("split", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCartShareExcludedWidget(string widgetName)
+    {
+        foreach (var exact in CartShareExcludedExactWidgetNames)
+        {
+            if (widgetName.Equals(exact, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        if (widgetName.Contains("Menu", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (var hint in CartShareExcludedWidgetNameHints)
+        {
+            if (widgetName.StartsWith(hint, StringComparison.OrdinalIgnoreCase) ||
+                widgetName.Contains(hint, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void CollectCartShareSkusStructured(string? raw, HashSet<long> skus)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            CollectCartShareSkusFromElement(doc.RootElement, skus, depth: 0);
+        }
+        catch
+        {
+            // ignore broken widget JSON
+        }
+    }
+
+    private static void CollectCartShareSkusRegexFallback(string? raw, HashSet<long> skus)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return;
+        }
+
+        foreach (Match match in CartProductUrlRegex.Matches(raw))
+        {
+            if (long.TryParse(match.Groups[1].Value, out var sku) && IsPlausibleOzonSku(sku))
+            {
+                skus.Add(sku);
+            }
+        }
+
+        foreach (Match match in CartSkuJsonRegex.Matches(raw))
+        {
+            if (long.TryParse(match.Groups[1].Value, out var sku) && IsPlausibleOzonSku(sku))
+            {
+                skus.Add(sku);
+            }
+        }
+
+        foreach (Match match in CartProductIdJsonRegex.Matches(raw))
+        {
+            if (long.TryParse(match.Groups[1].Value, out var sku) && IsPlausibleOzonSku(sku))
+            {
+                skus.Add(sku);
+            }
+        }
+
+        foreach (Match match in CartItemIdJsonRegex.Matches(raw))
+        {
+            if (long.TryParse(match.Groups[1].Value, out var sku) && IsPlausibleOzonSku(sku))
+            {
+                skus.Add(sku);
+            }
+        }
+    }
+
+    private static void CollectCartShareSkusFromElement(JsonElement element, HashSet<long> skus, int depth)
+    {
+        if (depth > 8)
+        {
+            return;
+        }
+
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                if (LooksLikeCartLineItem(element))
+                {
+                    var sku = TryGetSkuFromCartItem(element);
+                    if (sku > 0)
+                    {
+                        skus.Add(sku);
+                        return;
+                    }
+                }
+
+                foreach (var prop in element.EnumerateObject())
+                {
+                    if (IsCartItemsPropertyName(prop.Name))
+                    {
+                        CollectSkusFromItemsArray(prop.Value, skus);
+                        continue;
+                    }
+
+                    CollectCartShareSkusFromElement(prop.Value, skus, depth + 1);
+                }
+
+                break;
+
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                {
+                    CollectCartShareSkusFromElement(item, skus, depth + 1);
+                }
+
+                break;
+        }
+    }
+
+    private static bool IsCartItemsPropertyName(string name) =>
+        name.Equals("items", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("cartItems", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("lineItems", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("products", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("splits", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("sections", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("goods", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("orderItems", StringComparison.OrdinalIgnoreCase);
+
+    private static void CollectSkusFromItemsArray(JsonElement array, HashSet<long> skus)
+    {
+        if (array.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var item in array.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.Object &&
+                string.Equals(item.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null,
+                    "split", StringComparison.OrdinalIgnoreCase) &&
+                item.TryGetProperty("items", out var nestedItems))
+            {
+                CollectSkusFromItemsArray(nestedItems, skus);
+                continue;
+            }
+
+            var sku = TryGetSkuFromCartItem(item);
+            if (sku > 0)
+            {
+                skus.Add(sku);
+            }
+        }
+    }
+
+    private static bool LooksLikeCartLineItem(JsonElement item)
+    {
+        if (item.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (item.TryGetProperty("sku", out _) ||
+            item.TryGetProperty("skuId", out _) ||
+            item.TryGetProperty("offerId", out _) ||
+            item.TryGetProperty("productId", out _) ||
+            item.TryGetProperty("product_id", out _) ||
+            item.TryGetProperty("itemId", out _))
+        {
+            return true;
+        }
+
+        if (item.TryGetProperty("id", out _) &&
+            (item.TryGetProperty("quantity", out _) ||
+             item.TryGetProperty("qty", out _) ||
+             item.TryGetProperty("count", out _) ||
+             item.TryGetProperty("title", out _) ||
+             item.TryGetProperty("name", out _) ||
+             item.TryGetProperty("price", out _) ||
+             item.TryGetProperty("product", out _)))
+        {
+            return true;
+        }
+
+        if (item.TryGetProperty("action", out var action) &&
+            action.TryGetProperty("link", out var link) &&
+            link.GetString()?.Contains("/product/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        return item.TryGetProperty("link", out var directLink) &&
+               directLink.GetString()?.Contains("/product/", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static long TryGetSkuFromCartItem(JsonElement item)
+    {
+        foreach (var name in new[] { "sku", "skuId", "offerId", "productId", "product_id", "itemId" })
+        {
+            if (!item.TryGetProperty(name, out var prop))
+            {
+                continue;
+            }
+
+            if (TryReadPlausibleSku(prop, out var sku))
+            {
+                return sku;
+            }
+        }
+
+        if (item.TryGetProperty("id", out var idProp) && TryReadPlausibleSku(idProp, out var idSku) &&
+            (item.TryGetProperty("link", out _) ||
+             item.TryGetProperty("action", out _) ||
+             item.TryGetProperty("product", out _) ||
+             item.TryGetProperty("quantity", out _) ||
+             item.TryGetProperty("qty", out _) ||
+             item.TryGetProperty("title", out _) ||
+             item.TryGetProperty("name", out _) ||
+             item.TryGetProperty("price", out _)))
+        {
+            return idSku;
+        }
+
+        if (item.TryGetProperty("product", out var product))
+        {
+            foreach (var name in new[] { "sku", "skuId", "id", "productId", "product_id" })
+            {
+                if (product.TryGetProperty(name, out var prop) &&
+                    TryReadPlausibleSku(prop, out var sku))
+                {
+                    return sku;
+                }
+            }
+        }
+
+        if (item.TryGetProperty("cellTrackingInfo", out var tracking))
+        {
+            if (tracking.TryGetProperty("product", out var trackedProduct) &&
+                trackedProduct.TryGetProperty("id", out var trackedId) &&
+                TryReadPlausibleSku(trackedId, out var trackedSku))
+            {
+                return trackedSku;
+            }
+
+            if (tracking.TryGetProperty("sku", out var trackedSkuProp) &&
+                TryReadPlausibleSku(trackedSkuProp, out var trackingSku))
+            {
+                return trackingSku;
+            }
+        }
+
+        if (item.TryGetProperty("action", out var action) &&
+            action.TryGetProperty("link", out var linkProp))
+        {
+            var fromLink = SkuFromUrl(linkProp.GetString());
+            if (fromLink is > 0)
+            {
+                return fromLink.Value;
+            }
+        }
+
+        if (item.TryGetProperty("link", out var directLink))
+        {
+            var fromLink = SkuFromUrl(directLink.GetString());
+            if (fromLink is > 0)
+            {
+                return fromLink.Value;
+            }
+        }
+
+        return 0;
+    }
+
+    private static bool TryReadPlausibleSku(JsonElement prop, out long sku) =>
+        TryReadPlausibleSku(prop, out sku, depth: 0);
+
+    private static bool TryReadPlausibleSku(JsonElement prop, out long sku, int depth)
+    {
+        sku = 0;
+        if (depth > 3)
+        {
+            return false;
+        }
+
+        if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt64(out sku))
+        {
+            return IsPlausibleOzonSku(sku);
+        }
+
+        if (prop.ValueKind == JsonValueKind.String)
+        {
+            var text = prop.GetString();
+            if (long.TryParse(text, out sku))
+            {
+                return IsPlausibleOzonSku(sku);
+            }
+
+            var fromUrl = SkuFromUrl(text);
+            if (fromUrl is > 0)
+            {
+                sku = fromUrl.Value;
+                return IsPlausibleOzonSku(sku);
+            }
+
+            return false;
+        }
+
+        if (prop.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var name in new[] { "id", "sku", "skuId", "productId", "product_id", "value" })
+            {
+                if (prop.TryGetProperty(name, out var nested) &&
+                    TryReadPlausibleSku(nested, out sku, depth + 1))
+                {
+                    return true;
+                }
+            }
+        }
+
+        sku = 0;
+        return false;
+    }
+
+    private static bool IsPlausibleOzonSku(long sku) =>
+        sku is >= 10_000_000 and <= 999_999_999_999_999;
 }
 
 public sealed class ParsedSearchItem

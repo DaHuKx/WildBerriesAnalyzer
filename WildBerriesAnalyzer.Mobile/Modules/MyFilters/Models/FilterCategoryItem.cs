@@ -13,7 +13,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.Models
 
         public string DisplayTitle => string.IsNullOrWhiteSpace(Name)
             ? $"Категория #{CategoryId}"
-            : $"{Name} (ID: {CategoryId})";
+            : Name;
 
         public DelegateCommand? RemoveCommand { get; set; }
     }

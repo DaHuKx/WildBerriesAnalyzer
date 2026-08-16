@@ -36,6 +36,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         private WbFilter? _currentFilter;
         private bool _isBusy = true;
+        private bool _isAddingToBag;
         private bool _isLoaded;
         private bool _loadStarted;
         private bool _isLoadingMoreBag;
@@ -49,8 +50,8 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         private string _minReviewsCountText = "0";
         private string _minRatingText = "0";
         private string _newArticleText = string.Empty;
-        private string _newCategoryIdText = string.Empty;
         private FilterTypeOption? _selectedFilterType;
+        private FilterSettingsSection _selectedSection = FilterSettingsSection.Main;
         private int _bagProductsCount;
         private string _bagSearchText = string.Empty;
         private string _selectedBagBrand = AllBrandsLabel;
@@ -84,6 +85,19 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             _presetBridge.OnPresetChosen = preset =>
                 MainThread.BeginInvokeOnMainThread(() => ApplyPreset(preset));
             _adultContentPreference.Changed += (_, _) => ApplyAdultContentPreferenceToBag();
+
+            FilterSettingsTabs =
+            [
+                new FilterSettingsTab(FilterSettingsSection.Templates, "Шаблоны"),
+                new FilterSettingsTab(FilterSettingsSection.Main, "Основные"),
+                new FilterSettingsTab(FilterSettingsSection.Strategies, "Стратегии"),
+                new FilterSettingsTab(FilterSettingsSection.Markets, "Магазины"),
+                new FilterSettingsTab(FilterSettingsSection.Bag, "Корзина"),
+                new FilterSettingsTab(FilterSettingsSection.Categories, "Категории")
+            ];
+            SyncFilterSettingsTabs();
+
+            Templates = new ObservableCollection<FilterPreset>(FilterPresetsCatalog.All);
 
             FilterTypes =
             [
@@ -152,16 +166,16 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             OpenPresetsCommand = new DelegateCommand(async () => await OpenPresetsAsync(), () => !IsBusy && IsLoaded)
                 .ObservesProperty(() => IsBusy)
                 .ObservesProperty(() => IsLoaded);
+            ApplyTemplateCommand = new DelegateCommand<FilterPreset>(ApplyTemplate, _ => !IsBusy && IsLoaded)
+                .ObservesProperty(() => IsBusy)
+                .ObservesProperty(() => IsLoaded);
+            SelectFilterSettingsTabCommand = new DelegateCommand<FilterSettingsTab>(SelectFilterSettingsTab);
             SaveFilterCommand = new DelegateCommand(async () => await SaveFilterAsync(), () => !IsBusy && IsLoaded)
                 .ObservesProperty(() => IsBusy)
                 .ObservesProperty(() => IsLoaded);
             AddArticlesCommand = new DelegateCommand(async () => await AddArticlesAsync(), () => !IsBusy && IsLoaded)
                 .ObservesProperty(() => IsBusy)
                 .ObservesProperty(() => IsLoaded);
-            AddCategoryCommand = new DelegateCommand(async () => await AddCategoryAsync(), () => !IsBusy && IsLoaded && IsCategoryFilter)
-                .ObservesProperty(() => IsBusy)
-                .ObservesProperty(() => IsLoaded)
-                .ObservesProperty(() => IsCategoryFilter);
             ClearBagFiltersCommand = new DelegateCommand(ClearBagFilters, () => HasActiveBagFilters)
                 .ObservesProperty(() => HasActiveBagFilters);
             ClearBagCommand = new DelegateCommand(async () => await ClearBagAsync(), () => !IsBusy && IsLoaded && HasBagProducts)
@@ -196,24 +210,70 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         }
 
         /// <summary>
-        /// После share из WB сразу открываем вкладку «Моя корзина».
+        /// После share из WB/Ozon сразу открываем раздел корзины.
         /// </summary>
         public void ShowOwnBagSection()
         {
             var ownBag = FilterTypes.FirstOrDefault(x => x.Type == ProductsFilterType.OwnBag);
-            if (ownBag is null)
+            if (ownBag is not null)
             {
-                return;
+                SelectedFilterType = ownBag;
             }
 
-            SelectedFilterType = ownBag;
+            SelectedSection = FilterSettingsSection.Bag;
         }
 
         public string Title => "Настройки фильтров";
 
-        public string Subtitle => "Настройте условия поиска подходящих скидок";
+        public string Subtitle => "Разделы настроек — сверху. Сохраните изменения перед выходом.";
 
         public string BrandLabel => "PRICELAB";
+
+        public List<FilterSettingsTab> FilterSettingsTabs { get; }
+
+        public ObservableCollection<FilterPreset> Templates { get; }
+
+        public FilterSettingsSection SelectedSection
+        {
+            get => _selectedSection;
+            set
+            {
+                if (SetProperty(ref _selectedSection, value))
+                {
+                    SyncFilterSettingsTabs();
+                    RaisePropertyChanged(nameof(IsTemplatesSection));
+                    RaisePropertyChanged(nameof(IsMainSection));
+                    RaisePropertyChanged(nameof(IsStrategiesSection));
+                    RaisePropertyChanged(nameof(IsMarketsSection));
+                    RaisePropertyChanged(nameof(IsBagSection));
+                    RaisePropertyChanged(nameof(IsCategoriesSection));
+                    RaisePropertyChanged(nameof(CurrentSectionTitle));
+                }
+            }
+        }
+
+        public bool IsTemplatesSection => SelectedSection == FilterSettingsSection.Templates;
+
+        public bool IsMainSection => SelectedSection == FilterSettingsSection.Main;
+
+        public bool IsStrategiesSection => SelectedSection == FilterSettingsSection.Strategies;
+
+        public bool IsMarketsSection => SelectedSection == FilterSettingsSection.Markets;
+
+        public bool IsBagSection => SelectedSection == FilterSettingsSection.Bag;
+
+        public bool IsCategoriesSection => SelectedSection == FilterSettingsSection.Categories;
+
+        public string CurrentSectionTitle => SelectedSection switch
+        {
+            FilterSettingsSection.Templates => "Шаблоны",
+            FilterSettingsSection.Main => "Основные",
+            FilterSettingsSection.Strategies => "Стратегии",
+            FilterSettingsSection.Markets => "Магазины",
+            FilterSettingsSection.Bag => "Корзина",
+            FilterSettingsSection.Categories => "Категории",
+            _ => Title
+        };
 
         /// <summary>
         /// Первичная загрузка страницы (не сохранение): показываем loader под заголовком.
@@ -230,6 +290,12 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     RaisePropertyChanged(nameof(IsPageLoading));
                 }
             }
+        }
+
+        public bool IsAddingToBag
+        {
+            get => _isAddingToBag;
+            private set => SetProperty(ref _isAddingToBag, value);
         }
 
         public bool IsLoaded
@@ -331,12 +397,6 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             set => SetProperty(ref _newArticleText, value);
         }
 
-        public string NewCategoryIdText
-        {
-            get => _newCategoryIdText;
-            set => SetProperty(ref _newCategoryIdText, value);
-        }
-
         public List<FilterTypeOption> FilterTypes { get; }
 
         public FilterTypeOption? SelectedFilterType
@@ -348,24 +408,18 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 {
                     SyncFilterTypeSelection();
                     RaisePropertyChanged(nameof(IsOwnBagFilter));
+                    RaisePropertyChanged(nameof(ShowNonBagConditions));
                     RaisePropertyChanged(nameof(IsCategoryFilter));
-                    RaisePropertyChanged(nameof(CategoriesSectionTitle));
-                    ApplyCategories(_allFilterCategories);
                 }
             }
         }
 
         public bool IsOwnBagFilter => SelectedFilterType?.Type == ProductsFilterType.OwnBag;
 
+        public bool ShowNonBagConditions => !IsOwnBagFilter;
+
         public bool IsCategoryFilter =>
             SelectedFilterType?.Type is ProductsFilterType.Categories_BlackList or ProductsFilterType.Categories_WhiteList;
-
-        public string CategoriesSectionTitle => SelectedFilterType?.Type switch
-        {
-            ProductsFilterType.Categories_BlackList => "Чёрный список категорий",
-            ProductsFilterType.Categories_WhiteList => "Белый список категорий",
-            _ => "Категории"
-        };
 
         public int BagProductsCount
         {
@@ -471,9 +525,9 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
         }
 
-        public bool HasCategories => FilterCategories.Count > 0;
+        public bool HasCategoryOptions => CategoryOptions.Count > 0;
 
-        public bool HasNoCategories => FilterCategories.Count == 0;
+        public bool HasNoCategoryOptions => CategoryOptions.Count == 0;
 
         public List<BagSortOption> BagSortOptions { get; }
 
@@ -483,19 +537,21 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
         public ObservableCollection<MarketTypeOption> MarketTypeOptions { get; } = new();
 
-        public ObservableCollection<BagProductItem> BagProducts { get; } = new();
+        public ObservableCollection<CategoryListOption> CategoryOptions { get; } = new();
 
-        public ObservableCollection<FilterCategoryItem> FilterCategories { get; } = new();
+        public ObservableCollection<BagProductItem> BagProducts { get; } = new();
 
         public DelegateCommand RefreshCommand { get; }
 
         public DelegateCommand OpenPresetsCommand { get; }
 
+        public DelegateCommand<FilterPreset> ApplyTemplateCommand { get; }
+
+        public DelegateCommand<FilterSettingsTab> SelectFilterSettingsTabCommand { get; }
+
         public DelegateCommand SaveFilterCommand { get; }
 
         public DelegateCommand AddArticlesCommand { get; }
-
-        public DelegateCommand AddCategoryCommand { get; }
 
         public DelegateCommand ClearBagFiltersCommand { get; }
 
@@ -550,6 +606,16 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             foreach (var option in MarketTypeOptions)
             {
                 option.RefreshThemeColors();
+            }
+
+            foreach (var option in CategoryOptions)
+            {
+                option.RefreshThemeColors();
+            }
+
+            foreach (var tab in FilterSettingsTabs)
+            {
+                tab.RefreshThemeColors();
             }
 
             RaisePropertyChanged(nameof(SnackbarBackground));
@@ -613,6 +679,34 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             SelectedFilterType = option;
         }
 
+        private void SelectFilterSettingsTab(FilterSettingsTab? tab)
+        {
+            if (tab is null)
+            {
+                return;
+            }
+
+            SelectedSection = tab.Section;
+        }
+
+        private void SyncFilterSettingsTabs()
+        {
+            foreach (var tab in FilterSettingsTabs)
+            {
+                tab.IsSelected = tab.Section == SelectedSection;
+            }
+        }
+
+        private void ApplyTemplate(FilterPreset? preset)
+        {
+            if (preset is null)
+            {
+                return;
+            }
+
+            ApplyPreset(preset);
+        }
+
         private void SyncFilterTypeSelection()
         {
             foreach (var option in FilterTypes)
@@ -656,10 +750,15 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     return await _filtersService.GetUserFilterDataAsync(userId).ConfigureAwait(false);
                 }).ConfigureAwait(false);
 
+                var knownCategories = await Task.Run(async () =>
+                {
+                    return await _filtersService.GetKnownCategoriesAsync().ConfigureAwait(false);
+                }).ConfigureAwait(false);
+
                 // Тяжёлую подготовку списков — тоже вне UI.
                 var bagItems = await Task.Run(() => BuildBagProductItems(data.BagProducts)).ConfigureAwait(false);
-                var categoryItems = await Task.Run(() =>
-                        BuildCategoryItems(data.Categories, data.Filter.ProductsFilterType))
+                var categoryOptions = await Task.Run(() =>
+                        BuildCategoryListOptions(knownCategories, data.Categories))
                     .ConfigureAwait(false);
 
                 await MainThread.InvokeOnMainThreadAsync(() =>
@@ -668,7 +767,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     _allFilterCategories = data.Categories;
                     ApplyFilter(data.Filter);
                     ApplyPreparedBagProducts(bagItems);
-                    ApplyPreparedCategories(categoryItems);
+                    ApplyCategoryOptions(categoryOptions);
                     IsLoaded = true;
                 }).ConfigureAwait(false);
             }
@@ -752,6 +851,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                     : null;
 
                 await _filtersService.UpdateFilterAsync(_currentFilter);
+                await SyncFilterCategoriesAsync(user.Id);
                 StatusMessage = "Фильтры сохранены.";
             }
             catch (Exception ex)
@@ -764,6 +864,45 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 IsBusy = false;
             }
         }
+
+        private async Task SyncFilterCategoriesAsync(int userId)
+        {
+            var existing = await _filtersService.GetFilterCategoriesAsync(userId);
+            var desired = CategoryOptions
+                .Where(o => o.Selection != CategoryListSelection.None)
+                .Select(o => (
+                    CategoryId: o.CategoryId,
+                    Type: ToCategoryFilterType(o.Selection)!.Value))
+                .ToList();
+
+            foreach (var row in existing)
+            {
+                var keep = desired.Any(d => d.CategoryId == row.CategoryId && d.Type == row.Type);
+                if (!keep)
+                {
+                    await _filtersService.RemoveFilterCategoryAsync(userId, row.Id);
+                }
+            }
+
+            var remaining = await _filtersService.GetFilterCategoriesAsync(userId);
+            foreach (var item in desired)
+            {
+                var already = remaining.Any(r => r.CategoryId == item.CategoryId && r.Type == item.Type);
+                if (!already)
+                {
+                    await _filtersService.AddFilterCategoryAsync(userId, item.CategoryId, item.Type);
+                }
+            }
+
+            _allFilterCategories = await _filtersService.GetFilterCategoriesAsync(userId);
+        }
+
+        private static CategoryFilterType? ToCategoryFilterType(CategoryListSelection selection) => selection switch
+        {
+            CategoryListSelection.WhiteList => CategoryFilterType.WhiteList,
+            CategoryListSelection.BlackList => CategoryFilterType.BlackList,
+            _ => null
+        };
 
         private async Task AddArticlesAsync()
         {
@@ -784,12 +923,14 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
                 var input = NewArticleText?.Trim() ?? string.Empty;
                 if (input.Length == 0)
                 {
-                    ErrorMessage = "Укажите артикулы или ссылку на общую корзину WB.";
+                    ErrorMessage = "Укажите артикулы или ссылку на общую корзину WB/Ozon.";
                     return;
                 }
 
+                IsAddingToBag = true;
                 AddBagProductsResult result;
-                if (ProductHelper.TryExtractBasketShareId(input, out _))
+                if (ProductHelper.TryExtractBasketShareId(input, out _) ||
+                    ProductHelper.TryExtractOzonCartShareId(input, out _))
                 {
                     result = await _filtersService.AddProductsToBagFromBasketShareAsync(user.Id, input);
                 }
@@ -818,6 +959,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
             finally
             {
+                IsAddingToBag = false;
                 IsBusy = false;
             }
         }
@@ -935,84 +1077,6 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             RefreshVisibleBagProducts();
         }
 
-        private async Task AddCategoryAsync()
-        {
-            try
-            {
-                IsBusy = true;
-                ErrorMessage = string.Empty;
-                StatusMessage = string.Empty;
-                AppLog.Action("MyFilters", "AddCategory");
-
-                var user = _authSessionService.CurrentUser;
-                if (user is null || user.Id <= 0 || SelectedFilterType is null)
-                {
-                    ErrorMessage = "Пользователь не авторизован.";
-                    return;
-                }
-
-                if (!int.TryParse(NewCategoryIdText.Trim(), out var categoryId) || categoryId <= 0)
-                {
-                    ErrorMessage = "Укажите корректный ID категории.";
-                    return;
-                }
-
-                var type = SelectedFilterType.Type == ProductsFilterType.Categories_WhiteList
-                    ? CategoryFilterType.WhiteList
-                    : CategoryFilterType.BlackList;
-
-                await _filtersService.AddFilterCategoryAsync(user.Id, categoryId, type);
-                NewCategoryIdText = string.Empty;
-
-                var categories = await _filtersService.GetFilterCategoriesAsync(user.Id);
-                ApplyCategories(categories);
-                StatusMessage = "Категория добавлена.";
-            }
-            catch (Exception ex)
-            {
-                AppLog.Error(ex, "MyFilters", "AddCategory");
-                ErrorMessage = ex.Message;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
-        private async Task RemoveCategoryAsync(FilterCategoryItem item)
-        {
-            try
-            {
-                IsBusy = true;
-                ErrorMessage = string.Empty;
-                StatusMessage = string.Empty;
-                AppLog.Action("MyFilters", "RemoveCategory", $"id={item.Id}");
-
-                var user = _authSessionService.CurrentUser;
-                if (user is null || user.Id <= 0)
-                {
-                    ErrorMessage = "Пользователь не авторизован.";
-                    return;
-                }
-
-                await _filtersService.RemoveFilterCategoryAsync(user.Id, item.Id);
-                _allFilterCategories.RemoveAll(c => c.Id == item.Id);
-                FilterCategories.Remove(item);
-                RaisePropertyChanged(nameof(HasCategories));
-                RaisePropertyChanged(nameof(HasNoCategories));
-                StatusMessage = "Категория удалена.";
-            }
-            catch (Exception ex)
-            {
-                AppLog.Error(ex, "MyFilters", "RemoveCategory");
-                ErrorMessage = ex.Message;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
         private void ApplyFilter(WbFilter filter)
         {
             DiscontMinPercentText = filter.DiscontMinPercent.ToString(CultureInfo.InvariantCulture);
@@ -1071,6 +1135,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
 
             ErrorMessage = string.Empty;
             StatusMessage = $"Пресет «{preset.Title}» применён. Нажмите «Сохранить», чтобы зафиксировать.";
+            SelectedSection = FilterSettingsSection.Main;
         }
 
         private void ApplyBagProducts(List<WbProduct> products)
@@ -1156,7 +1221,7 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
         }
 
         private bool CanLoadMoreBag() =>
-            !IsBusy && !IsLoadingMoreBag && HasMoreBagItems && IsOwnBagFilter;
+            !IsBusy && !IsLoadingMoreBag && HasMoreBagItems && IsBagSection;
 
         private async Task LoadMoreBagAsync()
         {
@@ -1297,48 +1362,42 @@ namespace WildBerriesAnalyzer.Modules.MyFilters.ViewModels
             }
         }
 
-        private void ApplyCategories(List<WbFilterCategory> categories)
+        private static List<CategoryListOption> BuildCategoryListOptions(
+            List<WbCategory> knownCategories,
+            List<WbFilterCategory> filterCategories)
         {
-            ApplyPreparedCategories(BuildCategoryItems(categories, SelectedFilterType?.Type));
+            var selectionByCategoryId = filterCategories
+                .GroupBy(c => c.CategoryId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.First().Type switch
+                    {
+                        CategoryFilterType.WhiteList => CategoryListSelection.WhiteList,
+                        CategoryFilterType.BlackList => CategoryListSelection.BlackList,
+                        _ => CategoryListSelection.None
+                    });
+
+            return knownCategories
+                .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(c =>
+                {
+                    selectionByCategoryId.TryGetValue(c.Id, out var selection);
+                    return new CategoryListOption(c.Id, c.Name, selection);
+                })
+                .ToList();
         }
 
-        private static List<FilterCategoryItem> BuildCategoryItems(
-            List<WbFilterCategory> categories,
-            ProductsFilterType? filterType)
+        private void ApplyCategoryOptions(List<CategoryListOption> options)
         {
-            CategoryFilterType? expectedType = filterType switch
+            CategoryOptions.Clear();
+            foreach (var option in options)
             {
-                ProductsFilterType.Categories_BlackList => CategoryFilterType.BlackList,
-                ProductsFilterType.Categories_WhiteList => CategoryFilterType.WhiteList,
-                _ => null
-            };
-
-            var visible = expectedType is null
-                ? categories
-                : categories.Where(c => c.Type == expectedType.Value).ToList();
-
-            return visible.Select(category => new FilterCategoryItem
-            {
-                Id = category.Id,
-                CategoryId = category.CategoryId,
-                Name = category.Category?.Name ?? string.Empty
-            }).ToList();
-        }
-
-        private void ApplyPreparedCategories(List<FilterCategoryItem> items)
-        {
-            // Сохраняем сырые категории из последнего ответа — для переключения black/white list.
-            // Если вызываем после LoadAsync, _allFilterCategories уже должен быть задан в LoadAsync.
-            FilterCategories.Clear();
-            foreach (var item in items)
-            {
-                item.RemoveCommand = new DelegateCommand(async () => await RemoveCategoryAsync(item), () => !IsBusy)
-                    .ObservesProperty(() => IsBusy);
-                FilterCategories.Add(item);
+                CategoryOptions.Add(option);
             }
 
-            RaisePropertyChanged(nameof(HasCategories));
-            RaisePropertyChanged(nameof(HasNoCategories));
+            RaisePropertyChanged(nameof(HasCategoryOptions));
+            RaisePropertyChanged(nameof(HasNoCategoryOptions));
         }
 
         private static string ToStrategyText(ReferencePriceStrategy strategy) => strategy switch

@@ -1,6 +1,9 @@
-﻿using WildBerriesAnalyzer.Business.Models;
+using System.Collections.Concurrent;
+using WildBerriesAnalyzer.Business.Helpers;
+using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Business.Services.OzonScraping.Auth;
+using WildBerriesAnalyzer.Business.Services.OzonScraping.Models.Composer;
 using WildBerriesAnalyzer.Business.Services.OzonScraping.Parsing;
 using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Domain.Models.DataBase;
@@ -29,43 +32,160 @@ public sealed class OzonService : IOzonService
     }
 
     /// <inheritdoc />
+    public Task WarmUpAsync(CancellationToken ct = default) =>
+        _client.WarmUpAsync(ct);
+
+    /// <inheritdoc />
+    public async Task<List<string>> GetArticlesFromCartShareAsync(
+        string shareToken,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(shareToken))
+        {
+            throw new ArgumentException("shareToken пустой.", nameof(shareToken));
+        }
+
+        shareToken = shareToken.Trim();
+        OzonComposerPage page;
+        try
+        {
+            page = await _client.FetchCartSharePageAsync(shareToken, ct).ConfigureAwait(false);
+        }
+        catch (ArgumentException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException(ex.Message, ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException(
+                "Не удалось загрузить общую корзину Ozon (антибот / сессия).",
+                ex);
+        }
+
+        var skus = OzonWidgetParser.ParseCartShareSkus(page);
+        if (skus.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Общая корзина Ozon пуста или ссылка недействительна.");
+        }
+
+        var articles = skus
+            .Select(sku => sku.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .ToList();
+        Console.WriteLine($"[cart-share] articles: {string.Join(",", articles)}");
+        return articles;
+    }
+
+    /// <inheritdoc />
     public Task<List<WbProduct>> ParseProductsAsync(string name) =>
         SearchByNameAsync(name, _auth.SearchLimit);
 
     /// <inheritdoc />
     public async Task<List<WbProduct>> GetProductsForIdsAsync(IEnumerable<string> ids)
     {
-        var skus = ids
+        var refs = ids
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Select(id => id.Trim())
-            .Where(id => long.TryParse(id, out _))
-            .Select(long.Parse)
-            .Distinct()
+            .Select(id =>
+                ProductHelper.TryNormalizeOzonProductRef(id, out var normalized)
+                    ? normalized
+                    : id)
+            .Where(id =>
+                long.TryParse(id, out _) ||
+                ProductHelper.IsOzonProductUrl(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (skus.Count == 0)
+        if (refs.Count == 0)
         {
             return new List<WbProduct>();
         }
 
-        var result = new List<WbProduct>(skus.Count);
-        var delay = Math.Max(0, _auth.RequestDelayMs);
+        var concurrency = Math.Clamp(_auth.ProductConcurrency, 1, 100);
+        var result = new ConcurrentBag<WbProduct>();
+        using var linkedCts = new CancellationTokenSource();
+        var sessionFailed = 0;
 
-        foreach (var sku in skus)
+        var parallelOptions = new ParallelOptions
         {
-            var product = await GetByIdAsync(sku).ConfigureAwait(false);
-            if (product is not null)
-            {
-                result.Add(product);
-            }
+            MaxDegreeOfParallelism = concurrency,
+            CancellationToken = linkedCts.Token
+        };
 
-            if (delay > 0)
+        try
+        {
+            await Parallel.ForEachAsync(refs, parallelOptions, async (productRef, ct) =>
             {
-                await Task.Delay(delay).ConfigureAwait(false);
-            }
+                try
+                {
+                    var product = await GetByProductRefAsync(productRef, ct).ConfigureAwait(false);
+                    if (product is not null)
+                    {
+                        result.Add(product);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ozon] product miss: {productRef}");
+                    }
+
+                    // Пауза только в однопоточном режиме.
+                    if (concurrency == 1)
+                    {
+                        var delay = Math.Max(0, _auth.RequestDelayMs);
+                        if (delay > 0)
+                        {
+                            await Task.Delay(delay, ct).ConfigureAwait(false);
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    // отмена из-за session fail / внешнего ct
+                }
+                catch (Exception ex) when (IsFatalBrowserFailure(ex))
+                {
+                    if (Interlocked.Exchange(ref sessionFailed, 1) == 0)
+                    {
+                        linkedCts.Cancel();
+                        if (result.IsEmpty)
+                        {
+                            throw;
+                        }
+                    }
+                }
+                catch
+                {
+                    Console.WriteLine($"[ozon] product miss: {productRef}");
+                }
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (sessionFailed == 1 && !result.IsEmpty)
+        {
+            // частичный успех при падении сессии
         }
 
-        return result;
+        if (sessionFailed == 1 && result.IsEmpty)
+        {
+            throw new HttpRequestException(
+                "Ozon session failed while loading product batch (antibot / dead session).");
+        }
+
+        return result.ToList();
+    }
+
+    private static bool IsFatalBrowserFailure(Exception ex)
+    {
+        var msg = ex.Message;
+        return msg.Contains("session is dead", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("session marked dead", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("мёртв", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("Target closed", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("has been closed", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("Browser context is not ready", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc />
@@ -104,9 +224,17 @@ public sealed class OzonService : IOzonService
                     continue;
                 }
 
-                existing.Rating = scraped.Rating;
-                existing.ReviewRating = scraped.ReviewRating;
-                existing.FeedBacksCount = scraped.FeedBacksCount;
+                if (scraped.Rating > 0)
+                {
+                    existing.Rating = scraped.Rating;
+                    existing.ReviewRating = scraped.ReviewRating;
+                }
+
+                if (scraped.FeedBacksCount > 0)
+                {
+                    existing.FeedBacksCount = scraped.FeedBacksCount;
+                }
+
                 existing.IsAdult = scraped.IsAdult;
                 existing.MarketType = MarketType.Ozon;
                 refreshed.Add(existing);
@@ -218,16 +346,29 @@ public sealed class OzonService : IOzonService
             throw new ArgumentOutOfRangeException(nameof(sku));
         }
 
-        var page = await _client.FetchPageAsync($"/product/{sku}/", ct).ConfigureAwait(false);
-        var product = OzonProductMapper.FromProductPage(page);
+        return await GetByProductRefAsync(
+                sku.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ct)
+            .ConfigureAwait(false);
+    }
 
-        if (product.IdInMarket <= 0 ||
-            (product.PriceFromInit?.Price <= 0 && string.IsNullOrWhiteSpace(product.ImageUrl)))
+    /// <summary>
+    /// Карточка по SKU или URL товара (в т.ч. короткие https://ozon.ru/t/…).
+    /// Тот же алгоритм, что и обновление цен: навигация на страницу + разбор HTML/сети.
+    /// </summary>
+    public async Task<WbProduct?> GetByProductRefAsync(string productRef, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(productRef))
         {
-            return product.IdInMarket > 0 ? product : null;
+            throw new ArgumentException("productRef is required", nameof(productRef));
         }
 
-        return product;
+        var page = long.TryParse(productRef.Trim(), out var sku)
+            ? await _client.FetchProductPageAsync(sku, ct).ConfigureAwait(false)
+            : await _client.FetchProductByUrlAsync(productRef.Trim(), ct).ConfigureAwait(false);
+
+        var product = OzonProductMapper.FromProductPage(page);
+        return product.IdInMarket > 0 ? product : null;
     }
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();

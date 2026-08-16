@@ -3,26 +3,33 @@ using Prism.Commands;
 using Prism.Mvvm;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Domain.Enums;
-using WildBerriesAnalyzer.Domain.Helpers;
 using WildBerriesAnalyzer.Mobile.Helpers;
 using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
+using WildBerriesAnalyzer.Modules.AddProducts.Models;
 using WildBerriesAnalyzer.Modules.Products.Models;
 
 namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 {
     public class AddProductsPageViewModel : BindableBase
     {
+        private const int PageSize = 15;
+
         private readonly IProductsService _productsService;
         private readonly IProductImageCache _productImageCache;
         private readonly IAdultContentPreferenceService _adultContentPreference;
 
+        private readonly List<ProductListItem> _pipelineProducts = [];
+
         private bool _isArticlesTab = true;
         private bool _isBusy;
+        private bool _isLoadingMore;
+        private bool _hasMoreItems;
         private string _articlesText = string.Empty;
         private string _productNameText = string.Empty;
         private bool _searchWildberries = true;
         private bool _searchOzon = true;
+        private ArticleMarketOption? _selectedArticleMarket;
         private string _errorMessage = string.Empty;
         private string _statusMessage = string.Empty;
         private string _snackbarMessage = string.Empty;
@@ -41,6 +48,13 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             _adultContentPreference = adultContentPreference;
             _adultContentPreference.Changed += (_, _) => ApplyAdultContentPreferenceToAll();
 
+            ArticleMarketOptions =
+            [
+                new ArticleMarketOption(MarketType.Wildberries, "Wildberries"),
+                new ArticleMarketOption(MarketType.Ozon, "Ozon")
+            ];
+            _selectedArticleMarket = ArticleMarketOptions[0];
+
             ShowArticlesTabCommand = new DelegateCommand(() => SelectTab(articles: true), () => !IsBusy)
                 .ObservesProperty(() => IsBusy);
 
@@ -56,10 +70,13 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             AddByNameCommand = new DelegateCommand(async () => await AddByNameAsync(), () => !IsBusy)
                 .ObservesProperty(() => IsBusy);
 
+            LoadMoreCommand = new DelegateCommand(async () => await LoadMoreAsync(), CanLoadMore)
+                .ObservesProperty(() => IsBusy)
+                .ObservesProperty(() => IsLoadingMore)
+                .ObservesProperty(() => HasMoreItems);
+
             OpenLinkCommand = new DelegateCommand<ProductListItem>(async item => await OpenLinkAsync(item));
             DismissSnackbarCommand = new DelegateCommand(DismissSnackbar);
-            CopyBasketBookmarkletCommand = new DelegateCommand(async () => await CopyBasketBookmarkletAsync());
-
 
             Results.CollectionChanged += (_, _) =>
             {
@@ -78,6 +95,8 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
         public ObservableCollection<ProductListItem> Results { get; } = [];
 
+        public IReadOnlyList<ArticleMarketOption> ArticleMarketOptions { get; }
+
         public DelegateCommand ShowArticlesTabCommand { get; }
 
         public DelegateCommand ShowNameTabCommand { get; }
@@ -88,14 +107,11 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
         public DelegateCommand AddByNameCommand { get; }
 
+        public DelegateCommand LoadMoreCommand { get; }
+
         public DelegateCommand DismissSnackbarCommand { get; }
 
-        public DelegateCommand CopyBasketBookmarkletCommand { get; }
-
         public DelegateCommand<ProductListItem> OpenLinkCommand { get; }
-
-        public string BasketImportGuide =>
-            "На компьютере: скопируйте закладку → создайте закладку в браузере (вставьте текст в адрес) → откройте корзину WB, прокрутите вниз → нажмите закладку → вставьте артикулы сюда.";
 
         public bool IsArticlesTab
         {
@@ -143,6 +159,18 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             }
         }
 
+        public bool IsLoadingMore
+        {
+            get => _isLoadingMore;
+            private set => SetProperty(ref _isLoadingMore, value);
+        }
+
+        public bool HasMoreItems
+        {
+            get => _hasMoreItems;
+            private set => SetProperty(ref _hasMoreItems, value);
+        }
+
         public bool IsInitialLoading => IsBusy && Results.Count == 0;
 
         public string ArticlesText
@@ -168,6 +196,31 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             get => _searchOzon;
             set => SetProperty(ref _searchOzon, value);
         }
+
+        public ArticleMarketOption? SelectedArticleMarket
+        {
+            get => _selectedArticleMarket;
+            set
+            {
+                if (!SetProperty(ref _selectedArticleMarket, value))
+                {
+                    return;
+                }
+
+                RaisePropertyChanged(nameof(ArticlesHintText));
+                RaisePropertyChanged(nameof(ArticlesPlaceholder));
+            }
+        }
+
+        public string ArticlesHintText =>
+            SelectedArticlesMarketType == MarketType.Ozon
+                ? "Через пробел, запятую или с новой строки. Можно вставлять ссылки Ozon."
+                : "Через пробел, запятую или с новой строки. Можно вставлять ссылки WB.";
+
+        public string ArticlesPlaceholder =>
+            SelectedArticlesMarketType == MarketType.Ozon
+                ? "Например: 1678901234\nhttps://www.ozon.ru/product/naushniki-1678901234/\nhttps://ozon.ru/t/RhWvoBC"
+                : "Например: 993972254\nhttps://www.wildberries.ru/catalog/993972254/detail.aspx";
 
         public string ErrorMessage
         {
@@ -236,7 +289,17 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         public string CountText =>
             Results.Count == 0
                 ? string.Empty
-                : $"Показано: {Results.Count}";
+                : _pipelineProducts.Count > Results.Count
+                    ? $"Показано: {Results.Count} из {_pipelineProducts.Count}"
+                    : $"Показано: {Results.Count}";
+
+        private MarketType SelectedArticlesMarketType =>
+            SelectedArticleMarket?.MarketType ?? MarketType.Wildberries;
+
+        private string SelectedArticlesMarketLabel =>
+            SelectedArticlesMarketType == MarketType.Ozon ? "Ozon" : "WB";
+
+        private bool CanLoadMore() => !IsBusy && !IsLoadingMore && HasMoreItems && IsNameTab;
 
         private void SelectTab(bool articles)
         {
@@ -250,7 +313,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             _statusMessage = string.Empty;
             RaisePropertyChanged(nameof(ErrorMessage));
             RaisePropertyChanged(nameof(StatusMessage));
-            Results.Clear();
+            ClearResults();
             RaisePropertyChanged(nameof(ShowEmptyMessage));
         }
 
@@ -263,8 +326,8 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 _statusMessage = string.Empty;
                 RaisePropertyChanged(nameof(ErrorMessage));
                 RaisePropertyChanged(nameof(StatusMessage));
-                Results.Clear();
-                AppLog.Action("AddProducts", "AddByArticles");
+                ClearResults();
+                AppLog.Action("AddProducts", "AddByArticles", SelectedArticlesMarketLabel);
 
                 var rawIds = ArticlesText.Split([' ', '\n', '\t', ',', ';'], StringSplitOptions.RemoveEmptyEntries);
                 if (rawIds.Length == 0)
@@ -273,14 +336,15 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     return;
                 }
 
-                var result = await _productsService.AddByArticlesAsync(rawIds);
-                ReplaceResults(result.AddedProducts.Select(ProductListItem.FromProduct));
+                var marketType = SelectedArticlesMarketType;
+                var result = await _productsService.AddByArticlesAsync(rawIds, marketType);
+                ReplaceResults(result.AddedProducts.Select(ProductListItem.FromProduct), paginate: false);
 
                 ArticlesText = string.Empty;
 
                 var status = result.AddedProducts.Count > 0
                     ? $"Добавлено в каталог: {result.AddedProducts.Count} из {result.FoundCount}."
-                    : $"Найдено на WB: {result.FoundCount}. Новых нет — уже в каталоге.";
+                    : $"Найдено на {SelectedArticlesMarketLabel}: {result.FoundCount}. Новых нет — уже в каталоге.";
 
                 if (!string.IsNullOrWhiteSpace(result.ValidationErrors))
                 {
@@ -312,7 +376,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 _statusMessage = string.Empty;
                 RaisePropertyChanged(nameof(ErrorMessage));
                 RaisePropertyChanged(nameof(StatusMessage));
-                Results.Clear();
+                ClearResults();
                 AppLog.Action("AddProducts", "SearchByName");
 
                 if (string.IsNullOrWhiteSpace(ProductNameText))
@@ -329,7 +393,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 }
 
                 var products = await _productsService.SearchOnWildBerriesAsync(ProductNameText.Trim(), markets);
-                ReplaceResults(products.Select(ProductListItem.FromProduct));
+                ReplaceResults(products.Select(ProductListItem.FromProduct), paginate: true);
 
                 StatusMessage = products.Count > 0
                     ? $"Найдено: {products.Count}. Нажмите «Добавить в каталог», чтобы сохранить новые."
@@ -356,7 +420,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 _statusMessage = string.Empty;
                 RaisePropertyChanged(nameof(ErrorMessage));
                 RaisePropertyChanged(nameof(StatusMessage));
-                Results.Clear();
+                ClearResults();
                 AppLog.Action("AddProducts", "AddByName");
 
                 if (string.IsNullOrWhiteSpace(ProductNameText))
@@ -373,7 +437,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 }
 
                 var result = await _productsService.AddByNameAsync(ProductNameText.Trim(), markets);
-                ReplaceResults(result.AddedProducts.Select(ProductListItem.FromProduct));
+                ReplaceResults(result.AddedProducts.Select(ProductListItem.FromProduct), paginate: true);
 
                 StatusMessage = result.AddedProducts.Count > 0
                     ? $"Добавлено в каталог: {result.AddedProducts.Count} из {result.FoundCount}."
@@ -388,6 +452,27 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             {
                 IsBusy = false;
                 RaisePropertyChanged(nameof(ShowEmptyMessage));
+            }
+        }
+
+        private async Task LoadMoreAsync()
+        {
+            if (!CanLoadMore())
+            {
+                return;
+            }
+
+            try
+            {
+                IsLoadingMore = true;
+                AppLog.Action("AddProducts", "LoadMore");
+                await Task.Yield();
+                AppendNextPage();
+            }
+            finally
+            {
+                IsLoadingMore = false;
+                RaisePropertyChanged(nameof(CountText));
             }
         }
 
@@ -407,18 +492,70 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             return markets;
         }
 
-        private void ReplaceResults(IEnumerable<ProductListItem> items)
+        private void ClearResults()
         {
+            _pipelineProducts.Clear();
             Results.Clear();
+            HasMoreItems = false;
+            RaisePropertyChanged(nameof(CountText));
+        }
+
+        private void ReplaceResults(IEnumerable<ProductListItem> items, bool paginate)
+        {
             var list = items.ToList();
             var showAdult = _adultContentPreference.ShowAdultContent;
             foreach (var item in list)
             {
                 item.ApplyShowAdultContent(showAdult);
+            }
+
+            _pipelineProducts.Clear();
+            _pipelineProducts.AddRange(list);
+            Results.Clear();
+
+            if (!paginate || list.Count <= PageSize)
+            {
+                foreach (var item in list)
+                {
+                    Results.Add(item);
+                }
+
+                HasMoreItems = false;
+                PrefetchProductImages(list);
+                RaisePropertyChanged(nameof(CountText));
+                return;
+            }
+
+            AppendNextPage();
+            RaisePropertyChanged(nameof(CountText));
+        }
+
+        private void AppendNextPage()
+        {
+            if (_pipelineProducts.Count == 0)
+            {
+                HasMoreItems = false;
+                return;
+            }
+
+            var next = _pipelineProducts
+                .Skip(Results.Count)
+                .Take(PageSize)
+                .ToList();
+
+            if (next.Count == 0)
+            {
+                HasMoreItems = false;
+                return;
+            }
+
+            foreach (var item in next)
+            {
                 Results.Add(item);
             }
 
-            PrefetchProductImages(list);
+            HasMoreItems = Results.Count < _pipelineProducts.Count;
+            PrefetchProductImages(next);
         }
 
         private void ApplyAdultContentPreferenceToAll()
@@ -517,21 +654,6 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         private void DismissSnackbar()
         {
             IsSnackbarVisible = false;
-        }
-
-        private async Task CopyBasketBookmarkletAsync()
-        {
-            try
-            {
-                AppLog.Action("AddProducts", "CopyBookmarklet");
-                await Clipboard.Default.SetTextAsync(WbBasketBookmarklet.BookmarkletUri);
-                StatusMessage = "Закладка скопирована. Вставьте её в адрес новой закладки браузера на компьютере.";
-            }
-            catch (Exception ex)
-            {
-                AppLog.Error(ex, "AddProducts", "CopyBookmarklet");
-                ErrorMessage = $"Не удалось скопировать закладку: {ex.Message}";
-            }
         }
 
         private async Task OpenLinkAsync(ProductListItem? item)

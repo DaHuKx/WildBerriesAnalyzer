@@ -1,6 +1,7 @@
-﻿using System.Net;
+using System.Net;
 using WildBerriesAnalyzer.Business.Services.OzonScraping.Auth;
 using WildBerriesAnalyzer.Business.Services.OzonScraping.Models.Composer;
+using WildBerriesAnalyzer.Business.Services.OzonScraping.Parsing;
 using WildBerriesAnalyzer.Business.Services.OzonScraping.Serialization;
 
 namespace WildBerriesAnalyzer.Business.Services.OzonScraping;
@@ -43,6 +44,47 @@ public sealed class OzonComposerClient : IOzonComposerClient
         }
 
         return handler;
+    }
+
+    public Task WarmUpAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<OzonComposerPage> FetchProductPageAsync(long sku, CancellationToken ct = default)
+    {
+        if (sku <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sku));
+        }
+
+        return FetchPageAsync($"/product/{sku}/", ct);
+    }
+
+    public async Task<OzonComposerPage> FetchProductByUrlAsync(string productUrl, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(productUrl))
+        {
+            throw new ArgumentException("productUrl is required", nameof(productUrl));
+        }
+
+        // HttpClient-режим: пытаемся вытащить SKU из URL; короткие /t/ без редиректа не резолвятся.
+        var sku = OzonWidgetParser.SkuFromUrl(productUrl);
+        if (sku is > 0)
+        {
+            return await FetchProductPageAsync(sku.Value, ct).ConfigureAwait(false);
+        }
+
+        throw new NotSupportedException(
+            "Короткие ссылки Ozon (/t/…) в HttpClient-режиме не поддерживаются. Включите useBrowser=true.");
+    }
+
+    public Task<OzonComposerPage> FetchCartSharePageAsync(string shareToken, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(shareToken))
+        {
+            throw new ArgumentException("shareToken is required", nameof(shareToken));
+        }
+
+        var path = $"/cart?share={Uri.EscapeDataString(shareToken.Trim())}";
+        return FetchPageAsync(path, ct);
     }
 
     public async Task<OzonComposerPage> FetchPageAsync(string sitePath, CancellationToken ct = default)

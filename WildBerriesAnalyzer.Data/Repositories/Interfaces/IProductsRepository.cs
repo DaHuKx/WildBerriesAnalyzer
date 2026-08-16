@@ -12,7 +12,12 @@ namespace WildBerriesAnalyzer.Data.Repositories.Interfaces
         Task<IEnumerable<WbProduct>> GetProductsWithPricesAsync();
         Task<IEnumerable<WbProduct>> GetRandomProductsAsync(int count);
         Task<List<WbProduct>> GetUserBagProductsAsync(int userId);
-        Task<List<WbProduct>> GetByMarketIdsAsync(IEnumerable<long> marketIds);
+        Task<List<WbProduct>> GetByMarketIdsAsync(IEnumerable<long> marketIds, Domain.Enums.MarketType marketType);
         Task<List<WbProduct>> GetOrAddProducts(List<WbProduct> products);
+
+        /// <summary>
+        /// Схлопнуть дубликаты Categories с одинаковым именем.
+        /// </summary>
+        Task DeduplicateCategoriesByNameAsync();
     }
 }

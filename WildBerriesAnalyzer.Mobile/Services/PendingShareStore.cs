@@ -37,7 +37,8 @@ namespace WildBerriesAnalyzer.Mobile.Services
 
             lock (_gate)
             {
-                if (ProductHelper.TryExtractBasketShareId(sharedText, out _))
+                if (ProductHelper.TryExtractBasketShareId(sharedText, out _) ||
+                    ProductHelper.TryExtractOzonCartShareId(sharedText, out _))
                 {
                     _articleOrUrl = sharedText.Trim();
                     _isBasketShare = true;
@@ -56,7 +57,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
                     _articleOrUrl = null;
                     _isBasketShare = false;
                     _errorMessage =
-                        "Не удалось распознать товар или корзину Wildberries. Поделитесь ссылкой на карточку или basket?shareId=…";
+                        "Не удалось распознать товар или корзину. Поделитесь ссылкой на карточку WB/Ozon или общую корзину (basket?shareId=… / cart?share=…).";
                     AppLog.Warning("Service", "EnqueueShare", "unrecognized");
                 }
             }

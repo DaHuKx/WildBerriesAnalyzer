@@ -35,5 +35,11 @@ namespace WildBerriesAnalyzer.Business.Models
         /// Тот же redirect_uri, что в authorize.
         /// </summary>
         public string RedirectUri { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Клиент приложения: null/пусто = Mobile (создание аккаунта разрешено);
+        /// "moder" = ModerMobile (нужна запись в Moders, иначе 401).
+        /// </summary>
+        public string? Client { get; set; }
     }
 }

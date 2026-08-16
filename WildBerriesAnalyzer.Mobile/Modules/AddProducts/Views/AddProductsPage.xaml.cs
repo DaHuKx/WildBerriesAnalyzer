@@ -1,9 +1,12 @@
 using WildBerriesAnalyzer.Mobile.Helpers;
+using WildBerriesAnalyzer.Modules.AddProducts.ViewModels;
 
 namespace WildBerriesAnalyzer.Modules.AddProducts.Views
 {
     public partial class AddProductsPage : ContentView
     {
+        private const double LoadMoreThresholdPx = 240;
+
         public static readonly BindableProperty TileWidthProperty =
             BindableProperty.Create(nameof(TileWidth), typeof(double), typeof(AddProductsPage), 168d);
 
@@ -35,6 +38,37 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.Views
             {
                 TileWidth = tileWidth;
                 TileImageHeight = imageHeight;
+            }
+        }
+
+        private void OnResultsScroll(object? sender, ScrolledEventArgs e)
+        {
+            if (BindingContext is not AddProductsPageViewModel viewModel)
+            {
+                return;
+            }
+
+            if (sender is not ScrollView scrollView)
+            {
+                return;
+            }
+
+            var contentHeight = scrollView.ContentSize.Height;
+            var viewportHeight = scrollView.Height;
+            if (contentHeight <= viewportHeight)
+            {
+                return;
+            }
+
+            var distanceToBottom = contentHeight - (e.ScrollY + viewportHeight);
+            if (distanceToBottom > LoadMoreThresholdPx)
+            {
+                return;
+            }
+
+            if (viewModel.LoadMoreCommand.CanExecute())
+            {
+                viewModel.LoadMoreCommand.Execute();
             }
         }
     }

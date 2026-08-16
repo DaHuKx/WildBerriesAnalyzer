@@ -247,6 +247,7 @@
                                             <Image Source="{Binding DisplayImage}"
                                                    IsVisible="{Binding HasDisplayImage}"
                                                    Opacity="{Binding AdultImageOpacity}"
+                                                   
                                                    Aspect="AspectFill"
                                                    HorizontalOptions="Fill"
                                                    VerticalOptions="Fill" />

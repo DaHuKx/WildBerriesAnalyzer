@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 using WildBerriesAnalyzer.Business.Helpers;
 using WildBerriesAnalyzer.Business.Models;
@@ -16,6 +17,7 @@ namespace WildBerriesAnalyzer.Business.Services
         private readonly IFiltersRepository _filtersRepository;
         private readonly IProductsRepository _productsRepository;
         private readonly IWildBerriesService _wildBerriesService;
+        private readonly IOzonService _ozonService;
         private readonly ProductIdValidator _productIdValidator;
         private readonly BasketShareUrlValidator _basketShareUrlValidator;
         private readonly WbFilterValidator _filterValidator;
@@ -24,6 +26,7 @@ namespace WildBerriesAnalyzer.Business.Services
             IFiltersRepository filtersRepository,
             IProductsRepository productsRepository,
             IWildBerriesService wildBerriesService,
+            IOzonService ozonService,
             ProductIdValidator productIdValidator,
             BasketShareUrlValidator basketShareUrlValidator,
             WbFilterValidator filterValidator)
@@ -31,6 +34,7 @@ namespace WildBerriesAnalyzer.Business.Services
             _filtersRepository = filtersRepository;
             _productsRepository = productsRepository;
             _wildBerriesService = wildBerriesService;
+            _ozonService = ozonService;
             _productIdValidator = productIdValidator;
             _basketShareUrlValidator = basketShareUrlValidator;
             _filterValidator = filterValidator;
@@ -86,7 +90,48 @@ namespace WildBerriesAnalyzer.Business.Services
 
         public async Task<AddBagProductsResult> AddProductsToBagAsync(int userId, IEnumerable<string> articleInputs)
         {
-            ArgumentNullException.ThrowIfNull(articleInputs);
+            var items = (articleInputs ?? [])
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .ToList();
+
+            if (items.Count == 0)
+            {
+                throw new ArgumentException("Укажите корректные артикулы товаров.");
+            }
+
+            var ozon = items.Where(ProductHelper.LooksLikeOzonProductInput).ToList();
+            var wb = items.Where(x => !ProductHelper.LooksLikeOzonProductInput(x)).ToList();
+
+            if (ozon.Count > 0 && wb.Count == 0)
+            {
+                return await AddProductsToBagAsync(userId, ozon, MarketType.Ozon);
+            }
+
+            if (wb.Count > 0 && ozon.Count == 0)
+            {
+                return await AddProductsToBagAsync(userId, wb, MarketType.Wildberries);
+            }
+
+            var ozonResult = await AddProductsToBagAsync(userId, ozon, MarketType.Ozon);
+            var wbResult = await AddProductsToBagAsync(userId, wb, MarketType.Wildberries);
+
+            return new AddBagProductsResult
+            {
+                AddedProducts = ozonResult.AddedProducts.Concat(wbResult.AddedProducts).ToList(),
+                BagProducts = wbResult.BagProducts
+            };
+        }
+
+        public async Task<AddBagProductsResult> AddProductsToBagAsync(
+            int userId,
+            IEnumerable<string> articleInputs,
+            MarketType marketType)
+        {
+            if (marketType is not MarketType.Wildberries and not MarketType.Ozon)
+            {
+                throw new ArgumentException("Неизвестный маркетплейс.", nameof(marketType));
+            }
 
             var validIds = new List<string>();
             var errors = new StringBuilder();
@@ -94,7 +139,7 @@ namespace WildBerriesAnalyzer.Business.Services
             foreach (var raw in articleInputs)
             {
                 var trimmed = raw?.Trim() ?? string.Empty;
-                var validationResult = _productIdValidator.Validate(trimmed);
+                var validationResult = _productIdValidator.Validate(trimmed, marketType);
 
                 if (!validationResult.IsValid)
                 {
@@ -103,8 +148,8 @@ namespace WildBerriesAnalyzer.Business.Services
                     continue;
                 }
 
-                var clean = ProductHelper.ExtractCleanArticle(trimmed);
-                if (!validIds.Contains(clean))
+                var clean = ProductHelper.ExtractCleanArticle(trimmed, marketType);
+                if (!validIds.Contains(clean, StringComparer.OrdinalIgnoreCase))
                 {
                     validIds.Add(clean);
                 }
@@ -118,26 +163,32 @@ namespace WildBerriesAnalyzer.Business.Services
                 throw new ArgumentException(details);
             }
 
-            var marketIds = validIds
+            var numericIds = validIds
+                .Where(id => long.TryParse(id, out _))
                 .Select(id => long.Parse(id, System.Globalization.CultureInfo.InvariantCulture))
                 .ToList();
 
-            // Сначала БД — share уже известных товаров не зависит от доступности WB.
-            var dbProducts = await _productsRepository.GetByMarketIdsAsync(marketIds);
+            var dbProducts = numericIds.Count > 0
+                ? await _productsRepository.GetByMarketIdsAsync(numericIds, marketType)
+                : [];
             var knownIds = dbProducts.Select(p => p.IdInMarket).ToHashSet();
             var missingIds = validIds
-                .Where(id => !knownIds.Contains(long.Parse(id, System.Globalization.CultureInfo.InvariantCulture)))
+                .Where(id =>
+                    !long.TryParse(id, out var marketId) ||
+                    !knownIds.Contains(marketId))
                 .ToList();
 
             if (missingIds.Count > 0)
             {
                 try
                 {
-                    // GetProductsForIdsAsync сам режет на батчи — иначе WB отдаёт только часть.
-                    var fromWb = await _wildBerriesService.GetProductsForIdsAsync(missingIds);
-                    if (fromWb.Count > 0)
+                    var fromMarket = marketType == MarketType.Ozon
+                        ? await FetchOzonProductsAsync(missingIds)
+                        : await _wildBerriesService.GetProductsForIdsAsync(missingIds);
+
+                    if (fromMarket.Count > 0)
                     {
-                        var saved = await _productsRepository.GetOrAddProducts(fromWb);
+                        var saved = await _productsRepository.GetOrAddProducts(fromMarket);
                         dbProducts.AddRange(saved.Where(p => dbProducts.All(x => x.Id != p.Id)));
                     }
                 }
@@ -153,7 +204,10 @@ namespace WildBerriesAnalyzer.Business.Services
 
             if (dbProducts.Count == 0)
             {
-                throw new InvalidOperationException(UserFacingProblem);
+                throw new InvalidOperationException(
+                    marketType == MarketType.Ozon
+                        ? "Не удалось загрузить карточки товаров Ozon. Проверьте артикулы или сессию ozon-scraping-auth.json."
+                        : UserFacingProblem);
             }
 
             var addedProducts = await _filtersRepository.AddProductsToUserBag(userId, dbProducts);
@@ -166,10 +220,31 @@ namespace WildBerriesAnalyzer.Business.Services
             };
         }
 
+        private async Task<List<WbProduct>> FetchOzonProductsAsync(IReadOnlyList<string> missingIds)
+        {
+            try
+            {
+                await _ozonService.WarmUpAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "Не удалось подготовить браузер Ozon (антибот).",
+                    ex);
+            }
+
+            return await _ozonService.GetProductsForIdsAsync(missingIds).ConfigureAwait(false);
+        }
+
         public async Task<AddBagProductsResult> AddProductsToBagFromBasketShareAsync(
             int userId,
             string shareUrlOrId)
         {
+            if (ProductHelper.TryExtractOzonCartShareId(shareUrlOrId, out var ozonShareToken))
+            {
+                return await AddProductsToBagFromOzonCartShareCoreAsync(userId, ozonShareToken);
+            }
+
             var validation = _basketShareUrlValidator.Validate(shareUrlOrId ?? string.Empty);
             if (!validation.IsValid)
             {
@@ -197,7 +272,6 @@ namespace WildBerriesAnalyzer.Business.Services
             }
             catch (InvalidOperationException ex)
             {
-                // Бизнес-кейсы (пуста / не найдена) — оставляем; технические share-basket/HTTP — прячем.
                 if (IsTechnicalFailureMessage(ex.Message))
                 {
                     throw new InvalidOperationException(UserFacingProblem, ex);
@@ -211,7 +285,42 @@ namespace WildBerriesAnalyzer.Business.Services
                 throw new InvalidOperationException("В общей корзине нет товаров.");
             }
 
-            return await AddProductsToBagAsync(userId, articles);
+            return await AddProductsToBagAsync(userId, articles, MarketType.Wildberries);
+        }
+
+        private async Task<AddBagProductsResult> AddProductsToBagFromOzonCartShareCoreAsync(
+            int userId,
+            string shareToken)
+        {
+            List<string> articles;
+            try
+            {
+                articles = await _ozonService.GetArticlesFromCartShareAsync(shareToken);
+            }
+            catch (ArgumentException)
+            {
+                throw;
+            }
+            catch (InvalidOperationException ex)
+            {
+                if (IsTechnicalFailureMessage(ex.Message))
+                {
+                    throw new InvalidOperationException(UserFacingProblem, ex);
+                }
+
+                throw;
+            }
+            catch (Exception ex) when (ex is HttpRequestException)
+            {
+                throw new InvalidOperationException(UserFacingProblem, ex);
+            }
+
+            if (articles.Count == 0)
+            {
+                throw new InvalidOperationException("В общей корзине Ozon нет товаров.");
+            }
+
+            return await AddProductsToBagAsync(userId, articles, MarketType.Ozon);
         }
 
         private static bool IsTechnicalFailureMessage(string? message)
@@ -239,6 +348,17 @@ namespace WildBerriesAnalyzer.Business.Services
             return await _filtersRepository.GetFilterCategoriesAsync(userId);
         }
 
+        public async Task<List<WbCategory>> GetKnownCategoriesAsync()
+        {
+            await _productsRepository.DeduplicateCategoriesByNameAsync();
+
+            var categories = await _filtersRepository.GetAllCategoriesAsync() ?? [];
+            return categories
+                .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         public async Task AddFilterCategoryAsync(int userId, int categoryId, CategoryFilterType type)
         {
             if (categoryId <= 0)
@@ -249,6 +369,14 @@ namespace WildBerriesAnalyzer.Business.Services
             if (!Enum.IsDefined(typeof(CategoryFilterType), type))
             {
                 throw new ArgumentException("Указан некорректный тип списка категорий.", nameof(type));
+            }
+
+            var known = await _filtersRepository.GetAllCategoriesAsync() ?? [];
+            if (known.All(c => c.Id != categoryId))
+            {
+                throw new ArgumentException(
+                    "Категория не найдена. Выберите категорию из списка известных.",
+                    nameof(categoryId));
             }
 
             await _filtersRepository.AddFilterCategoryAsync(userId, categoryId, type);

@@ -28,6 +28,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
         private string _currentSectionTitle = "Главное меню";
         private View? _currentContent;
         private int _shareProcessing;
+        private bool _isShareProcessing;
         private bool _isActive;
 
         public MainWindowPageViewModel(
@@ -68,6 +69,12 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
         public DelegateCommand<string> NavigateCommand { get; }
 
         public DelegateCommand GoHomeCommand { get; }
+
+        public bool IsShareProcessing
+        {
+            get => _isShareProcessing;
+            private set => SetProperty(ref _isShareProcessing, value);
+        }
 
         public void OnNavigatedTo(INavigationParameters parameters)
         {
@@ -139,6 +146,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
                     return;
                 }
 
+                IsShareProcessing = true;
                 AppLog.Action("MainWindow", "ProcessShare");
                 var result = await _shareToBagService.TryProcessPendingAsync();
                 if (!_isActive)
@@ -195,6 +203,7 @@ namespace WildBerriesAnalyzer.Modules.MainWindow.ViewModels
             }
             finally
             {
+                IsShareProcessing = false;
                 Interlocked.Exchange(ref _shareProcessing, 0);
                 if (_isActive && _shareToBagService.HasPending)
                 {

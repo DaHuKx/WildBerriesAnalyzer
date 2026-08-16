@@ -10,7 +10,8 @@
 
     <Grid Padding="12">
         <ScrollView HorizontalScrollBarVisibility="Never"
-                    VerticalScrollBarVisibility="Default">
+                    VerticalScrollBarVisibility="Default"
+                    Scrolled="OnResultsScroll">
             <VerticalStackLayout Spacing="12"
                                  Padding="0,0,0,72"
                                  HorizontalOptions="Fill">
@@ -93,7 +94,30 @@
                                FontAttributes="Bold"
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
-                        <Label Text="Через пробел, запятую или с новой строки"
+
+                        <VerticalStackLayout Spacing="4"
+                                             HorizontalOptions="Fill">
+                            <Label Text="Магазин"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   FontSize="13" />
+                            <Border Stroke="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
+                                    StrokeThickness="1"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                    Padding="8,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Picker Title="Выберите магазин"
+                                        ItemsSource="{Binding ArticleMarketOptions}"
+                                        SelectedItem="{Binding SelectedArticleMarket}"
+                                        ItemDisplayBinding="{Binding Title}"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                        TitleColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                                        BackgroundColor="Transparent" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Label Text="{Binding ArticlesHintText}"
                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                FontSize="13" />
 
@@ -109,7 +133,7 @@
                                     MinimumHeightRequest="96"
                                     BackgroundColor="Transparent"
                                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
-                                    Placeholder="Например: 993972254&#10;https://www.wildberries.ru/catalog/993972254/detail.aspx"
+                                    Placeholder="{Binding ArticlesPlaceholder}"
                                     PlaceholderColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
                         </Border>
 
@@ -117,26 +141,6 @@
                                 Command="{Binding AddByArticlesCommand}"
                                 BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
                                 TextColor="White"
-                                HeightRequest="44"
-                                CornerRadius="10"
-                                FontSize="14" />
-
-                        <BoxView HeightRequest="1"
-                                 Color="{AppThemeBinding Light={StaticResource Outline}, Dark={StaticResource OutlineDark}}"
-                                 Margin="0,4" />
-
-                        <Label Text="Из корзины WB"
-                               FontAttributes="Bold"
-                               FontSize="16"
-                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
-                        <Label Text="{Binding BasketImportGuide}"
-                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
-                               FontSize="13"
-                               LineBreakMode="WordWrap" />
-                        <Button Text="Скопировать закладку"
-                                Command="{Binding CopyBasketBookmarkletCommand}"
-                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
-                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 HeightRequest="44"
                                 CornerRadius="10"
                                 FontSize="14" />
@@ -355,6 +359,19 @@
                                        LineBreakMode="TailTruncation"
                                        MaxLines="2" />
 
+                                <HorizontalStackLayout Spacing="3">
+                                    <Label Text="★"
+                                           TextColor="#F97316"
+                                           FontSize="11" />
+                                    <Label Text="{Binding RatingText}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                           FontSize="11"
+                                           FontAttributes="Bold" />
+                                    <Label Text="{Binding FeedBacksText, StringFormat='  {0} оценок'}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
+                                           FontSize="11" />
+                                </HorizontalStackLayout>
+
                                 <Label Text="{Binding ArticleText, StringFormat='Арт. {0}'}"
                                        TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
                                        FontSize="11"
@@ -363,6 +380,16 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
+
+                <Grid HeightRequest="40"
+                      Padding="0,4"
+                      IsVisible="{Binding IsLoadingMore}">
+                    <ActivityIndicator IsRunning="{Binding IsLoadingMore}"
+                                       IsVisible="{Binding IsLoadingMore}"
+                                       Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                       VerticalOptions="Center"
+                                       HorizontalOptions="Center" />
+                </Grid>
 
             </VerticalStackLayout>
         </ScrollView>

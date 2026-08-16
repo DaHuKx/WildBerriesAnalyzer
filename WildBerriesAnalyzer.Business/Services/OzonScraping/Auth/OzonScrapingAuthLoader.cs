@@ -50,13 +50,44 @@ public static class OzonScrapingAuthLoader
             ComposerPath = FirstNonEmpty(preferred.ComposerPath, fallback.ComposerPath),
             ProxyUrl = string.IsNullOrWhiteSpace(preferred.ProxyUrl) ? fallback.ProxyUrl : preferred.ProxyUrl,
             RequestDelayMs = preferred.RequestDelayMs > 0 ? preferred.RequestDelayMs : fallback.RequestDelayMs,
+            ProductConcurrency = preferred.ProductConcurrency > 0
+                ? preferred.ProductConcurrency
+                : fallback.ProductConcurrency,
             UseBrowser = preferred.UseBrowser,
             Headless = preferred.Headless,
+            ChromeChannel = FirstNonEmptyOrNull(preferred.ChromeChannel, fallback.ChromeChannel),
+            UserDataDir = FirstNonEmptyOrNull(preferred.UserDataDir, fallback.UserDataDir),
             ChallengeWaitMs = preferred.ChallengeWaitMs > 0 ? preferred.ChallengeWaitMs : fallback.ChallengeWaitMs,
-            SearchLimit = preferred.SearchLimit > 0 ? preferred.SearchLimit : fallback.SearchLimit
+            SearchLimit = preferred.SearchLimit > 0 ? preferred.SearchLimit : fallback.SearchLimit,
+            PersistFilePath = FirstNonEmpty(preferred.PersistFilePath, fallback.PersistFilePath)
         };
     }
 
+    /// <summary>
+    /// Разрешает путь к ozon-scraping-auth.json (абсолютный или относительно contentRoot).
+    /// </summary>
+    public static string ResolvePersistPath(string? configuredPath, string? contentRoot = null)
+    {
+        var path = string.IsNullOrWhiteSpace(configuredPath)
+            ? OzonScrapingAuthOptions.DefaultFileName
+            : configuredPath.Trim();
+
+        if (Path.IsPathRooted(path))
+        {
+            return Path.GetFullPath(path);
+        }
+
+        if (!string.IsNullOrWhiteSpace(contentRoot))
+        {
+            return Path.GetFullPath(Path.Combine(contentRoot, path));
+        }
+
+        return Path.GetFullPath(path);
+    }
+
     private static string FirstNonEmpty(string? preferred, string fallback) =>
+        string.IsNullOrWhiteSpace(preferred) ? fallback : preferred;
+
+    private static string? FirstNonEmptyOrNull(string? preferred, string? fallback) =>
         string.IsNullOrWhiteSpace(preferred) ? fallback : preferred;
 }

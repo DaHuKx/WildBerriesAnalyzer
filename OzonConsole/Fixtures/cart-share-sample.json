@@ -1,0 +1,8 @@
+{
+  "widgetStates": {
+    "cartSplit-1-default-1": "{\"items\":[{\"sku\":111111111,\"action\":{\"link\":\"/product/item-a-111111111/\"}},{\"skuId\":222222222,\"link\":\"/product/item-b-222222222/\"}},{\"productId\":333333333},{\"id\":444444444,\"action\":{\"link\":\"/product/item-d-444444444/\"}}]}",
+    "split-2-default-1": "{\"items\":[{\"skuId\":\"777777777\"}]}",
+    "horizontalMenu-7288405-default-1": "{\"items\":[{\"id\":10000001},{\"id\":10000002},{\"id\":10000003},{\"id\":10000004},{\"id\":10000005}]}",
+    "tileGridDesktop-1-default-1": "{\"items\":[{\"sku\":999999991},{\"sku\":999999992},{\"sku\":999999993},{\"sku\":999999994},{\"sku\":999999995},{\"sku\":999999996}]}"
+  }
+}

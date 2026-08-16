@@ -18,6 +18,7 @@ using WildBerriesAnalyzer.Business.Validators;
 using WildBerriesAnalyzer.Data;
 using WildBerriesAnalyzer.Data.Repositories;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
+using WildBerriesAnalyzer.Data.Services;
 using WildBerriesAnalyzer.Domain.Interfaces;
 using WildBerriesAnalyzer.Server.Middleware;
 using WildBerriesAnalyzer.Server.Options;
@@ -130,6 +131,8 @@ try
     builder.Services.AddScoped<WbDataBase>();
 
     builder.Services.AddScoped<IUsersRepository, UsersRepository>();
+    builder.Services.AddScoped<IModersRepository, ModersRepository>();
+    builder.Services.AddScoped<CategoryModerationService>();
     builder.Services.AddScoped<IClientVersionTracker, ClientVersionTracker>();
     builder.Services.AddScoped<IFiltersRepository, FiltersRepository>();
     builder.Services.AddScoped<IProductsRepository, ProductsRepository>();
@@ -164,9 +167,20 @@ try
     builder.Services.AddSingleton<IOzonService>(provider =>
     {
         var configured = provider.GetRequiredService<IOptions<OzonScrapingAuthOptions>>().Value;
-        var fromFile = OzonScrapingAuthLoader.LoadOrDefault(
-            Path.Combine(builder.Environment.ContentRootPath, OzonScrapingAuthOptions.DefaultFileName));
+        var logger = provider.GetRequiredService<ILogger<OzonService>>();
+        var persistPath = OzonScrapingAuthLoader.ResolvePersistPath(
+            configured.PersistFilePath,
+            builder.Environment.ContentRootPath);
+        var fromFile = OzonScrapingAuthLoader.LoadOrDefault(persistPath);
         var options = OzonScrapingAuthLoader.Merge(configured, fromFile);
+
+        logger.LogInformation(
+            "Ozon scraping auth: file={AuthPath}, cookie={HasCookie}, useBrowser={UseBrowser}, concurrency={Concurrency}",
+            persistPath,
+            options.HasCookie ? "yes" : "no",
+            options.UseBrowser,
+            options.ProductConcurrency);
+
         return new OzonService(options);
     });
     builder.Services.AddScoped<IDiscontsService, DiscontsService>();
@@ -189,9 +203,11 @@ try
     builder.Services.AddSingleton<RefreshCredentialsValidator>();
     builder.Services.AddSingleton<ProductIdValidator>();
     builder.Services.AddSingleton<BasketShareUrlValidator>();
+    builder.Services.AddSingleton<OzonCartShareUrlValidator>();
     builder.Services.AddSingleton<ProductNameValidator>();
     builder.Services.AddSingleton<WbFilterValidator>();
 
+    builder.Services.AddHostedService<OzonBrowserWarmUpHostedService>();
     builder.Services.AddHostedService<PriceUpdateBackgroundService>();
 
     var app = builder.Build();

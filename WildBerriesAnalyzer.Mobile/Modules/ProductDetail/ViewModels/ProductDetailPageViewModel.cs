@@ -142,6 +142,7 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
                 {
                     RaisePropertyChanged(nameof(MarketBadgeLabel));
                     RaisePropertyChanged(nameof(MarketBadgeColor));
+                    RaisePropertyChanged(nameof(OpenMarketButtonText));
                 }
             }
         }
@@ -149,6 +150,8 @@ namespace WildBerriesAnalyzer.Modules.ProductDetail.ViewModels
         public string MarketBadgeLabel => MarketBadge.LabelFor(MarketType);
 
         public Color MarketBadgeColor => MarketBadge.ColorFor(MarketType);
+
+        public string OpenMarketButtonText => $"К товару на {MarketBadgeLabel}";
 
         public ImageSource? DisplayImage
         {

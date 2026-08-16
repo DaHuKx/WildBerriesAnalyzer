@@ -13,6 +13,8 @@ namespace WildBerriesAnalyzer.Data
         public DbSet<WbPrice> PricesHistory { get; set; }
         public DbSet<WbUser> Users { get; set; }
         public DbSet<WbCategory> Categories { get; set; }
+        public DbSet<WbProductCategory> ProductCategories { get; set; }
+        public DbSet<WbModer> Moders { get; set; }
         public DbSet<WbFilter> Filters { get; set; }
         public DbSet<WbFilterCategory> CategoryFilters { get; set; }
         public DbSet<WbFilterBag> FilterBags { get; set; }
@@ -26,6 +28,10 @@ namespace WildBerriesAnalyzer.Data
 
         }
 
+        public WbDataBase(DbContextOptions<WbDataBase> options) : base(options)
+        {
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (optionsBuilder.IsConfigured)
@@ -33,7 +39,9 @@ namespace WildBerriesAnalyzer.Data
                 return;
             }
 
-            optionsBuilder.UseNpgsql(ResolveConnectionString());
+
+            optionsBuilder.UseNpgsql("User ID=postgres;Password=w3s4m1p3;Host=localhost;Port=5432;Database=WildBerriesAnalyzerDb;");
+            //optionsBuilder.UseNpgsql(ResolveConnectionString());
         }
 
         /// <summary>
@@ -119,6 +127,33 @@ namespace WildBerriesAnalyzer.Data
                         .HasOne(p => p.Category)
                         .WithMany(c => c.Products)
                         .HasForeignKey(p => p.CategoryId);
+
+            modelBuilder.Entity<WbProductCategory>(entity =>
+            {
+                entity.HasIndex(pc => new { pc.ProductId, pc.CategoryId })
+                      .IsUnique();
+
+                entity.HasOne(pc => pc.Product)
+                      .WithMany(p => p.ProductCategories)
+                      .HasForeignKey(pc => pc.ProductId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(pc => pc.Category)
+                      .WithMany(c => c.ProductCategories)
+                      .HasForeignKey(pc => pc.CategoryId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<WbModer>(entity =>
+            {
+                entity.HasIndex(m => m.UserId)
+                      .IsUnique();
+
+                entity.HasOne(m => m.User)
+                      .WithMany()
+                      .HasForeignKey(m => m.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<WbPrice>()
                         .HasOne(pr => pr.Product)

@@ -1,5 +1,6 @@
 using WildBerriesAnalyzer.Business.Helpers;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
+using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Modules.Auth.Services;
 
@@ -63,7 +64,9 @@ namespace WildBerriesAnalyzer.Mobile.Services
 
             try
             {
-                if (isBasketShare || ProductHelper.TryExtractBasketShareId(articleOrUrl, out _))
+                if (isBasketShare ||
+                    ProductHelper.TryExtractBasketShareId(articleOrUrl, out _) ||
+                    ProductHelper.TryExtractOzonCartShareId(articleOrUrl, out _))
                 {
                     var bagResult = await _filtersService.AddProductsToBagFromBasketShareAsync(
                         user.Id,
@@ -80,7 +83,11 @@ namespace WildBerriesAnalyzer.Mobile.Services
                 }
 
                 var result = await _filtersService.AddProductsToBagAsync(user.Id, [articleOrUrl]);
-                var article = ProductHelper.ExtractCleanArticle(articleOrUrl);
+                var article = ProductHelper.ExtractCleanArticle(
+                    articleOrUrl,
+                    ProductHelper.LooksLikeOzonProductInput(articleOrUrl)
+                        ? MarketType.Ozon
+                        : MarketType.Wildberries);
                 var name = result.AddedProducts.FirstOrDefault()?.Name
                            ?? result.BagProducts.FirstOrDefault(p =>
                                string.Equals(

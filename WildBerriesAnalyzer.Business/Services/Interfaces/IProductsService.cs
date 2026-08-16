@@ -32,9 +32,11 @@ namespace WildBerriesAnalyzer.Business.Services.Interfaces
             IReadOnlyCollection<MarketType>? marketTypes = null);
 
         /// <summary>
-        /// Добавить в каталог по артикулам / ссылкам WB.
+        /// Добавить в каталог по артикулам / ссылкам выбранного маркетплейса.
         /// </summary>
-        Task<AddCatalogProductsResult> AddByArticlesAsync(IEnumerable<string> articleInputs);
+        Task<AddCatalogProductsResult> AddByArticlesAsync(
+            IEnumerable<string> articleInputs,
+            MarketType marketType = MarketType.Wildberries);
 
         /// <summary>
         /// Найти по названию на выбранных маркетплейсах и добавить новые товары в каталог.

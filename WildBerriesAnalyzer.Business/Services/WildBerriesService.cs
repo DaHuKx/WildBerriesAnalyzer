@@ -397,12 +397,6 @@ namespace WildBerriesAnalyzer.Business.Services
                         Rating = product.rating,
                         ReviewRating = product.reviewRating,
                         ImageUrl = WbProductImageUrlBuilder.BuildBigImageUrl(product.id),
-                        Category = string.IsNullOrWhiteSpace(product.entity)
-                            ? null
-                            : new WbCategory
-                            {
-                                Name = product.entity
-                            },
                         PriceFromInit = new WbPrice()
                         {
                             CheckTime = DateTime.UtcNow,

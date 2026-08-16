@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ModerMobile.ViewModels"
+             x:Class="ModerMobile.Pages.LoginPage"
+             x:DataType="vm:LoginPageViewModel"
+             Title="Вход"
+             BackgroundColor="{StaticResource Background}">
+
+    <Grid Padding="24">
+        <VerticalStackLayout VerticalOptions="Center" Spacing="16">
+            <Label Text="Модерация"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   TextColor="{StaticResource TextPrimary}"
+                   HorizontalTextAlignment="Center" />
+            <Label Text="Войдите через VK. Доступ только для аккаунтов из таблицы Moders."
+                   FontSize="14"
+                   TextColor="{StaticResource TextSecondary}"
+                   HorizontalTextAlignment="Center" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   TextColor="#DC2626"
+                   FontSize="13"
+                   IsVisible="{Binding HasError}"
+                   HorizontalTextAlignment="Center"
+                   LineBreakMode="WordWrap" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{StaticResource Primary}"
+                               HeightRequest="36"
+                               HorizontalOptions="Center" />
+
+            <Button Text="Войти через VK"
+                    Command="{Binding LoginCommand}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White"
+                    FontSize="17"
+                    FontAttributes="Bold"
+                    HeightRequest="52"
+                    CornerRadius="12" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

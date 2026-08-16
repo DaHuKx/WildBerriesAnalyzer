@@ -120,6 +120,13 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
             return (await response.Content.ReadFromJsonAsync<List<WbFilterCategory>>(WbServerJson.Options).ConfigureAwait(false)) ?? [];
         }
 
+        public async Task<List<WbCategory>> GetKnownCategoriesAsync()
+        {
+            using var response = await _httpClient.GetAsync("api/filters/categories/known").ConfigureAwait(false);
+            await WbServerJson.EnsureSuccessOrThrowAsync(response).ConfigureAwait(false);
+            return (await response.Content.ReadFromJsonAsync<List<WbCategory>>(WbServerJson.Options).ConfigureAwait(false)) ?? [];
+        }
+
         public async Task AddFilterCategoryAsync(int userId, int categoryId, CategoryFilterType type)
         {
             var request = new AddFilterCategoryRequest

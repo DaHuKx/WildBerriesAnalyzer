@@ -9,7 +9,7 @@ using WildBerriesAnalyzer.Domain.Enums;
 namespace WildBerriesAnalyzer.Bots.Handlers
 {
     /// <summary>
-    /// Добавление товаров в корзину бота по ссылке WB ?shareId=…
+    /// Добавление товаров в корзину бота по ссылке WB ?shareId=… или Ozon /cart?share=…
     /// </summary>
     public class AddProductsShareHandler : IMessageHandler
     {
@@ -17,15 +17,18 @@ namespace WildBerriesAnalyzer.Bots.Handlers
 
         private readonly IFiltersService _filtersService;
         private readonly BasketShareUrlValidator _basketShareUrlValidator;
+        private readonly OzonCartShareUrlValidator _ozonCartShareUrlValidator;
 
         public BotUserPlace HandlePlace => BotUserPlace.Filters_ChangeProducts_OwnBag_AddShare;
 
         public AddProductsShareHandler(
             IFiltersService filtersService,
-            BasketShareUrlValidator basketShareUrlValidator)
+            BasketShareUrlValidator basketShareUrlValidator,
+            OzonCartShareUrlValidator ozonCartShareUrlValidator)
         {
             _filtersService = filtersService;
             _basketShareUrlValidator = basketShareUrlValidator;
+            _ozonCartShareUrlValidator = ozonCartShareUrlValidator;
         }
 
         public async Task<BotMessage> HandleMessage(UserMessage message)
@@ -40,10 +43,13 @@ namespace WildBerriesAnalyzer.Bots.Handlers
             }
 
             var input = message.Text?.Trim() ?? string.Empty;
-            var validation = _basketShareUrlValidator.Validate(input);
-            if (!validation.IsValid)
+            var wbValidation = _basketShareUrlValidator.Validate(input);
+            var ozonValidation = _ozonCartShareUrlValidator.Validate(input);
+            if (!wbValidation.IsValid && !ozonValidation.IsValid)
             {
-                return ErrorMessageHelper.CreateMessage(validation.Errors.First().ErrorMessage);
+                return ErrorMessageHelper.CreateMessage(
+                    wbValidation.Errors.FirstOrDefault()?.ErrorMessage
+                    ?? ozonValidation.Errors.First().ErrorMessage);
             }
 
             if (!message.UserId.HasValue)

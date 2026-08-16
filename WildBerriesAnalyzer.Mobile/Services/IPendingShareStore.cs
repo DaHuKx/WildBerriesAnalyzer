@@ -8,7 +8,7 @@ namespace WildBerriesAnalyzer.Mobile.Services
         bool HasPending { get; }
 
         /// <summary>
-        /// Сырой текст из Intent.ExtraText (ссылка WB, артикул или «название + URL»).
+        /// Сырой текст из Intent.ExtraText (ссылка WB/Ozon, артикул или «название + URL»).
         /// </summary>
         /// <param name="notifyListeners">
         /// false — только сохранить (вызывать из Activity lifecycle до OnResume).

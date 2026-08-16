@@ -19,6 +19,7 @@ namespace WildBerriesAnalyzer.Server.Services
         private const int MaxFailedAttempts = 5;
 
         private readonly IUsersRepository _usersRepository;
+        private readonly IModersRepository _modersRepository;
         private readonly IPasswordHasher _passwordHasher;
         private readonly ITokenIssuer _tokenIssuer;
         private readonly IVkIdOAuthClient _vkIdOAuthClient;
@@ -31,6 +32,7 @@ namespace WildBerriesAnalyzer.Server.Services
 
         public AuthService(
             IUsersRepository usersRepository,
+            IModersRepository modersRepository,
             IPasswordHasher passwordHasher,
             ITokenIssuer tokenIssuer,
             IVkIdOAuthClient vkIdOAuthClient,
@@ -42,6 +44,7 @@ namespace WildBerriesAnalyzer.Server.Services
             RefreshCredentialsValidator refreshValidator)
         {
             _usersRepository = usersRepository;
+            _modersRepository = modersRepository;
             _passwordHasher = passwordHasher;
             _tokenIssuer = tokenIssuer;
             _vkIdOAuthClient = vkIdOAuthClient;
@@ -346,6 +349,32 @@ namespace WildBerriesAnalyzer.Server.Services
             }
 
             var user = await _usersRepository.GetUserByVkIdAsync(vkId);
+            var isModerClient = string.Equals(request.Client?.Trim(), "moder", StringComparison.OrdinalIgnoreCase);
+
+            if (isModerClient)
+            {
+                if (user is null)
+                {
+                    throw new UnauthorizedAccessException(
+                        "Нет доступа к модерации. Аккаунт не найден — добавьте UserId в таблицу Moders.");
+                }
+
+                if (!await _modersRepository.IsModerAsync(user.Id))
+                {
+                    throw new UnauthorizedAccessException(
+                        "Нет доступа к модерации. Ваш аккаунт не в списке Moders.");
+                }
+
+                if (string.IsNullOrWhiteSpace(user.Login))
+                {
+                    user.Login = BuildVkLogin(vkId);
+                    user.UpdatedAt = DateTime.UtcNow;
+                    await _usersRepository.UpdateAsync(user);
+                }
+
+                return await IssueTokensAsync(user);
+            }
+
             if (user is null)
             {
                 user = new WbUser

@@ -5,6 +5,11 @@ namespace WildBerriesAnalyzer.Server.Models
     public class AddProductsByArticlesRequest
     {
         public List<string> Articles { get; set; } = [];
+
+        /// <summary>
+        /// Магазин для артикулов / ссылок. По умолчанию Wildberries.
+        /// </summary>
+        public MarketType MarketType { get; set; } = MarketType.Wildberries;
     }
 
     public class AddProductsByNameRequest

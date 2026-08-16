@@ -1,0 +1,13 @@
+{
+  "cookie": "PASTE_OZON_COOKIE",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "baseUrl": "https://www.ozon.ru",
+  "composerPath": "/api/composer-api.bx/page/json/v2",
+  "proxyUrl": null,
+  "requestDelayMs": 400,
+  "productConcurrency": 20,
+  "useBrowser": true,
+  "headless": true,
+  "challengeWaitMs": 12000,
+  "searchLimit": 100
+}
