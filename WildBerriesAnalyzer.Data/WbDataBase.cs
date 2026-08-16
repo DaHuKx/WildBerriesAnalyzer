@@ -40,8 +40,8 @@ namespace WildBerriesAnalyzer.Data
             }
 
 
-            optionsBuilder.UseNpgsql("User ID=postgres;Password=w3s4m1p3;Host=localhost;Port=5432;Database=WildBerriesAnalyzerDb;");
-            //optionsBuilder.UseNpgsql(ResolveConnectionString());
+            //optionsBuilder.UseNpgsql("User ID=postgres;Password=w3s4m1p3;Host=localhost;Port=5432;Database=WildBerriesAnalyzerDb;");
+            optionsBuilder.UseNpgsql(ResolveConnectionString());
         }
 
         /// <summary>
