@@ -8,7 +8,7 @@ namespace WildBerriesAnalyzer.Mobile.Clients
         /// <summary>
         /// true — VDS; false — локальный API (adb reverse / LAN / localhost).
         /// </summary>
-        private const bool UseRemoteServer = false;
+        private const bool UseRemoteServer = true;
 
         private const string RemoteBaseAddress = "http://62.233.35.144:5146/";
 

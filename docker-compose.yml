@@ -28,6 +28,9 @@ services:
       dockerfile: WildBerriesAnalyzer.Server/Dockerfile
     container_name: wba-server
     restart: unless-stopped
+    # Chromium (Playwright/Ozon): меньше OOM и zombie-процессов.
+    init: true
+    shm_size: "256mb"
     # На RUVDS: сломанный Docker DNS и IPv6 → Network is unreachable / Name or service not known.
     dns:
       - 8.8.8.8

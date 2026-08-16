@@ -5,7 +5,7 @@ namespace ModerMobile;
 /// </summary>
 public static class ServerSettings
 {
-    private const bool UseRemoteServer = false;
+    private const bool UseRemoteServer = true;
     private const string RemoteBaseAddress = "http://62.233.35.144:5146/";
     private const string DevHostLanIp = "192.168.1.106";
     private const bool UseAdbReverse = true;
