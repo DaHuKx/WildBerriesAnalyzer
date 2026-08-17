@@ -30,23 +30,21 @@ RUN dotnet publish "WildBerriesAnalyzer.Server.csproj" \
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY WildBerriesAnalyzer.Server/docker-entrypoint.sh /app/docker-entrypoint.sh
 
 ENV ASPNETCORE_URLS=http://+:8080
-# Общий путь браузеров (не ~/.cache), чтобы процесс в контейнере их находил.
+# Браузеры в volume (см. docker-compose), не в слое image — иначе на слабом VDS no space left.
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Chromium + OS-зависимости для Ozon (Microsoft.Playwright 1.54).
-# CLI берём из драйвера NuGet (.playwright), без PowerShell.
+# Только OS-зависимости Chromium (~десятки МБ). Сам браузер качает entrypoint при первом старте.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates; \
     NODE="$(find /app/.playwright/node -type f -name node | head -n 1)"; \
     test -n "$NODE"; \
-    chmod +x "$NODE"; \
-    mkdir -p /ms-playwright; \
-    "$NODE" /app/.playwright/package/cli.js install --with-deps chromium; \
-    chmod -R a+rx /ms-playwright; \
+    chmod +x "$NODE" /app/docker-entrypoint.sh; \
+    "$NODE" /app/.playwright/package/cli.js install-deps chromium; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["dotnet", "WildBerriesAnalyzer.Server.dll"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

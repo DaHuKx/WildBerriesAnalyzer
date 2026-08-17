@@ -1087,7 +1087,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
 
         if (!string.IsNullOrWhiteSpace(_auth.ProxyUrl))
         {
-            launch.Proxy = new Proxy { Server = _auth.ProxyUrl };
+            launch.Proxy = BuildPlaywrightProxy(_auth.ProxyUrl);
         }
 
         _browser = await _playwright.Chromium.LaunchAsync(launch).ConfigureAwait(false);
@@ -1112,22 +1112,19 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             if (cookies.Count > 0)
             {
                 await _context.AddCookiesAsync(cookies).ConfigureAwait(false);
-                Console.WriteLine($"[browser] injected cookies: {cookies.Count}");
+                Console.WriteLine(
+                    $"[browser] injected cookies: {cookies.Count} (cookie header length={_auth.Cookie.Length})");
             }
         }
 
         _page = await _context.NewPageAsync().ConfigureAwait(false);
         Console.WriteLine("[browser] opening https://www.ozon.ru/ (anti-bot challenge)…");
 
-        var response = await _page.GotoAsync(
+        var response = await NavigateForAntibotAsync(
+            _page,
             "https://www.ozon.ru/",
-            new PageGotoOptions
-            {
-                WaitUntil = WaitUntilState.DOMContentLoaded,
-                Timeout = 90_000
-            }).ConfigureAwait(false);
-
-        await _page.WaitForTimeoutAsync(Math.Max(3000, _auth.ChallengeWaitMs)).ConfigureAwait(false);
+            initialTimeoutMs: 45_000,
+            ct).ConfigureAwait(false);
 
         var title = await _page.TitleAsync().ConfigureAwait(false);
         var finalUrl = _page.Url;
@@ -1161,13 +1158,11 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         // Держим вкладку на HTML-поиске — referrer/context лучше, чем голая главная с __rr.
         try
         {
-            await _page.GotoAsync(
+            await NavigateForAntibotAsync(
+                _page,
                 "https://www.ozon.ru/search/?text=1&from_global=true",
-                new PageGotoOptions
-                {
-                    WaitUntil = WaitUntilState.DOMContentLoaded,
-                    Timeout = 60_000
-                }).ConfigureAwait(false);
+                initialTimeoutMs: 30_000,
+                ct).ConfigureAwait(false);
             await _page.WaitForTimeoutAsync(800).ConfigureAwait(false);
             Console.WriteLine("[browser] parked on search page");
         }
@@ -1180,6 +1175,62 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         _sessionDead = false;
         _sessionDeadReason = null;
         Console.WriteLine("[browser] challenge passed");
+    }
+
+    private async Task<IResponse?> NavigateForAntibotAsync(
+        IPage page,
+        string url,
+        int initialTimeoutMs,
+        CancellationToken ct)
+    {
+        IResponse? response = null;
+        try
+        {
+            response = await page.GotoAsync(
+                url,
+                new PageGotoOptions
+                {
+                    // Variti-challenge часто не даёт domcontentloaded в headless — commit достаточно.
+                    WaitUntil = WaitUntilState.Commit,
+                    Timeout = initialTimeoutMs
+                }).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            Console.WriteLine(
+                $"[browser] navigation slow ({initialTimeoutMs}ms), waiting JS-challenge… url={url}");
+        }
+
+        ct.ThrowIfCancellationRequested();
+        await page.WaitForTimeoutAsync(Math.Max(3000, _auth.ChallengeWaitMs)).ConfigureAwait(false);
+        return response;
+    }
+
+    private static Proxy BuildPlaywrightProxy(string proxyUrl)
+    {
+        var raw = proxyUrl.Trim();
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        {
+            return new Proxy { Server = raw };
+        }
+
+        var port = uri.Port > 0 ? uri.Port : (uri.Scheme.StartsWith("socks", StringComparison.OrdinalIgnoreCase) ? 1080 : 8080);
+        var server = $"{uri.Scheme}://{uri.Host}:{port}";
+        var proxy = new Proxy { Server = server };
+
+        if (string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return proxy;
+        }
+
+        var parts = uri.UserInfo.Split(':', 2);
+        proxy.Username = Uri.UnescapeDataString(parts[0]);
+        if (parts.Length > 1)
+        {
+            proxy.Password = Uri.UnescapeDataString(parts[1]);
+        }
+
+        return proxy;
     }
 
     private async Task ProbeComposerAsync(CancellationToken ct)

@@ -10,7 +10,7 @@ namespace WildBerriesAnalyzer.Mobile.Clients
         /// </summary>
         private const bool UseRemoteServer = true;
 
-        private const string RemoteBaseAddress = "http://62.233.35.144:5146/";
+        private const string RemoteBaseAddress = "http://62.233.35.5:5146/";
 
         /// <summary>
         /// IPv4 ПК в Wi‑Fi (только если не используете adb reverse).

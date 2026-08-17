@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using WildBerriesAnalyzer.Business.Helpers;
@@ -10,6 +9,7 @@ namespace WildBerriesAnalyzer.Server.Services.VkBot
     {
         private readonly HttpClient _httpClient;
         private readonly VkBotOptions _options;
+        private readonly string _accessToken;
         private readonly ILogger<VkCommunityMessenger> _logger;
         private readonly Random _random = new();
 
@@ -20,6 +20,8 @@ namespace WildBerriesAnalyzer.Server.Services.VkBot
         {
             _httpClient = httpClient;
             _options = options.Value;
+            // .env часто даёт пробел/CRLF в конце — VK тогда отвечает error 5.
+            _accessToken = (_options.AccessToken ?? string.Empty).Trim();
             _logger = logger;
         }
 
@@ -28,7 +30,7 @@ namespace WildBerriesAnalyzer.Server.Services.VkBot
                 ? $"https://vk.me/club{_options.GroupId}"
                 : _options.WriteUrl.Trim();
 
-        public bool IsConfigured => !string.IsNullOrWhiteSpace(_options.AccessToken);
+        public bool IsConfigured => !string.IsNullOrWhiteSpace(_accessToken);
 
         public async Task<string> ResolveUserIdAsync(
             string profileUrlOrScreenName,
@@ -50,7 +52,7 @@ namespace WildBerriesAnalyzer.Server.Services.VkBot
             var url =
                 $"https://api.vk.com/method/utils.resolveScreenName" +
                 $"?screen_name={Uri.EscapeDataString(screenNameOrId)}" +
-                $"&access_token={Uri.EscapeDataString(_options.AccessToken)}" +
+                $"&access_token={Uri.EscapeDataString(_accessToken)}" +
                 $"&v={Uri.EscapeDataString(_options.ApiVersion)}";
 
             using var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
@@ -102,15 +104,19 @@ namespace WildBerriesAnalyzer.Server.Services.VkBot
 
             try
             {
-                var url =
-                    $"https://api.vk.com/method/messages.send" +
-                    $"?user_id={Uri.EscapeDataString(vkUserId)}" +
-                    $"&random_id={_random.Next()}" +
-                    $"&message={Uri.EscapeDataString(text)}" +
-                    $"&access_token={Uri.EscapeDataString(_options.AccessToken)}" +
-                    $"&v={Uri.EscapeDataString(_options.ApiVersion)}";
+                // POST: надёжнее GET (длинный текст / спецсимволы не ломают access_token в query).
+                using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["user_id"] = vkUserId.Trim(),
+                    ["random_id"] = _random.Next().ToString(),
+                    ["message"] = text,
+                    ["access_token"] = _accessToken,
+                    ["v"] = _options.ApiVersion
+                });
 
-                using var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+                using var response = await _httpClient
+                    .PostAsync("https://api.vk.com/method/messages.send", content, cancellationToken)
+                    .ConfigureAwait(false);
                 var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 using var doc = JsonDocument.Parse(json);
 
