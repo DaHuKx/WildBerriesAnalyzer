@@ -69,16 +69,31 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             try
             {
                 await EnsureReadyAsync(ct).ConfigureAwait(false);
-                var json = await FetchJsonFromPageAsync(sitePath, ct).ConfigureAwait(false);
-                return DeserializePage(json);
+                try
+                {
+                    var json = await FetchJsonFromPageAsync(sitePath, ct).ConfigureAwait(false);
+                    return DeserializePage(json);
+                }
+                catch (Exception ex) when (IsComposerForbidden(ex) && IsSearchPath(sitePath))
+                {
+                    Console.WriteLine(
+                        $"[browser] composer 403 on search — HTML fallback: {ex.Message}");
+                    var fromHtml = await TryFetchSearchFromHtmlAsync(sitePath, ct).ConfigureAwait(false);
+                    if (fromHtml is not null)
+                    {
+                        return fromHtml;
+                    }
+
+                    throw;
+                }
             }
-            catch (Exception ex) when (attempt == 0 && IsSessionError(ex))
+            catch (Exception ex) when (attempt == 0 && IsHardSessionError(ex))
             {
                 last = ex;
                 Console.WriteLine($"[browser] session error, relaunch once: {ex.Message}");
                 await ShutdownAsync().ConfigureAwait(false);
             }
-            catch (Exception ex) when (attempt > 0 && IsSessionError(ex))
+            catch (Exception ex) when (attempt > 0 && IsHardSessionError(ex))
             {
                 MarkSessionDead(ex.Message);
                 await ShutdownAsync().ConfigureAwait(false);
@@ -86,7 +101,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             }
         }
 
-        if (last is not null && IsSessionError(last))
+        if (last is not null && IsHardSessionError(last))
         {
             MarkSessionDead(last.Message);
         }
@@ -1088,6 +1103,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         if (!string.IsNullOrWhiteSpace(_auth.ProxyUrl))
         {
             launch.Proxy = BuildPlaywrightProxy(_auth.ProxyUrl);
+            Console.WriteLine($"[browser] proxy={MaskProxyUrl(_auth.ProxyUrl)}");
         }
 
         _browser = await _playwright.Chromium.LaunchAsync(launch).ConfigureAwait(false);
@@ -1208,29 +1224,20 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
 
     private static Proxy BuildPlaywrightProxy(string proxyUrl)
     {
-        var raw = proxyUrl.Trim();
-        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        // Полный URL с user:pass@host — Chromium подключается надёжнее, чем Server+Username отдельно.
+        return new Proxy { Server = proxyUrl.Trim() };
+    }
+
+    private static string MaskProxyUrl(string proxyUrl)
+    {
+        if (!Uri.TryCreate(proxyUrl.Trim(), UriKind.Absolute, out var uri))
         {
-            return new Proxy { Server = raw };
+            return proxyUrl;
         }
 
-        var port = uri.Port > 0 ? uri.Port : (uri.Scheme.StartsWith("socks", StringComparison.OrdinalIgnoreCase) ? 1080 : 8080);
-        var server = $"{uri.Scheme}://{uri.Host}:{port}";
-        var proxy = new Proxy { Server = server };
-
-        if (string.IsNullOrEmpty(uri.UserInfo))
-        {
-            return proxy;
-        }
-
-        var parts = uri.UserInfo.Split(':', 2);
-        proxy.Username = Uri.UnescapeDataString(parts[0]);
-        if (parts.Length > 1)
-        {
-            proxy.Password = Uri.UnescapeDataString(parts[1]);
-        }
-
-        return proxy;
+        return string.IsNullOrEmpty(uri.UserInfo)
+            ? uri.GetLeftPart(UriPartial.Authority)
+            : $"{uri.Scheme}://***:***@{uri.Host}:{uri.Port}";
     }
 
     private async Task ProbeComposerAsync(CancellationToken ct)
@@ -1738,9 +1745,8 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
                      Uri.EscapeDataString(sitePath);
 
         Exception? last = null;
-        // Не ходим навигацией на composer URL: при soft-antibot это стабильный 403
-        // и ложный relaunch, хотя probe через fetch только что прошёл.
-        for (var attempt = 1; attempt <= 4; attempt++)
+        // Не ходим навигацией на composer URL: при soft-antibot это стабильный 403.
+        for (var attempt = 1; attempt <= 2; attempt++)
         {
             ct.ThrowIfCancellationRequested();
             try
@@ -1769,7 +1775,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
                     last = new HttpRequestException(
                         $"Ozon browser fetch HTTP {status} (session expired / antibot).");
                     Console.WriteLine(
-                        $"[browser] fetch HTTP {status} (attempt {attempt}/4), backoff…");
+                        $"[browser] fetch HTTP {status} (attempt {attempt}/2), backoff…");
                     await Task.Delay(TimeSpan.FromMilliseconds(800 * attempt), ct)
                         .ConfigureAwait(false);
                     continue;
@@ -1779,7 +1785,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
                 throw new HttpRequestException($"Ozon browser fetch HTTP {status}. Body: {preview}");
             }
             catch (HttpRequestException ex) when (
-                attempt < 4 &&
+                attempt < 2 &&
                 (ex.Message.Contains("403", StringComparison.Ordinal) ||
                  ex.Message.Contains("307", StringComparison.Ordinal)))
             {
@@ -1820,15 +1826,169 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         return page;
     }
 
-    private static bool IsSessionError(Exception ex)
+    private static bool IsSearchPath(string sitePath) =>
+        sitePath.Contains("/search", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsComposerForbidden(Exception ex)
     {
         var msg = ex.Message;
-        return msg.Contains("403", StringComparison.Ordinal) ||
-               msg.Contains("307", StringComparison.Ordinal) ||
-               msg.Contains("antibot", StringComparison.OrdinalIgnoreCase) ||
-               msg.Contains("session", StringComparison.OrdinalIgnoreCase) ||
-               msg.Contains("Target closed", StringComparison.OrdinalIgnoreCase) ||
-               msg.Contains("has been closed", StringComparison.OrdinalIgnoreCase);
+        return msg.Contains("HTTP 403", StringComparison.Ordinal) ||
+               msg.Contains("HTTP 307", StringComparison.Ordinal) ||
+               msg.Contains("composer", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Браузер реально умер. Composer 403 при живой HTML-главной — не это.
+    /// </summary>
+    private static bool IsHardSessionError(Exception ex)
+    {
+        var msg = ex.Message;
+        return msg.Contains("Target closed", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("has been closed", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("session is dead", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("нет соединения", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("Browser context is not ready", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSessionError(Exception ex) =>
+        IsHardSessionError(ex) || IsComposerForbidden(ex);
+
+    private async Task<OzonComposerPage?> TryFetchSearchFromHtmlAsync(string sitePath, CancellationToken ct)
+    {
+        if (_page is null)
+        {
+            return null;
+        }
+
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var url = "https://www.ozon.ru" + sitePath;
+            Console.WriteLine($"[browser] HTML search: {url}");
+            await NavigateForAntibotAsync(_page, url, initialTimeoutMs: 30_000, ct).ConfigureAwait(false);
+            await _page.WaitForTimeoutAsync(1500).ConfigureAwait(false);
+
+            if (IsBlockedTitle(await _page.TitleAsync().ConfigureAwait(false)))
+            {
+                return null;
+            }
+
+            var raw = await _page.EvaluateAsync<string>(@"() => {
+                const items = [];
+                const seen = new Set();
+                const links = document.querySelectorAll('a[href*=""/product/""]');
+                for (const a of links) {
+                  const href = a.getAttribute('href') || '';
+                  const m = href.match(/\/product\/(?:[^\/?#]*-)?(\d{8,})\/?/);
+                  if (!m) continue;
+                  const sku = Number(m[1]);
+                  if (!Number.isFinite(sku) || sku < 10000000 || seen.has(sku)) continue;
+                  seen.add(sku);
+                  const card = a.closest('[data-widget], article') || a.parentElement || a;
+                  const text = (card.innerText || a.innerText || '')
+                    .replace(/\u00a0/g, ' ')
+                    .split('\n')
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                  const name = a.getAttribute('title')
+                    || text.find(t => t.length > 18 && !t.includes('₽'))
+                    || '';
+                  const priceLine = text.find(t => t.includes('₽')) || '';
+                  const pm = priceLine.match(/(\d[\d\s]{1,})\s*₽/);
+                  const img = card.querySelector('img');
+                  items.push({
+                    sku,
+                    name,
+                    href,
+                    price: pm ? pm[1].replace(/\s+/g, '') : null,
+                    image: img ? (img.getAttribute('src') || img.getAttribute('data-src') || '') : ''
+                  });
+                }
+                return JSON.stringify(items);
+            }").ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(raw) || raw == "[]")
+            {
+                Console.WriteLine("[browser] HTML search: 0 tiles");
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            var tiles = new List<OzonSearchTileItem>();
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                var sku = el.TryGetProperty("sku", out var skuEl) ? skuEl.GetInt64() : 0;
+                if (sku < 10_000_000)
+                {
+                    continue;
+                }
+
+                var name = el.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+                var href = el.TryGetProperty("href", out var hrefEl) ? hrefEl.GetString() : null;
+                var priceText = el.TryGetProperty("price", out var priceEl) ? priceEl.GetString() : null;
+                var image = el.TryGetProperty("image", out var imgEl) ? imgEl.GetString() : null;
+
+                var mainState = new List<OzonMainStateBlock>
+                {
+                    new()
+                    {
+                        Id = "name",
+                        Type = "textDS",
+                        TextDs = new OzonTextDs { Text = name }
+                    }
+                };
+                if (!string.IsNullOrWhiteSpace(priceText))
+                {
+                    mainState.Add(new OzonMainStateBlock
+                    {
+                        Type = "priceV2",
+                        PriceV2 = new OzonPriceV2Block
+                        {
+                            Price =
+                            [
+                                new OzonPriceText { Text = priceText + " ₽", TextStyle = "PRICE" }
+                            ]
+                        }
+                    });
+                }
+
+                tiles.Add(new OzonSearchTileItem
+                {
+                    Sku = sku,
+                    Id = sku,
+                    Action = new OzonTileAction { Link = href },
+                    TileImage = string.IsNullOrWhiteSpace(image)
+                        ? null
+                        : new OzonTileImage { CoverImage = image },
+                    MainState = mainState
+                });
+            }
+
+            if (tiles.Count == 0)
+            {
+                Console.WriteLine("[browser] HTML search: tiles parsed=0");
+                return null;
+            }
+
+            Console.WriteLine($"[browser] HTML search: tiles={tiles.Count}");
+            var grid = new OzonTileGridWidget { Items = tiles, Page = 1 };
+            return new OzonComposerPage
+            {
+                WidgetStates = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["tileGridDesktop-1-default-1"] = OzonJson.Serialize(grid)
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[browser] HTML search failed: {ex.Message}");
+            return null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private static bool IsBlockedTitle(string? title) =>
