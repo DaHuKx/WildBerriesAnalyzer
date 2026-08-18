@@ -69,6 +69,18 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             try
             {
                 await EnsureReadyAsync(ct).ConfigureAwait(false);
+
+                if (IsSearchPath(sitePath))
+                {
+                    var fromHtml = await TryFetchSearchFromHtmlAsync(sitePath, ct).ConfigureAwait(false);
+                    if (fromHtml is not null)
+                    {
+                        return fromHtml;
+                    }
+
+                    Console.WriteLine("[browser] HTML search empty — trying composer…");
+                }
+
                 try
                 {
                     var json = await FetchJsonFromPageAsync(sitePath, ct).ConfigureAwait(false);
@@ -76,15 +88,10 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
                 }
                 catch (Exception ex) when (IsComposerForbidden(ex) && IsSearchPath(sitePath))
                 {
-                    Console.WriteLine(
-                        $"[browser] composer 403 on search — HTML fallback: {ex.Message}");
-                    var fromHtml = await TryFetchSearchFromHtmlAsync(sitePath, ct).ConfigureAwait(false);
-                    if (fromHtml is not null)
-                    {
-                        return fromHtml;
-                    }
-
-                    throw;
+                    throw new InvalidOperationException(
+                        "Не удалось загрузить выдачу Ozon (антибот режет API и HTML). " +
+                        "Обновите cookie в той же сессии, что и residential-прокси.",
+                        ex);
                 }
             }
             catch (Exception ex) when (attempt == 0 && IsHardSessionError(ex))
@@ -1752,30 +1759,43 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             try
             {
                 var resultJson = await _page.EvaluateAsync<string>(@"async (apiUrl) => {
-                    const r = await fetch(apiUrl, {
-                        headers: { accept: 'application/json' },
-                        credentials: 'include',
-                        referrer: location.href
-                    });
-                    const text = await r.text();
-                    return JSON.stringify({ status: r.status, text });
+                    try {
+                        const r = await fetch(apiUrl, {
+                            headers: { accept: 'application/json' },
+                            credentials: 'include',
+                            referrer: location.href
+                        });
+                        const text = await r.text();
+                        return JSON.stringify({ status: r.status, text, error: null });
+                    } catch (e) {
+                        return JSON.stringify({
+                            status: 0,
+                            text: '',
+                            error: String(e && e.message ? e.message : e)
+                        });
+                    }
                 }", apiUrl).ConfigureAwait(false);
 
                 using var doc = JsonDocument.Parse(resultJson);
                 var status = doc.RootElement.GetProperty("status").GetInt32();
                 var text = doc.RootElement.GetProperty("text").GetString() ?? string.Empty;
+                var fetchError = doc.RootElement.TryGetProperty("error", out var errEl)
+                    ? errEl.GetString()
+                    : null;
 
                 if (status is >= 200 and < 300 && !string.IsNullOrWhiteSpace(text))
                 {
                     return text;
                 }
 
-                if (status is 403 or 307)
+                if (status is 0 or 403 or 307)
                 {
                     last = new HttpRequestException(
-                        $"Ozon browser fetch HTTP {status} (session expired / antibot).");
+                        string.IsNullOrWhiteSpace(fetchError)
+                            ? $"Ozon browser fetch HTTP {status} (session expired / antibot)."
+                            : $"Ozon browser fetch failed: {fetchError}");
                     Console.WriteLine(
-                        $"[browser] fetch HTTP {status} (attempt {attempt}/2), backoff…");
+                        $"[browser] fetch HTTP {status} {fetchError} (attempt {attempt}/2), backoff…");
                     await Task.Delay(TimeSpan.FromMilliseconds(800 * attempt), ct)
                         .ConfigureAwait(false);
                     continue;
@@ -1784,10 +1804,9 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
                 var preview = text.Length > 300 ? text[..300] : text;
                 throw new HttpRequestException($"Ozon browser fetch HTTP {status}. Body: {preview}");
             }
-            catch (HttpRequestException ex) when (
+            catch (Exception ex) when (
                 attempt < 2 &&
-                (ex.Message.Contains("403", StringComparison.Ordinal) ||
-                 ex.Message.Contains("307", StringComparison.Ordinal)))
+                IsComposerForbidden(ex))
             {
                 last = ex;
                 await Task.Delay(TimeSpan.FromMilliseconds(800 * attempt), ct)
@@ -1834,6 +1853,9 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         var msg = ex.Message;
         return msg.Contains("HTTP 403", StringComparison.Ordinal) ||
                msg.Contains("HTTP 307", StringComparison.Ordinal) ||
+               msg.Contains("HTTP 0", StringComparison.Ordinal) ||
+               msg.Contains("Failed to fetch", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("TypeError", StringComparison.OrdinalIgnoreCase) ||
                msg.Contains("composer", StringComparison.OrdinalIgnoreCase);
     }
 

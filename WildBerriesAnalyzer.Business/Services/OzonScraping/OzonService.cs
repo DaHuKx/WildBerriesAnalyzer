@@ -300,7 +300,18 @@ public sealed class OzonService : IOzonService
         {
             ct.ThrowIfCancellationRequested();
 
-            var page = await _client.FetchPageAsync(path, ct).ConfigureAwait(false);
+            OzonComposerPage page;
+            try
+            {
+                page = await _client.FetchPageAsync(path, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                throw new InvalidOperationException(
+                    "Не удалось загрузить выдачу Ozon. Обновите cookie через тот же residential-прокси.",
+                    ex);
+            }
+
             var batch = OzonProductMapper.FromSearchPage(page, limit - collected.Count);
 
             foreach (var product in batch)
