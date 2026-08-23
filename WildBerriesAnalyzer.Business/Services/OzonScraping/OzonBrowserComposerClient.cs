@@ -1883,13 +1883,26 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
     /// </summary>
     private const string SearchTilesFromHtmlScript = """
         () => {
+          let nextPage = null;
+          for (const el of document.querySelectorAll('[data-state]')) {
+            const id = el.getAttribute('id') || el.getAttribute('data-widget') || '';
+            if (!/infiniteVirtualPaginator/i.test(id)) continue;
+            try {
+              const state = JSON.parse(el.getAttribute('data-state') || '');
+              if (state.nextPage) {
+                nextPage = state.nextPage;
+                break;
+              }
+            } catch { /* ignore */ }
+          }
+
           for (const el of document.querySelectorAll('[data-state]')) {
             const id = el.getAttribute('id') || el.getAttribute('data-widget') || '';
             if (!/tileGridDesktop/i.test(id)) continue;
             try {
               const state = JSON.parse(el.getAttribute('data-state') || '');
               if (Array.isArray(state.items) && state.items.length > 0) {
-                return JSON.stringify({ source: 'data-state', widgetId: id, items: state.items });
+                return JSON.stringify({ source: 'data-state', widgetId: id, items: state.items, nextPage });
               }
             } catch { /* ignore */ }
           }
@@ -1965,7 +1978,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
               image: imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '') : ''
             });
           }
-          return JSON.stringify({ source: 'dom', items });
+          return JSON.stringify({ source: 'dom', items, nextPage });
         }
         """;
 
@@ -2082,6 +2095,61 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         return tiles;
     }
 
+    private static string? ResolveNextSearchPath(string sitePath, string? htmlNextPage, int tilesOnPage)
+    {
+        if (!string.IsNullOrWhiteSpace(htmlNextPage))
+        {
+            return htmlNextPage.Trim();
+        }
+
+        // Ozon отдаёт ~8 товаров на страницу tileGridDesktop.
+        if (tilesOnPage < 8)
+        {
+            return null;
+        }
+
+        return BuildFallbackNextSearchPath(sitePath);
+    }
+
+    private static string? BuildFallbackNextSearchPath(string sitePath)
+    {
+        if (string.IsNullOrWhiteSpace(sitePath))
+        {
+            return null;
+        }
+
+        var path = sitePath.Trim();
+        if (!path.StartsWith('/'))
+        {
+            path = "/" + path;
+        }
+
+        var layoutMatch = Regex.Match(path, @"([?&])layout_page_index=(\d+)", RegexOptions.IgnoreCase);
+        if (layoutMatch.Success &&
+            int.TryParse(layoutMatch.Groups[2].Value, out var layoutPage))
+        {
+            return Regex.Replace(
+                path,
+                @"([?&])layout_page_index=\d+",
+                $"$1layout_page_index={layoutPage + 1}",
+                RegexOptions.IgnoreCase);
+        }
+
+        var pageMatch = Regex.Match(path, @"([?&])page=(\d+)", RegexOptions.IgnoreCase);
+        if (pageMatch.Success &&
+            int.TryParse(pageMatch.Groups[2].Value, out var page))
+        {
+            return Regex.Replace(
+                path,
+                @"([?&])page=\d+",
+                $"$1page={page + 1}",
+                RegexOptions.IgnoreCase);
+        }
+
+        var sep = path.Contains('?') ? "&" : "?";
+        return path + sep + "page=2";
+    }
+
     private static bool IsComposerForbidden(Exception ex)
     {
         var msg = ex.Message;
@@ -2169,12 +2237,35 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
 
             Console.WriteLine($"[browser] HTML search: tiles={tiles.Count}");
             var grid = new OzonTileGridWidget { Items = tiles, Page = 1 };
+
+            string? htmlNextPage = null;
+            if (root.TryGetProperty("nextPage", out var nextEl) &&
+                nextEl.ValueKind == JsonValueKind.String)
+            {
+                htmlNextPage = nextEl.GetString();
+            }
+
+            var nextPath = ResolveNextSearchPath(sitePath, htmlNextPage, tiles.Count);
+            if (!string.IsNullOrWhiteSpace(nextPath))
+            {
+                Console.WriteLine($"[browser] HTML search: nextPage={nextPath}");
+            }
+
+            var widgetStates = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["tileGridDesktop-1-default-1"] = OzonJson.Serialize(grid)
+            };
+
+            if (!string.IsNullOrWhiteSpace(nextPath))
+            {
+                widgetStates["infiniteVirtualPaginator-0-default-1"] = OzonJson.Serialize(
+                    new OzonInfiniteVirtualPaginatorWidget { NextPage = nextPath });
+            }
+
             return new OzonComposerPage
             {
-                WidgetStates = new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["tileGridDesktop-1-default-1"] = OzonJson.Serialize(grid)
-                }
+                NextPage = nextPath,
+                WidgetStates = widgetStates
             };
         }
         catch (Exception ex)
