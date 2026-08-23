@@ -1874,8 +1874,24 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         return page;
     }
 
-    private static bool IsSearchPath(string sitePath) =>
-        sitePath.Contains("/search", StringComparison.OrdinalIgnoreCase);
+    private static bool IsSearchPath(string sitePath)
+    {
+        if (string.IsNullOrWhiteSpace(sitePath))
+        {
+            return false;
+        }
+
+        if (sitePath.Contains("/search", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Ozon часто пагинирует поиск через predicted category URL с text= / paginator_token=
+        return sitePath.Contains("/category/", StringComparison.OrdinalIgnoreCase) &&
+               (sitePath.Contains("text=", StringComparison.OrdinalIgnoreCase) ||
+                sitePath.Contains("paginator_token=", StringComparison.OrdinalIgnoreCase) ||
+                sitePath.Contains("search_page_state=", StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// Извлекает товары из HTML-поиска: сначала data-state tileGridDesktop (как composer-api),
