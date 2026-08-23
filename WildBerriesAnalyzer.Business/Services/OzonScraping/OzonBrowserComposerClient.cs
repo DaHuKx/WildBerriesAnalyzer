@@ -1154,6 +1154,13 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         var status = (int?)response?.Status;
         Console.WriteLine($"[browser] title=\"{Truncate(title, 60)}\" url={finalUrl} http={status}");
 
+        if (status == 407)
+        {
+            throw new InvalidOperationException(
+                "Прокси отклонил авторизацию (HTTP 407). Проверьте login, password и port в proxyUrl — " +
+                "они должны совпадать с расширением браузера, через которое открывается Ozon.");
+        }
+
         if (IsBlockedTitle(title))
         {
             throw new InvalidOperationException(
@@ -1231,8 +1238,30 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
 
     private static Proxy BuildPlaywrightProxy(string proxyUrl)
     {
-        // Полный URL с user:pass@host — Chromium подключается надёжнее, чем Server+Username отдельно.
-        return new Proxy { Server = proxyUrl.Trim() };
+        var trimmed = proxyUrl.Trim();
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
+            return new Proxy { Server = trimmed };
+        }
+
+        var port = uri.IsDefaultPort ? "" : $":{uri.Port}";
+        var proxy = new Proxy { Server = $"{uri.Scheme}://{uri.Host}{port}" };
+
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            var colon = uri.UserInfo.IndexOf(':');
+            if (colon >= 0)
+            {
+                proxy.Username = Uri.UnescapeDataString(uri.UserInfo[..colon]);
+                proxy.Password = Uri.UnescapeDataString(uri.UserInfo[(colon + 1)..]);
+            }
+            else
+            {
+                proxy.Username = Uri.UnescapeDataString(uri.UserInfo);
+            }
+        }
+
+        return proxy;
     }
 
     private static string MaskProxyUrl(string proxyUrl)

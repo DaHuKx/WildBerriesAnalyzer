@@ -307,8 +307,10 @@ public sealed class OzonService : IOzonService
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                var detail = ex.GetBaseException().Message;
                 throw new InvalidOperationException(
-                    "Не удалось загрузить выдачу Ozon. Обновите cookie через тот же residential-прокси.",
+                    $"Не удалось загрузить выдачу Ozon: {detail}. " +
+                    "Если в логе HTTP 407 — проверьте proxyUrl; если 403/0 tiles — обновите cookie через тот же прокси.",
                     ex);
             }
 

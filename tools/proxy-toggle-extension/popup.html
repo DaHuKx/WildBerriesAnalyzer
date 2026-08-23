@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proxy Toggle</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>Proxy Toggle</h1>
+      <p class="subtitle">HTTP-прокси для браузера</p>
+    </header>
+
+    <form id="proxy-form">
+      <label>
+        IP / хост
+        <input id="host" type="text" placeholder="194.110.14.110" autocomplete="off" />
+      </label>
+
+      <label>
+        Порт
+        <input id="port" type="number" min="1" max="65535" placeholder="6657" />
+      </label>
+
+      <label>
+        Логин
+        <input id="username" type="text" placeholder="user" autocomplete="off" />
+      </label>
+
+      <label>
+        Пароль
+        <input id="password" type="password" placeholder="••••••" autocomplete="off" />
+      </label>
+
+      <p id="status" class="status off">Прокси выключен</p>
+      <p id="error" class="error" hidden></p>
+
+      <div class="actions">
+        <button id="enable-btn" type="submit" class="primary">Включить</button>
+        <button id="disable-btn" type="button" class="secondary" hidden>Отключить</button>
+      </div>
+    </form>
+
+    <p class="hint">
+      После включения весь трафик Chrome идёт через указанный прокси.
+      Для Ozon используйте cookie, снятые в этой же сессии.
+    </p>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

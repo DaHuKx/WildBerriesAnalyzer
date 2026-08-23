@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Proxy Toggle",
+  "version": "1.0.0",
+  "description": "Включение и отключение HTTP-прокси (IP, порт, логин, пароль).",
+  "permissions": ["proxy", "storage", "webRequest", "webRequestAuthProvider"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Proxy Toggle"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
