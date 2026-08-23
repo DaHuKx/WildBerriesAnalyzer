@@ -27,10 +27,20 @@ public static class OzonScrapingAuthLoader
             }
 
             var json = File.ReadAllText(full);
-            var loaded = OzonJson.Deserialize<OzonScrapingAuthOptions>(json);
-            if (loaded is not null)
+            try
             {
-                return loaded;
+                var loaded = OzonJson.Deserialize<OzonScrapingAuthOptions>(json);
+                if (loaded is not null)
+                {
+                    return loaded;
+                }
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                throw new InvalidOperationException(
+                    $"Невалидный JSON в {full}: {ex.Message}. " +
+                    "Проверьте кавычки у proxyUrl (\"http://user:pass@host:port\"), запятые между полями и отсутствие комментариев.",
+                    ex);
             }
         }
 

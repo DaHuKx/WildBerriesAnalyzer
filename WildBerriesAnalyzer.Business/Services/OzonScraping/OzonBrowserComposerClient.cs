@@ -1877,6 +1877,211 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
     private static bool IsSearchPath(string sitePath) =>
         sitePath.Contains("/search", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Извлекает товары из HTML-поиска: сначала data-state tileGridDesktop (как composer-api),
+    /// иначе DOM с изоляцией карточки (не общий grid-widget).
+    /// </summary>
+    private const string SearchTilesFromHtmlScript = """
+        () => {
+          for (const el of document.querySelectorAll('[data-state]')) {
+            const id = el.getAttribute('id') || el.getAttribute('data-widget') || '';
+            if (!/tileGridDesktop/i.test(id)) continue;
+            try {
+              const state = JSON.parse(el.getAttribute('data-state') || '');
+              if (Array.isArray(state.items) && state.items.length > 0) {
+                return JSON.stringify({ source: 'data-state', widgetId: id, items: state.items });
+              }
+            } catch { /* ignore */ }
+          }
+
+          const skuFromHref = href => {
+            const m = (href || '').match(/\/product\/(?:[^\/?#]*-)?(\d{8,})\/?/);
+            return m ? m[1] : null;
+          };
+
+          const findTile = (anchor, skuStr) => {
+            let el = anchor;
+            for (let depth = 0; depth < 14 && el; depth++) {
+              el = el.parentElement;
+              if (!el || el === document.body) break;
+              const widget = el.getAttribute('data-widget') || '';
+              if (/tileGridDesktop|searchResults|layoutPage|paginator|header|footer|catalogMenu/i.test(widget)) {
+                continue;
+              }
+              const skus = new Set();
+              for (const l of el.querySelectorAll('a[href*="/product/"]')) {
+                const s = skuFromHref(l.getAttribute('href') || '');
+                if (s) skus.add(s);
+              }
+              if (skus.size === 1 && skus.has(skuStr)) return el;
+            }
+            return anchor.parentElement || anchor;
+          };
+
+          const nameFromHref = href => {
+            const m = (href || '').match(/\/product\/([^/?#]+)-\d{8,}\/?/);
+            if (!m) return '';
+            return decodeURIComponent(m[1].replace(/-/g, ' ')).trim();
+          };
+
+          const items = [];
+          const seen = new Set();
+          for (const a of document.querySelectorAll('a[href*="/product/"]')) {
+            const href = a.getAttribute('href') || '';
+            const skuStr = skuFromHref(href);
+            if (!skuStr || seen.has(skuStr)) continue;
+            seen.add(skuStr);
+            const sku = Number(skuStr);
+            const card = findTile(a, skuStr);
+            const text = (card.innerText || a.innerText || '')
+              .replace(/\u00a0/g, ' ')
+              .split('\n')
+              .map(s => s.trim())
+              .filter(Boolean);
+            const name = a.getAttribute('title')
+              || a.getAttribute('aria-label')
+              || text.find(t => t.length > 18 && !t.includes('₽') && !/^\d[\d.,]*$/.test(t))
+              || nameFromHref(href);
+            const priceLine = text.find(t => t.includes('₽')) || '';
+            const pm = priceLine.match(/(\d[\d\s]{1,})\s*₽/);
+            const ratingStr = text.find(t => /^\d[.,]\d$/.test(t) || /^\d[.,]\d\s/.test(t));
+            const reviewsStr = text.find(t => /^\d[\d\s]*$/.test(t.replace(/\s/g, ''))
+              && !t.includes('₽')
+              && Number(t.replace(/\s/g, '')) > 5);
+            const brand = text.find(t => t.length >= 2 && t.length <= 40
+              && t !== name
+              && !t.includes('₽')
+              && !/^\d/.test(t)
+              && !/отзыв|оцен|rating|куп|скид|достав/i.test(t));
+            const imgEl = card.querySelector('img[src*="ozone"], img[src*="ozon"], img');
+            items.push({
+              sku,
+              name,
+              brand,
+              href,
+              price: pm ? pm[1].replace(/\s+/g, '') : null,
+              rating: ratingStr ? ratingStr.replace(',', '.').trim() : null,
+              reviews: reviewsStr ? reviewsStr.replace(/\s+/g, '') : null,
+              image: imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '') : ''
+            });
+          }
+          return JSON.stringify({ source: 'dom', items });
+        }
+        """;
+
+    private static List<OzonSearchTileItem> ParseDomSearchTiles(JsonElement domItems)
+    {
+        var tiles = new List<OzonSearchTileItem>();
+        foreach (var el in domItems.EnumerateArray())
+        {
+            var sku = el.TryGetProperty("sku", out var skuEl) ? skuEl.GetInt64() : 0;
+            if (sku < 10_000_000)
+            {
+                continue;
+            }
+
+            var name = el.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+            var brand = el.TryGetProperty("brand", out var brandEl) ? brandEl.GetString() : null;
+            var href = el.TryGetProperty("href", out var hrefEl) ? hrefEl.GetString() : null;
+            var priceText = el.TryGetProperty("price", out var priceEl) ? priceEl.GetString() : null;
+            var image = el.TryGetProperty("image", out var imgEl) ? imgEl.GetString() : null;
+            var ratingText = el.TryGetProperty("rating", out var ratingEl) ? ratingEl.GetString() : null;
+            var reviewsText = el.TryGetProperty("reviews", out var reviewsEl) ? reviewsEl.GetString() : null;
+
+            var mainState = new List<OzonMainStateBlock>
+            {
+                new()
+                {
+                    Id = "name",
+                    Type = "textDS",
+                    TextDs = new OzonTextDs { Text = name }
+                }
+            };
+
+            if (!string.IsNullOrWhiteSpace(priceText))
+            {
+                mainState.Add(new OzonMainStateBlock
+                {
+                    Type = "priceV2",
+                    PriceV2 = new OzonPriceV2Block
+                    {
+                        Price =
+                        [
+                            new OzonPriceText { Text = priceText + " ₽", TextStyle = "PRICE" }
+                        ]
+                    }
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(brand))
+            {
+                mainState.Add(new OzonMainStateBlock
+                {
+                    Type = "labelListV2",
+                    LabelListV2 = new OzonLabelListV2
+                    {
+                        Items =
+                        [
+                            new OzonLabelListItem
+                            {
+                                Type = "text",
+                                Text = new OzonTextDs { Text = brand }
+                            }
+                        ]
+                    }
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(ratingText))
+            {
+                var ratingItems = new List<OzonLabelListItem>
+                {
+                    new()
+                    {
+                        Type = "icon",
+                        Icon = new OzonLabelIconWrap
+                        {
+                            Icon = new OzonLabelIcon { Icon = "ic_s_star_filled_compact" }
+                        }
+                    },
+                    new()
+                    {
+                        Type = "text",
+                        Text = new OzonTextDs { Text = ratingText }
+                    }
+                };
+
+                if (!string.IsNullOrWhiteSpace(reviewsText))
+                {
+                    ratingItems.Add(new OzonLabelListItem
+                    {
+                        Type = "text",
+                        Text = new OzonTextDs { Text = reviewsText }
+                    });
+                }
+
+                mainState.Add(new OzonMainStateBlock
+                {
+                    Type = "labelListV2",
+                    LabelListV2 = new OzonLabelListV2 { Items = ratingItems }
+                });
+            }
+
+            tiles.Add(new OzonSearchTileItem
+            {
+                Sku = sku,
+                Id = sku,
+                Action = new OzonTileAction { Link = href },
+                TileImage = string.IsNullOrWhiteSpace(image)
+                    ? null
+                    : new OzonTileImage { CoverImage = image },
+                MainState = mainState
+            });
+        }
+
+        return tiles;
+    }
+
     private static bool IsComposerForbidden(Exception ex)
     {
         var msg = ex.Message;
@@ -1918,101 +2123,42 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             Console.WriteLine($"[browser] HTML search: {url}");
             await NavigateForAntibotAsync(_page, url, initialTimeoutMs: 30_000, ct).ConfigureAwait(false);
             await _page.WaitForTimeoutAsync(1500).ConfigureAwait(false);
+            await _page.EvaluateAsync("window.scrollBy(0, 600)").ConfigureAwait(false);
+            await _page.WaitForTimeoutAsync(800).ConfigureAwait(false);
 
             if (IsBlockedTitle(await _page.TitleAsync().ConfigureAwait(false)))
             {
                 return null;
             }
 
-            var raw = await _page.EvaluateAsync<string>(@"() => {
-                const items = [];
-                const seen = new Set();
-                const links = document.querySelectorAll('a[href*=""/product/""]');
-                for (const a of links) {
-                  const href = a.getAttribute('href') || '';
-                  const m = href.match(/\/product\/(?:[^\/?#]*-)?(\d{8,})\/?/);
-                  if (!m) continue;
-                  const sku = Number(m[1]);
-                  if (!Number.isFinite(sku) || sku < 10000000 || seen.has(sku)) continue;
-                  seen.add(sku);
-                  const card = a.closest('[data-widget], article') || a.parentElement || a;
-                  const text = (card.innerText || a.innerText || '')
-                    .replace(/\u00a0/g, ' ')
-                    .split('\n')
-                    .map(s => s.trim())
-                    .filter(Boolean);
-                  const name = a.getAttribute('title')
-                    || text.find(t => t.length > 18 && !t.includes('₽'))
-                    || '';
-                  const priceLine = text.find(t => t.includes('₽')) || '';
-                  const pm = priceLine.match(/(\d[\d\s]{1,})\s*₽/);
-                  const img = card.querySelector('img');
-                  items.push({
-                    sku,
-                    name,
-                    href,
-                    price: pm ? pm[1].replace(/\s+/g, '') : null,
-                    image: img ? (img.getAttribute('src') || img.getAttribute('data-src') || '') : ''
-                  });
-                }
-                return JSON.stringify(items);
-            }").ConfigureAwait(false);
+            var raw = await _page.EvaluateAsync<string>(SearchTilesFromHtmlScript).ConfigureAwait(false);
 
-            if (string.IsNullOrWhiteSpace(raw) || raw == "[]")
+            if (string.IsNullOrWhiteSpace(raw) || raw == "[]" || raw == "{}")
             {
                 Console.WriteLine("[browser] HTML search: 0 tiles");
                 return null;
             }
 
             using var doc = JsonDocument.Parse(raw);
-            var tiles = new List<OzonSearchTileItem>();
-            foreach (var el in doc.RootElement.EnumerateArray())
+            var root = doc.RootElement;
+            var source = root.TryGetProperty("source", out var srcEl) ? srcEl.GetString() : "dom";
+
+            List<OzonSearchTileItem> tiles;
+            if (string.Equals(source, "data-state", StringComparison.OrdinalIgnoreCase) &&
+                root.TryGetProperty("items", out var stateItems))
             {
-                var sku = el.TryGetProperty("sku", out var skuEl) ? skuEl.GetInt64() : 0;
-                if (sku < 10_000_000)
-                {
-                    continue;
-                }
-
-                var name = el.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-                var href = el.TryGetProperty("href", out var hrefEl) ? hrefEl.GetString() : null;
-                var priceText = el.TryGetProperty("price", out var priceEl) ? priceEl.GetString() : null;
-                var image = el.TryGetProperty("image", out var imgEl) ? imgEl.GetString() : null;
-
-                var mainState = new List<OzonMainStateBlock>
-                {
-                    new()
-                    {
-                        Id = "name",
-                        Type = "textDS",
-                        TextDs = new OzonTextDs { Text = name }
-                    }
-                };
-                if (!string.IsNullOrWhiteSpace(priceText))
-                {
-                    mainState.Add(new OzonMainStateBlock
-                    {
-                        Type = "priceV2",
-                        PriceV2 = new OzonPriceV2Block
-                        {
-                            Price =
-                            [
-                                new OzonPriceText { Text = priceText + " ₽", TextStyle = "PRICE" }
-                            ]
-                        }
-                    });
-                }
-
-                tiles.Add(new OzonSearchTileItem
-                {
-                    Sku = sku,
-                    Id = sku,
-                    Action = new OzonTileAction { Link = href },
-                    TileImage = string.IsNullOrWhiteSpace(image)
-                        ? null
-                        : new OzonTileImage { CoverImage = image },
-                    MainState = mainState
-                });
+                tiles = OzonJson.Deserialize<List<OzonSearchTileItem>>(stateItems.GetRawText()) ?? [];
+                Console.WriteLine($"[browser] HTML search: data-state tiles={tiles.Count}");
+            }
+            else if (root.TryGetProperty("items", out var domItems))
+            {
+                tiles = ParseDomSearchTiles(domItems);
+                Console.WriteLine($"[browser] HTML search: dom tiles={tiles.Count}");
+            }
+            else
+            {
+                Console.WriteLine("[browser] HTML search: 0 tiles");
+                return null;
             }
 
             if (tiles.Count == 0)
