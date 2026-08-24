@@ -89,7 +89,7 @@
         public int totalQuantity { get; set; }
         public int time1 { get; set; }
         public int time2 { get; set; }
-        public int wh { get; set; }
+        public long wh { get; set; }
         public long dtype { get; set; }
         public int dist { get; set; }
         public string logs { get; set; }
@@ -124,7 +124,7 @@
         public string origName { get; set; }
         public int rank { get; set; }
         public int optionId { get; set; }
-        public int wh { get; set; }
+        public long wh { get; set; }
         public int time1 { get; set; }
         public int time2 { get; set; }
         public long dtype { get; set; }
