@@ -1,4 +1,5 @@
 using System.Net.Http;
+using Microsoft.Extensions.Options;
 using Prism.Ioc;
 using Prism.Modularity;
 using Prism.Navigation;
@@ -54,9 +55,15 @@ namespace WildBerriesAnalyzer.Mobile
             containerRegistry.RegisterInstance<IFiltersService>(filtersClient);
 
             var productsHttpClient = CreateHttpClient(CreateAuthenticatedHandler(tokenStore, tokenRefresher));
+            productsHttpClient.Timeout = TimeSpan.FromMinutes(3);
             var productsClient = new ProductsClient(productsHttpClient);
             containerRegistry.RegisterInstance<IProductsClient>(productsClient);
             containerRegistry.RegisterInstance<IProductsService>(productsClient);
+
+            var searchHubClient = new SearchHubClient(
+                Options.Create(new WbServerClientOptions { BaseAddress = ServerSettings.BaseAddress }),
+                tokenStore);
+            containerRegistry.RegisterInstance<ISearchHubClient>(searchHubClient);
 
             var discontsHttpClient = CreateHttpClient(CreateAuthenticatedHandler(tokenStore, tokenRefresher));
             var discontsClient = new DiscontsClient(discontsHttpClient);

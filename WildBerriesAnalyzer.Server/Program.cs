@@ -20,6 +20,7 @@ using WildBerriesAnalyzer.Data.Repositories;
 using WildBerriesAnalyzer.Data.Repositories.Interfaces;
 using WildBerriesAnalyzer.Data.Services;
 using WildBerriesAnalyzer.Domain.Interfaces;
+using WildBerriesAnalyzer.Server.Hubs;
 using WildBerriesAnalyzer.Server.Middleware;
 using WildBerriesAnalyzer.Server.Options;
 using WildBerriesAnalyzer.Server.Services;
@@ -99,9 +100,33 @@ try
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
                 ClockSkew = TimeSpan.FromMinutes(1)
             };
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) &&
+                        path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Token = accessToken;
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
         });
 
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddSingleton<ISearchProgressNotifier, SearchHubProgressNotifier>();
     builder.Services.AddAuthorization();
+    builder.Services.AddSignalR()
+        .AddJsonProtocol(options =>
+        {
+            options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.PayloadSerializerOptions.PropertyNameCaseInsensitive = true;
+            options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        });
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
@@ -190,7 +215,9 @@ try
         return new OzonScrapingAuthUpdater(options, options.PersistFilePath);
     });
     builder.Services.AddSingleton<IOzonService>(provider =>
-        new OzonService(provider.GetRequiredService<OzonScrapingAuthOptions>()));
+        new OzonService(
+            provider.GetRequiredService<OzonScrapingAuthOptions>(),
+            provider.GetRequiredService<ISearchProgressNotifier>()));
     builder.Services.AddScoped<IDiscontsService, DiscontsService>();
     builder.Services.AddScoped<IActualDiscontsService, ActualDiscontsService>();
     builder.Services.AddScoped<IFiltersService, FiltersService>();
@@ -280,6 +307,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapHub<SearchHub>("/hubs/search");
 
     app.Run();
 }

@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using Prism.Commands;
 using Prism.Mvvm;
+using Prism.Navigation;
+using WildBerriesAnalyzer.Business.Models;
 using WildBerriesAnalyzer.Business.Services.Interfaces;
 using WildBerriesAnalyzer.Domain.Enums;
 using WildBerriesAnalyzer.Mobile.Helpers;
@@ -8,16 +10,19 @@ using WildBerriesAnalyzer.Mobile.Logging;
 using WildBerriesAnalyzer.Mobile.Services;
 using WildBerriesAnalyzer.Modules.AddProducts.Models;
 using WildBerriesAnalyzer.Modules.Products.Models;
+using WildBerriesAnalyzer.ServerClient.Interfaces;
 
 namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 {
-    public class AddProductsPageViewModel : BindableBase
+    public class AddProductsPageViewModel : BindableBase, IDestructible
     {
         private const int PageSize = 15;
+        private const string DefaultSearchProgressText = "Обработка запроса…";
 
         private readonly IProductsService _productsService;
         private readonly IProductImageCache _productImageCache;
         private readonly IAdultContentPreferenceService _adultContentPreference;
+        private readonly ISearchHubClient _searchHubClient;
 
         private readonly List<ProductListItem> _pipelineProducts = [];
 
@@ -32,6 +37,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         private ArticleMarketOption? _selectedArticleMarket;
         private string _errorMessage = string.Empty;
         private string _statusMessage = string.Empty;
+        private string _searchProgressText = DefaultSearchProgressText;
         private string _snackbarMessage = string.Empty;
         private bool _isSnackbarVisible;
         private bool _isSnackbarError;
@@ -41,12 +47,15 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         public AddProductsPageViewModel(
             IProductsService productsService,
             IProductImageCache productImageCache,
-            IAdultContentPreferenceService adultContentPreference)
+            IAdultContentPreferenceService adultContentPreference,
+            ISearchHubClient searchHubClient)
         {
             _productsService = productsService;
             _productImageCache = productImageCache;
             _adultContentPreference = adultContentPreference;
+            _searchHubClient = searchHubClient;
             _adultContentPreference.Changed += (_, _) => ApplyAdultContentPreferenceToAll();
+            _searchHubClient.ProgressReceived += OnSearchProgress;
 
             ArticleMarketOptions =
             [
@@ -239,6 +248,12 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             }
         }
 
+        public string SearchProgressText
+        {
+            get => _searchProgressText;
+            private set => SetProperty(ref _searchProgressText, value);
+        }
+
         public string StatusMessage
         {
             get => _statusMessage;
@@ -372,6 +387,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             try
             {
                 IsBusy = true;
+                SearchProgressText = DefaultSearchProgressText;
                 _errorMessage = string.Empty;
                 _statusMessage = string.Empty;
                 RaisePropertyChanged(nameof(ErrorMessage));
@@ -392,6 +408,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     return;
                 }
 
+                await EnsureSearchHubConnectedAsync().ConfigureAwait(true);
                 var products = await _productsService.SearchOnWildBerriesAsync(ProductNameText.Trim(), markets);
                 ReplaceResults(products.Select(ProductListItem.FromProduct), paginate: true);
 
@@ -416,6 +433,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             try
             {
                 IsBusy = true;
+                SearchProgressText = DefaultSearchProgressText;
                 _errorMessage = string.Empty;
                 _statusMessage = string.Empty;
                 RaisePropertyChanged(nameof(ErrorMessage));
@@ -436,6 +454,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     return;
                 }
 
+                await EnsureSearchHubConnectedAsync().ConfigureAwait(true);
                 var result = await _productsService.AddByNameAsync(ProductNameText.Trim(), markets);
                 ReplaceResults(result.AddedProducts.Select(ProductListItem.FromProduct), paginate: true);
 
@@ -654,6 +673,36 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
         private void DismissSnackbar()
         {
             IsSnackbarVisible = false;
+        }
+
+        private async Task EnsureSearchHubConnectedAsync()
+        {
+            SearchProgressText = "Подключаемся…";
+            try
+            {
+                await _searchHubClient.ConnectAsync().ConfigureAwait(true);
+                SearchProgressText = "Ищем товары…";
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warning("AddProducts", "SearchHub", ex.Message);
+                SearchProgressText = DefaultSearchProgressText;
+            }
+        }
+
+        private void OnSearchProgress(SearchProgress progress)
+        {
+            if (progress is null || string.IsNullOrWhiteSpace(progress.Message))
+            {
+                return;
+            }
+
+            MainThread.BeginInvokeOnMainThread(() => SearchProgressText = progress.Message);
+        }
+
+        public void Destroy()
+        {
+            _searchHubClient.ProgressReceived -= OnSearchProgress;
         }
 
         private async Task OpenLinkAsync(ProductListItem? item)

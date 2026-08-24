@@ -20,6 +20,7 @@ namespace WildBerriesAnalyzer.Business.Services
         private readonly IOzonService _ozonService;
         private readonly ProductIdValidator _productIdValidator;
         private readonly ProductNameValidator _productNameValidator;
+        private readonly ISearchProgressNotifier? _searchProgress;
 
         public ProductsService(
             IProductsRepository productsRepository,
@@ -27,7 +28,8 @@ namespace WildBerriesAnalyzer.Business.Services
             IWildBerriesService wildBerriesService,
             IOzonService ozonService,
             ProductIdValidator productIdValidator,
-            ProductNameValidator productNameValidator)
+            ProductNameValidator productNameValidator,
+            ISearchProgressNotifier? searchProgress = null)
         {
             _productsRepository = productsRepository;
             _pricesRepository = pricesRepository;
@@ -35,6 +37,7 @@ namespace WildBerriesAnalyzer.Business.Services
             _ozonService = ozonService;
             _productIdValidator = productIdValidator;
             _productNameValidator = productNameValidator;
+            _searchProgress = searchProgress;
         }
 
         public async Task<WbProduct?> GetByIdAsync(int id)
@@ -358,6 +361,12 @@ namespace WildBerriesAnalyzer.Business.Services
             IReadOnlyCollection<MarketType>? marketTypes)
         {
             var markets = NormalizeMarketTypes(marketTypes);
+            await NotifySearchAsync(new SearchProgress
+            {
+                Stage = SearchProgressStage.Started,
+                Message = $"Ищем «{query}»…"
+            }).ConfigureAwait(false);
+
             var tasks = new List<Task<(MarketType Market, List<WbProduct> Products, Exception? Error)>>();
 
             if (markets.Contains(MarketType.Wildberries))
@@ -378,6 +387,12 @@ namespace WildBerriesAnalyzer.Business.Services
 
             if (products.Count > 0)
             {
+                await NotifySearchAsync(new SearchProgress
+                {
+                    Stage = SearchProgressStage.Completed,
+                    FoundCount = products.Count,
+                    Message = $"Найдено: {products.Count}"
+                }).ConfigureAwait(false);
                 return products;
             }
 
@@ -388,26 +403,80 @@ namespace WildBerriesAnalyzer.Business.Services
 
             if (errors.Count > 0)
             {
-                throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
+                var message = string.Join(Environment.NewLine, errors);
+                await NotifySearchAsync(new SearchProgress
+                {
+                    Stage = SearchProgressStage.Failed,
+                    Message = message
+                }).ConfigureAwait(false);
+                throw new InvalidOperationException(message);
             }
 
+            await NotifySearchAsync(new SearchProgress
+            {
+                Stage = SearchProgressStage.Completed,
+                FoundCount = 0,
+                Message = "По запросу ничего не найдено."
+            }).ConfigureAwait(false);
             return products;
         }
 
-        private static async Task<(MarketType Market, List<WbProduct> Products, Exception? Error)> ParseMarketAsync(
+        private async Task<(MarketType Market, List<WbProduct> Products, Exception? Error)> ParseMarketAsync(
             MarketType market,
             Func<Task<List<WbProduct>>> parse)
         {
+            var label = MarketLabel(market);
+            await NotifySearchAsync(new SearchProgress
+            {
+                Stage = SearchProgressStage.MarketStarted,
+                Market = market,
+                Message = $"Ищем на {label}…"
+            }).ConfigureAwait(false);
+
             try
             {
                 var products = await parse().ConfigureAwait(false);
-                return (market, products ?? [], null);
+                products ??= [];
+                await NotifySearchAsync(new SearchProgress
+                {
+                    Stage = SearchProgressStage.MarketCompleted,
+                    Market = market,
+                    FoundCount = products.Count,
+                    Message = $"{label}: найдено {products.Count}"
+                }).ConfigureAwait(false);
+                return (market, products, null);
             }
             catch (Exception ex)
             {
+                await NotifySearchAsync(new SearchProgress
+                {
+                    Stage = SearchProgressStage.Failed,
+                    Market = market,
+                    Message = $"{label}: {ex.Message}"
+                }).ConfigureAwait(false);
                 return (market, [], ex);
             }
         }
+
+        private async Task NotifySearchAsync(SearchProgress progress)
+        {
+            if (_searchProgress is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _searchProgress.NotifyAsync(progress).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Прогресс не должен ронять поиск.
+            }
+        }
+
+        private static string MarketLabel(MarketType market) =>
+            market == MarketType.Ozon ? "Ozon" : "Wildberries";
 
         private static HashSet<MarketType> NormalizeMarketTypes(IReadOnlyCollection<MarketType>? marketTypes)
         {

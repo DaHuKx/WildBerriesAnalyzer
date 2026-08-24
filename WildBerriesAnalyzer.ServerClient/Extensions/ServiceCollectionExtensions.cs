@@ -49,6 +49,8 @@ namespace WildBerriesAnalyzer.ServerClient
             services.AddHttpClient<IAccountClient, AccountClient>(ConfigureHttpClient)
                 .AddHttpMessageHandler<BearerTokenHandler>();
 
+            services.AddSingleton<ISearchHubClient, SearchHubClient>();
+
             services.AddTransient<IAuthService>(provider => provider.GetRequiredService<IAuthClient>());
             services.AddTransient<IFiltersService>(provider => provider.GetRequiredService<IFiltersClient>());
             services.AddTransient<IProductsService>(provider => provider.GetRequiredService<IProductsClient>());

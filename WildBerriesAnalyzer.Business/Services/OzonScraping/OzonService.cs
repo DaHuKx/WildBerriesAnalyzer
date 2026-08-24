@@ -17,6 +17,7 @@ public sealed class OzonService : IOzonService
 {
     private readonly OzonScrapingAuthOptions _auth;
     private readonly IOzonComposerClient _client;
+    private readonly ISearchProgressNotifier? _searchProgress;
 
     public OzonService()
         : this(OzonScrapingAuthOptions.CreateDefault())
@@ -24,8 +25,14 @@ public sealed class OzonService : IOzonService
     }
 
     public OzonService(OzonScrapingAuthOptions auth)
+        : this(auth, searchProgress: null)
+    {
+    }
+
+    public OzonService(OzonScrapingAuthOptions auth, ISearchProgressNotifier? searchProgress)
     {
         _auth = auth ?? throw new ArgumentNullException(nameof(auth));
+        _searchProgress = searchProgress;
         _client = auth.UseBrowser
             ? new OzonBrowserComposerClient(auth)
             : new OzonComposerClient(auth);
@@ -330,6 +337,8 @@ public sealed class OzonService : IOzonService
                 }
             }
 
+            await NotifySearchPageAsync(pageIndex, collected.Count).ConfigureAwait(false);
+
             if (collected.Count >= limit)
             {
                 break;
@@ -382,6 +391,30 @@ public sealed class OzonService : IOzonService
 
         var product = OzonProductMapper.FromProductPage(page);
         return product.IdInMarket > 0 ? product : null;
+    }
+
+    private async Task NotifySearchPageAsync(int page, int foundCount)
+    {
+        if (_searchProgress is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _searchProgress.NotifyAsync(new SearchProgress
+            {
+                Stage = SearchProgressStage.MarketPage,
+                Market = MarketType.Ozon,
+                Page = page,
+                FoundCount = foundCount,
+                Message = $"Ozon: страница {page}, найдено {foundCount}…"
+            }).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Прогресс не должен ронять поиск.
+        }
     }
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
