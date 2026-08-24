@@ -17,6 +17,7 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
     public class AddProductsPageViewModel : BindableBase, IDestructible
     {
         private const int PageSize = 15;
+        private static readonly TimeSpan SearchHubConnectTimeout = TimeSpan.FromSeconds(3);
         private const string DefaultSearchProgressText = "Обработка запроса…";
 
         private readonly IProductsService _productsService;
@@ -28,8 +29,10 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
         private bool _isArticlesTab = true;
         private bool _isBusy;
+        private bool _isSearchContinuing;
         private bool _isLoadingMore;
         private bool _hasMoreItems;
+        private int _nameOpGeneration;
         private string _articlesText = string.Empty;
         private string _productNameText = string.Empty;
         private bool _searchWildberries = true;
@@ -166,6 +169,12 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     RaisePropertyChanged(nameof(ShowEmptyMessage));
                 }
             }
+        }
+
+        public bool IsSearchContinuing
+        {
+            get => _isSearchContinuing;
+            private set => SetProperty(ref _isSearchContinuing, value);
         }
 
         public bool IsLoadingMore
@@ -323,6 +332,8 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                 return;
             }
 
+            Interlocked.Increment(ref _nameOpGeneration);
+            IsSearchContinuing = false;
             IsArticlesTab = articles;
             _errorMessage = string.Empty;
             _statusMessage = string.Empty;
@@ -384,10 +395,12 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
         private async Task SearchByNameAsync()
         {
+            var generation = Interlocked.Increment(ref _nameOpGeneration);
             try
             {
                 IsBusy = true;
-                SearchProgressText = DefaultSearchProgressText;
+                IsSearchContinuing = false;
+                SearchProgressText = "Ищем товары…";
                 _errorMessage = string.Empty;
                 _statusMessage = string.Empty;
                 RaisePropertyChanged(nameof(ErrorMessage));
@@ -408,13 +421,45 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     return;
                 }
 
-                await EnsureSearchHubConnectedAsync().ConfigureAwait(true);
-                var products = await _productsService.SearchOnWildBerriesAsync(ProductNameText.Trim(), markets);
-                ReplaceResults(products.Select(ProductListItem.FromProduct), paginate: true);
+                var query = ProductNameText.Trim();
+                _ = EnsureSearchHubConnectedAsync();
 
-                StatusMessage = products.Count > 0
-                    ? $"Найдено: {products.Count}. Нажмите «Добавить в каталог», чтобы сохранить новые."
-                    : "По запросу ничего не найдено.";
+                var foreground = markets.Where(m => m == MarketType.Wildberries).ToList();
+                var background = markets.Where(m => m == MarketType.Ozon).ToList();
+                if (foreground.Count == 0)
+                {
+                    foreground = background;
+                    background = [];
+                }
+
+                var found = await SearchMarketsAsync(query, foreground, generation).ConfigureAwait(true);
+                if (generation != _nameOpGeneration)
+                {
+                    return;
+                }
+
+                if (background.Count > 0 && Results.Count > 0)
+                {
+                    StatusMessage = found > 0
+                        ? $"Найдено на Wildberries: {found}. Ищем на Ozon…"
+                        : "Ищем на Ozon…";
+                    IsSearchContinuing = true;
+                    SearchProgressText = "Ищем на Ozon…";
+                    _ = ContinueSearchInBackgroundAsync(query, background, generation);
+                    return;
+                }
+
+                if (background.Count > 0)
+                {
+                    SearchProgressText = "Ищем на Ozon…";
+                    found += await SearchMarketsAsync(query, background, generation).ConfigureAwait(true);
+                    if (generation != _nameOpGeneration)
+                    {
+                        return;
+                    }
+                }
+
+                FinishNameSearch(generation);
             }
             catch (Exception ex)
             {
@@ -423,17 +468,23 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             }
             finally
             {
-                IsBusy = false;
-                RaisePropertyChanged(nameof(ShowEmptyMessage));
+                if (generation == _nameOpGeneration)
+                {
+                    IsBusy = false;
+                    RaisePropertyChanged(nameof(ShowEmptyMessage));
+                    RaisePropertyChanged(nameof(IsSearchContinuing));
+                }
             }
         }
 
         private async Task AddByNameAsync()
         {
+            var generation = Interlocked.Increment(ref _nameOpGeneration);
             try
             {
                 IsBusy = true;
-                SearchProgressText = DefaultSearchProgressText;
+                IsSearchContinuing = false;
+                SearchProgressText = "Ищем товары…";
                 _errorMessage = string.Empty;
                 _statusMessage = string.Empty;
                 RaisePropertyChanged(nameof(ErrorMessage));
@@ -454,13 +505,48 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
                     return;
                 }
 
-                await EnsureSearchHubConnectedAsync().ConfigureAwait(true);
-                var result = await _productsService.AddByNameAsync(ProductNameText.Trim(), markets);
-                ReplaceResults(result.AddedProducts.Select(ProductListItem.FromProduct), paginate: true);
+                var query = ProductNameText.Trim();
+                _ = EnsureSearchHubConnectedAsync();
 
-                StatusMessage = result.AddedProducts.Count > 0
-                    ? $"Добавлено в каталог: {result.AddedProducts.Count} из {result.FoundCount}."
-                    : $"Найдено: {result.FoundCount}. Новых нет — уже в каталоге.";
+                var foreground = markets.Where(m => m == MarketType.Wildberries).ToList();
+                var background = markets.Where(m => m == MarketType.Ozon).ToList();
+                if (foreground.Count == 0)
+                {
+                    foreground = background;
+                    background = [];
+                }
+
+                var (added, found) = await AddMarketsAsync(query, foreground, generation).ConfigureAwait(true);
+                if (generation != _nameOpGeneration)
+                {
+                    return;
+                }
+
+                if (background.Count > 0 && Results.Count > 0)
+                {
+                    StatusMessage = added > 0
+                        ? $"Добавлено с Wildberries: {added} из {found}. Ищем на Ozon…"
+                        : $"Wildberries: найдено {found}, новых нет. Ищем на Ozon…";
+                    IsSearchContinuing = true;
+                    SearchProgressText = "Ищем на Ozon…";
+                    _ = ContinueAddInBackgroundAsync(query, background, generation, added, found);
+                    return;
+                }
+
+                if (background.Count > 0)
+                {
+                    SearchProgressText = "Ищем на Ozon…";
+                    var extra = await AddMarketsAsync(query, background, generation).ConfigureAwait(true);
+                    if (generation != _nameOpGeneration)
+                    {
+                        return;
+                    }
+
+                    added += extra.Added;
+                    found += extra.Found;
+                }
+
+                FinishNameAdd(added, found, generation);
             }
             catch (Exception ex)
             {
@@ -469,8 +555,12 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             }
             finally
             {
-                IsBusy = false;
-                RaisePropertyChanged(nameof(ShowEmptyMessage));
+                if (generation == _nameOpGeneration)
+                {
+                    IsBusy = false;
+                    RaisePropertyChanged(nameof(ShowEmptyMessage));
+                    RaisePropertyChanged(nameof(IsSearchContinuing));
+                }
             }
         }
 
@@ -675,18 +765,301 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
             IsSnackbarVisible = false;
         }
 
-        private async Task EnsureSearchHubConnectedAsync()
+        private async Task<int> SearchMarketsAsync(
+            string query,
+            IReadOnlyList<MarketType> markets,
+            int generation)
         {
-            SearchProgressText = "Подключаемся…";
+            if (markets.Count == 0)
+            {
+                return 0;
+            }
+
+            var found = 0;
+            var tasks = markets.Select(async market =>
+            {
+                try
+                {
+                    var products = await _productsService
+                        .SearchOnWildBerriesAsync(query, [market])
+                        .ConfigureAwait(false);
+                    if (generation != _nameOpGeneration)
+                    {
+                        return 0;
+                    }
+
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        if (generation != _nameOpGeneration)
+                        {
+                            return;
+                        }
+
+                        MergeResults(products.Select(ProductListItem.FromProduct));
+                    }).ConfigureAwait(false);
+                    return products.Count;
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Error(ex, "AddProducts", $"SearchByName:{market}");
+                    return 0;
+                }
+            });
+
+            var counts = await Task.WhenAll(tasks).ConfigureAwait(false);
+            foreach (var count in counts)
+            {
+                found += count;
+            }
+
+            return found;
+        }
+
+        private async Task<(int Added, int Found)> AddMarketsAsync(
+            string query,
+            IReadOnlyList<MarketType> markets,
+            int generation)
+        {
+            if (markets.Count == 0)
+            {
+                return (0, 0);
+            }
+
+            var added = 0;
+            var found = 0;
+            var tasks = markets.Select(async market =>
+            {
+                try
+                {
+                    var result = await _productsService
+                        .AddByNameAsync(query, [market])
+                        .ConfigureAwait(false);
+                    if (generation != _nameOpGeneration)
+                    {
+                        return (0, 0);
+                    }
+
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        if (generation != _nameOpGeneration)
+                        {
+                            return;
+                        }
+
+                        MergeResults(result.AddedProducts.Select(ProductListItem.FromProduct));
+                    }).ConfigureAwait(false);
+                    return (result.AddedProducts.Count, result.FoundCount);
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Error(ex, "AddProducts", $"AddByName:{market}");
+                    return (0, 0);
+                }
+            });
+
+            var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            foreach (var (marketAdded, marketFound) in results)
+            {
+                added += marketAdded;
+                found += marketFound;
+            }
+
+            return (added, found);
+        }
+
+        private async Task ContinueSearchInBackgroundAsync(
+            string query,
+            IReadOnlyList<MarketType> markets,
+            int generation)
+        {
             try
             {
-                await _searchHubClient.ConnectAsync().ConfigureAwait(true);
-                SearchProgressText = "Ищем товары…";
+                await SearchMarketsAsync(query, markets, generation).ConfigureAwait(false);
+                if (generation != _nameOpGeneration)
+                {
+                    return;
+                }
+
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (generation != _nameOpGeneration)
+                    {
+                        return;
+                    }
+
+                    IsSearchContinuing = false;
+                    FinishNameSearch(generation);
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error(ex, "AddProducts", "SearchByName:Ozon");
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (generation != _nameOpGeneration)
+                    {
+                        return;
+                    }
+
+                    IsSearchContinuing = false;
+                    if (Results.Count == 0)
+                    {
+                        ErrorMessage = ex.Message;
+                    }
+                }).ConfigureAwait(false);
+            }
+        }
+
+        private async Task ContinueAddInBackgroundAsync(
+            string query,
+            IReadOnlyList<MarketType> markets,
+            int generation,
+            int alreadyAdded,
+            int alreadyFound)
+        {
+            try
+            {
+                var extra = await AddMarketsAsync(query, markets, generation).ConfigureAwait(false);
+                if (generation != _nameOpGeneration)
+                {
+                    return;
+                }
+
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (generation != _nameOpGeneration)
+                    {
+                        return;
+                    }
+
+                    IsSearchContinuing = false;
+                    FinishNameAdd(alreadyAdded + extra.Added, alreadyFound + extra.Found, generation);
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error(ex, "AddProducts", "AddByName:Ozon");
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (generation != _nameOpGeneration)
+                    {
+                        return;
+                    }
+
+                    IsSearchContinuing = false;
+                    if (Results.Count == 0)
+                    {
+                        ErrorMessage = ex.Message;
+                    }
+                    else
+                    {
+                        FinishNameAdd(alreadyAdded, alreadyFound, generation);
+                    }
+                }).ConfigureAwait(false);
+            }
+        }
+
+        private void FinishNameSearch(int generation)
+        {
+            if (generation != _nameOpGeneration)
+            {
+                return;
+            }
+
+            if (Results.Count > 0)
+            {
+                StatusMessage = $"Найдено: {_pipelineProducts.Count}. Нажмите «Добавить в каталог», чтобы сохранить новые.";
+                return;
+            }
+
+            ErrorMessage = "По запросу ничего не найдено.";
+        }
+
+        private void FinishNameAdd(int added, int found, int generation)
+        {
+            if (generation != _nameOpGeneration)
+            {
+                return;
+            }
+
+            if (added > 0)
+            {
+                StatusMessage = $"Добавлено в каталог: {added} из {found}.";
+                return;
+            }
+
+            if (found > 0)
+            {
+                StatusMessage = $"Найдено: {found}. Новых нет — уже в каталоге.";
+                return;
+            }
+
+            if (Results.Count == 0)
+            {
+                ErrorMessage = "По запросу ничего не найдено на выбранных магазинах.";
+            }
+        }
+
+        private void MergeResults(IEnumerable<ProductListItem> items)
+        {
+            var list = items.ToList();
+            if (list.Count == 0)
+            {
+                return;
+            }
+
+            var showAdult = _adultContentPreference.ShowAdultContent;
+            var added = new List<ProductListItem>();
+            foreach (var item in list)
+            {
+                item.ApplyShowAdultContent(showAdult);
+                if (_pipelineProducts.Any(existing =>
+                        existing.IdInMarket == item.IdInMarket &&
+                        existing.MarketType == item.MarketType))
+                {
+                    continue;
+                }
+
+                _pipelineProducts.Add(item);
+                added.Add(item);
+            }
+
+            if (added.Count == 0)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                _errorMessage = string.Empty;
+                RaisePropertyChanged(nameof(ErrorMessage));
+            }
+
+            if (Results.Count < PageSize)
+            {
+                AppendNextPage();
+            }
+            else
+            {
+                HasMoreItems = Results.Count < _pipelineProducts.Count;
+            }
+
+            RaisePropertyChanged(nameof(CountText));
+            RaisePropertyChanged(nameof(HasResults));
+            RaisePropertyChanged(nameof(ShowEmptyMessage));
+            RaisePropertyChanged(nameof(IsInitialLoading));
+        }
+
+        private async Task EnsureSearchHubConnectedAsync()
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(SearchHubConnectTimeout);
+                await _searchHubClient.ConnectAsync(cts.Token).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 AppLog.Warning("AddProducts", "SearchHub", ex.Message);
-                SearchProgressText = DefaultSearchProgressText;
             }
         }
 
@@ -702,6 +1075,8 @@ namespace WildBerriesAnalyzer.Modules.AddProducts.ViewModels
 
         public void Destroy()
         {
+            Interlocked.Increment(ref _nameOpGeneration);
+            IsSearchContinuing = false;
             _searchHubClient.ProgressReceived -= OnSearchProgress;
         }
 

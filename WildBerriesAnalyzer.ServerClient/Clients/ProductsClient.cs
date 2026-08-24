@@ -95,7 +95,7 @@ namespace WildBerriesAnalyzer.ServerClient.Clients
             {
                 foreach (var market in marketTypes.Distinct())
                 {
-                    url += $"&markets={(int)market}";
+                    url += $"&markets={Uri.EscapeDataString(market.ToString())}";
                 }
             }
 

@@ -322,6 +322,7 @@ public sealed class OzonService : IOzonService
             }
 
             var batch = OzonProductMapper.FromSearchPage(page, limit - collected.Count);
+            var addedThisPage = 0;
 
             foreach (var product in batch)
             {
@@ -331,6 +332,7 @@ public sealed class OzonService : IOzonService
                 }
 
                 collected.Add(product);
+                addedThisPage++;
                 if (collected.Count >= limit)
                 {
                     break;
@@ -340,6 +342,12 @@ public sealed class OzonService : IOzonService
             await NotifySearchPageAsync(pageIndex, collected.Count).ConfigureAwait(false);
 
             if (collected.Count >= limit)
+            {
+                break;
+            }
+
+            // Пустая/та же выдача — дальше не листаем (иначе page=2..40 по 3+ мин).
+            if (addedThisPage == 0)
             {
                 break;
             }

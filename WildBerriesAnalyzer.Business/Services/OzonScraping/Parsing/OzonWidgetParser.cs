@@ -320,7 +320,7 @@ public static class OzonWidgetParser
 
     public static List<ParsedSearchItem> ParseSearch(OzonComposerPage page, int limit = int.MaxValue)
     {
-        // На одной странице поиска Ozon обычно ~8 товаров в tileGridDesktop.
+        // После прокрутки в HTML-поиске в tileGridDesktop может быть больше одного экрана.
         var items = GetWidgets<OzonTileGridWidget>(page, "tileGridDesktop")
             .SelectMany(g => g.Items ?? Enumerable.Empty<OzonSearchTileItem>())
             .Select(ParseSearchItem)

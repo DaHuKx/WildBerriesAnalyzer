@@ -255,6 +255,20 @@
                            VerticalOptions="Center" />
                 </Grid>
 
+                <HorizontalStackLayout Spacing="8"
+                                       Padding="0,0,0,4"
+                                       IsVisible="{Binding IsSearchContinuing}">
+                    <ActivityIndicator IsRunning="{Binding IsSearchContinuing}"
+                                       Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDarkTheme}}"
+                                       HeightRequest="18"
+                                       WidthRequest="18"
+                                       VerticalOptions="Center" />
+                    <Label Text="{Binding SearchProgressText}"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                           FontSize="13"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
                 <Label Text="{Binding EmptyMessage}"
                        TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}"
                        HorizontalTextAlignment="Center"

@@ -1894,8 +1894,29 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
     }
 
     /// <summary>
-    /// Извлекает товары из HTML-поиска: сначала data-state tileGridDesktop (как composer-api),
-    /// иначе DOM с изоляцией карточки (не общий grid-widget).
+    /// Прокрутка выдачи: window + внутренние контейнеры виртуального списка.
+    /// </summary>
+    private const string SearchScrollDownScript = """
+        () => {
+          const dy = Math.max(Math.floor(window.innerHeight * 0.95), 900);
+          window.scrollBy(0, dy);
+          const roots = document.querySelectorAll(
+            '[data-widget="infiniteVirtualPaginator"], [data-widget="searchResults"], [data-widget="tileGridDesktop"], main');
+          for (const el of roots) {
+            let n = el;
+            for (let i = 0; i < 8 && n; i++) {
+              if (n.scrollHeight > n.clientHeight + 40) {
+                n.scrollTop += dy;
+              }
+              n = n.parentElement;
+            }
+          }
+        }
+        """;
+
+    /// <summary>
+    /// Извлекает товары из HTML-поиска: все tileGridDesktop data-state + DOM-карточки
+    /// (виртуальный список держит в state только текущий экран ~8 шт.).
     /// </summary>
     private const string SearchTilesFromHtmlScript = """
         () => {
@@ -1912,13 +1933,19 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             } catch { /* ignore */ }
           }
 
+          const stateItems = [];
+          const seenState = new Set();
           for (const el of document.querySelectorAll('[data-state]')) {
             const id = el.getAttribute('id') || el.getAttribute('data-widget') || '';
             if (!/tileGridDesktop/i.test(id)) continue;
             try {
               const state = JSON.parse(el.getAttribute('data-state') || '');
-              if (Array.isArray(state.items) && state.items.length > 0) {
-                return JSON.stringify({ source: 'data-state', widgetId: id, items: state.items, nextPage });
+              if (!Array.isArray(state.items)) continue;
+              for (const it of state.items) {
+                const sku = Number((it && (it.sku || it.id)) || 0);
+                if (!sku || seenState.has(sku)) continue;
+                seenState.add(sku);
+                stateItems.push(it);
               }
             } catch { /* ignore */ }
           }
@@ -1958,7 +1985,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
           for (const a of document.querySelectorAll('a[href*="/product/"]')) {
             const href = a.getAttribute('href') || '';
             const skuStr = skuFromHref(href);
-            if (!skuStr || seen.has(skuStr)) continue;
+            if (!skuStr || seen.has(skuStr) || seenState.has(Number(skuStr))) continue;
             seen.add(skuStr);
             const sku = Number(skuStr);
             const card = findTile(a, skuStr);
@@ -1994,7 +2021,7 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
               image: imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '') : ''
             });
           }
-          return JSON.stringify({ source: 'dom', items, nextPage });
+          return JSON.stringify({ stateItems, domItems: items, nextPage });
         }
         """;
 
@@ -2118,8 +2145,8 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             return htmlNextPage.Trim();
         }
 
-        // Ozon отдаёт ~8 товаров на страницу tileGridDesktop.
-        if (tilesOnPage < 8)
+        // Скролл уже собрал больше одного экрана — не выдумываем page=2.
+        if (tilesOnPage != 8)
         {
             return null;
         }
@@ -2207,59 +2234,96 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
             Console.WriteLine($"[browser] HTML search: {url}");
             await NavigateForAntibotAsync(_page, url, initialTimeoutMs: 30_000, ct).ConfigureAwait(false);
             await _page.WaitForTimeoutAsync(1500).ConfigureAwait(false);
-            await _page.EvaluateAsync("window.scrollBy(0, 600)").ConfigureAwait(false);
-            await _page.WaitForTimeoutAsync(800).ConfigureAwait(false);
 
             if (IsBlockedTitle(await _page.TitleAsync().ConfigureAwait(false)))
             {
                 return null;
             }
 
-            var raw = await _page.EvaluateAsync<string>(SearchTilesFromHtmlScript).ConfigureAwait(false);
+            var limit = Math.Clamp(_auth.SearchLimit > 0 ? _auth.SearchLimit : 36, 8, 120);
+            var merged = new Dictionary<long, OzonSearchTileItem>();
+            string? htmlNextPage = null;
+            var idleRounds = 0;
+            var maxRounds = Math.Clamp((int)Math.Ceiling(limit / 6d) + 4, 8, 24);
 
-            if (string.IsNullOrWhiteSpace(raw) || raw == "[]" || raw == "{}")
+            for (var round = 0; round < maxRounds && merged.Count < limit; round++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var snapshot = await ReadSearchTilesFromPageAsync().ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(snapshot.NextPage))
+                {
+                    htmlNextPage = snapshot.NextPage;
+                }
+
+                var added = 0;
+                foreach (var tile in snapshot.Tiles)
+                {
+                    var sku = tile.Sku ?? tile.Id ?? 0;
+                    if (sku <= 0 || !merged.TryAdd(sku, tile))
+                    {
+                        continue;
+                    }
+
+                    added++;
+                    if (merged.Count >= limit)
+                    {
+                        break;
+                    }
+                }
+
+                Console.WriteLine(
+                    $"[browser] HTML search: round={round} +{added} total={merged.Count}");
+
+                if (merged.Count >= limit)
+                {
+                    break;
+                }
+
+                if (added == 0)
+                {
+                    idleRounds++;
+                    if (round == 0)
+                    {
+                        await _page.WaitForTimeoutAsync(1200).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    if (idleRounds >= 3)
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    idleRounds = 0;
+                }
+
+                var atBottom = await _page.EvaluateAsync<bool>(
+                        """
+                        () => {
+                          const doc = document.scrollingElement || document.documentElement;
+                          return (window.innerHeight + window.scrollY) >= (doc.scrollHeight - 140);
+                        }
+                        """)
+                    .ConfigureAwait(false);
+                if (atBottom && added == 0 && round > 0)
+                {
+                    break;
+                }
+
+                await ScrollSearchPageDownAsync().ConfigureAwait(false);
+                await _page.WaitForTimeoutAsync(750).ConfigureAwait(false);
+            }
+
+            if (merged.Count == 0)
             {
                 Console.WriteLine("[browser] HTML search: 0 tiles");
                 return null;
             }
 
-            using var doc = JsonDocument.Parse(raw);
-            var root = doc.RootElement;
-            var source = root.TryGetProperty("source", out var srcEl) ? srcEl.GetString() : "dom";
-
-            List<OzonSearchTileItem> tiles;
-            if (string.Equals(source, "data-state", StringComparison.OrdinalIgnoreCase) &&
-                root.TryGetProperty("items", out var stateItems))
-            {
-                tiles = OzonJson.Deserialize<List<OzonSearchTileItem>>(stateItems.GetRawText()) ?? [];
-                Console.WriteLine($"[browser] HTML search: data-state tiles={tiles.Count}");
-            }
-            else if (root.TryGetProperty("items", out var domItems))
-            {
-                tiles = ParseDomSearchTiles(domItems);
-                Console.WriteLine($"[browser] HTML search: dom tiles={tiles.Count}");
-            }
-            else
-            {
-                Console.WriteLine("[browser] HTML search: 0 tiles");
-                return null;
-            }
-
-            if (tiles.Count == 0)
-            {
-                Console.WriteLine("[browser] HTML search: tiles parsed=0");
-                return null;
-            }
-
+            var tiles = merged.Values.ToList();
             Console.WriteLine($"[browser] HTML search: tiles={tiles.Count}");
             var grid = new OzonTileGridWidget { Items = tiles, Page = 1 };
-
-            string? htmlNextPage = null;
-            if (root.TryGetProperty("nextPage", out var nextEl) &&
-                nextEl.ValueKind == JsonValueKind.String)
-            {
-                htmlNextPage = nextEl.GetString();
-            }
 
             var nextPath = ResolveNextSearchPath(sitePath, htmlNextPage, tiles.Count);
             if (!string.IsNullOrWhiteSpace(nextPath))
@@ -2293,6 +2357,117 @@ public sealed class OzonBrowserComposerClient : IOzonComposerClient
         {
             _gate.Release();
         }
+    }
+
+    private async Task ScrollSearchPageDownAsync()
+    {
+        if (_page is null)
+        {
+            return;
+        }
+
+        await _page.EvaluateAsync(SearchScrollDownScript).ConfigureAwait(false);
+        try
+        {
+            var viewport = _page.ViewportSize;
+            if (viewport is not null)
+            {
+                await _page.Mouse.MoveAsync(viewport.Width / 2f, viewport.Height * 0.62f).ConfigureAwait(false);
+            }
+
+            await _page.Mouse.WheelAsync(0, 1600).ConfigureAwait(false);
+        }
+        catch
+        {
+            // колесо — дополнительный триггер IntersectionObserver, не обязательно
+        }
+    }
+
+    private async Task<(List<OzonSearchTileItem> Tiles, string? NextPage)> ReadSearchTilesFromPageAsync()
+    {
+        if (_page is null)
+        {
+            return ([], null);
+        }
+
+        var raw = await _page.EvaluateAsync<string>(SearchTilesFromHtmlScript).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(raw) || raw is "[]" or "{}")
+        {
+            return ([], null);
+        }
+
+        using var doc = JsonDocument.Parse(raw);
+        var root = doc.RootElement;
+        string? nextPage = null;
+        if (root.TryGetProperty("nextPage", out var nextEl) &&
+            nextEl.ValueKind == JsonValueKind.String)
+        {
+            nextPage = nextEl.GetString();
+        }
+
+        var tiles = new List<OzonSearchTileItem>();
+        var seen = new HashSet<long>();
+
+        if (root.TryGetProperty("stateItems", out var stateItems) &&
+            stateItems.ValueKind == JsonValueKind.Array)
+        {
+            var fromState = OzonJson.Deserialize<List<OzonSearchTileItem>>(stateItems.GetRawText()) ?? [];
+            foreach (var tile in fromState)
+            {
+                var sku = tile.Sku ?? tile.Id ?? 0;
+                if (sku <= 0 || !seen.Add(sku))
+                {
+                    continue;
+                }
+
+                tiles.Add(tile);
+            }
+        }
+        else if (root.TryGetProperty("items", out var legacyItems) &&
+                 root.TryGetProperty("source", out var sourceEl) &&
+                 string.Equals(sourceEl.GetString(), "data-state", StringComparison.OrdinalIgnoreCase))
+        {
+            var fromState = OzonJson.Deserialize<List<OzonSearchTileItem>>(legacyItems.GetRawText()) ?? [];
+            foreach (var tile in fromState)
+            {
+                var sku = tile.Sku ?? tile.Id ?? 0;
+                if (sku <= 0 || !seen.Add(sku))
+                {
+                    continue;
+                }
+
+                tiles.Add(tile);
+            }
+        }
+
+        JsonElement? domItems = null;
+        if (root.TryGetProperty("domItems", out var domEl) &&
+            domEl.ValueKind == JsonValueKind.Array)
+        {
+            domItems = domEl;
+        }
+        else if (root.TryGetProperty("items", out var legacyDom) &&
+                 root.TryGetProperty("source", out var src) &&
+                 string.Equals(src.GetString(), "dom", StringComparison.OrdinalIgnoreCase))
+        {
+            domItems = legacyDom;
+        }
+
+        if (domItems is { } dom)
+        {
+            foreach (var tile in ParseDomSearchTiles(dom))
+            {
+                var sku = tile.Sku ?? tile.Id ?? 0;
+                if (sku <= 0 || !seen.Add(sku))
+                {
+                    continue;
+                }
+
+                tiles.Add(tile);
+            }
+        }
+
+        return (tiles, nextPage);
     }
 
     private static bool IsBlockedTitle(string? title) =>
